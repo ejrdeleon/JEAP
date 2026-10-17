@@ -1,39 +1,28 @@
-enum TaskStatus {
-  pending,
-  accepted,
-  pickedUp,
-  outForDelivery,
-  delivered,
-  failed
-}
+enum TaskStatus { pending, accepted, pickedUp, outForDelivery, delivered, failed }
 
 class DeliveryTask {
   final String id;
   final String trackingNumber;
-  final String buyerName;
-  final String buyerPhone;
+  final String contactName;
+  final String contactPhone;
   final String deliveryAddress;
   final double codAmount;
-  final double latitude;
-  final double longitude;
+  final double? latitude;
+  final double? longitude;
   final TaskStatus status;
   final bool isPickup;
-  final String? awbPhotoPath;
-  final String? podPhotoPath;
 
   const DeliveryTask({
     required this.id,
     required this.trackingNumber,
-    required this.buyerName,
-    required this.buyerPhone,
+    required this.contactName,
+    required this.contactPhone,
     required this.deliveryAddress,
     required this.codAmount,
-    required this.latitude,
-    required this.longitude,
+    this.latitude,
+    this.longitude,
     required this.status,
     this.isPickup = false,
-    this.awbPhotoPath,
-    this.podPhotoPath,
   });
 
   factory DeliveryTask.fromApi(Map<String, dynamic> json) {
@@ -49,7 +38,7 @@ class DeliveryTask {
     final address = delivery['delivery_address'] is Map
         ? Map<String, dynamic>.from(delivery['delivery_address'] as Map)
         : <String, dynamic>{};
-    final rawStatus = (json['status'] ?? delivery['status'] ?? 'pending')
+    final rawStatus = (delivery['status'] ?? json['status'] ?? 'pending')
         .toString()
         .toLowerCase();
     final status = switch (rawStatus) {
@@ -60,55 +49,38 @@ class DeliveryTask {
       'out_for_delivery' || 'in_transit' => TaskStatus.outForDelivery,
       _ => TaskStatus.pending,
     };
-    final kind = (json['type'] ?? json['task_type'] ?? delivery['type'] ?? '')
-        .toString()
-        .toLowerCase();
+    final kind =
+        (delivery['type'] ?? json['type'] ?? json['task_type'] ?? '')
+            .toString()
+            .toLowerCase();
+
     return DeliveryTask(
       id: (json['id'] ?? delivery['id'] ?? '').toString(),
       trackingNumber:
           (delivery['tracking_number'] ?? json['tracking_number'] ?? '—')
               .toString(),
-      buyerName: (buyer['name'] ?? delivery['recipient_name'] ?? 'Customer')
+      contactName: (delivery['contact_name'] ??
+              buyer['name'] ??
+              delivery['recipient_name'] ??
+              'Customer')
           .toString(),
-      buyerPhone:
-          (buyer['phone'] ?? delivery['recipient_phone'] ?? '').toString(),
+      contactPhone: (delivery['contact_phone'] ??
+              buyer['phone'] ??
+              delivery['recipient_phone'] ??
+              '')
+          .toString(),
       deliveryAddress: (address['formatted_address'] ??
               address['address_line'] ??
               delivery['address'] ??
               'Address unavailable')
           .toString(),
       codAmount: double.tryParse(
-              (order['cod_amount'] ?? delivery['cod_amount'] ?? 0)
-                  .toString()) ??
+              (order['cod_amount'] ?? delivery['cod_amount'] ?? 0).toString()) ??
           0,
-      latitude: double.tryParse((address['latitude'] ?? '').toString()) ?? 0,
-      longitude: double.tryParse((address['longitude'] ?? '').toString()) ?? 0,
+      latitude: double.tryParse((address['latitude'] ?? '').toString()),
+      longitude: double.tryParse((address['longitude'] ?? '').toString()),
       status: status,
-      isPickup: kind == 'pickup' ||
-          kind == 'collection' ||
-          (kind.isEmpty &&
-              (status == TaskStatus.pending || status == TaskStatus.accepted)),
-    );
-  }
-
-  DeliveryTask copyWith({
-    TaskStatus? status,
-    String? awbPhotoPath,
-    String? podPhotoPath,
-  }) {
-    return DeliveryTask(
-      id: id,
-      trackingNumber: trackingNumber,
-      buyerName: buyerName,
-      buyerPhone: buyerPhone,
-      deliveryAddress: deliveryAddress,
-      codAmount: codAmount,
-      latitude: latitude,
-      longitude: longitude,
-      status: status ?? this.status,
-      isPickup: isPickup,
-      awbPhotoPath: awbPhotoPath ?? this.awbPhotoPath,
-      podPhotoPath: podPhotoPath ?? this.podPhotoPath,
+      isPickup: kind == 'pickup' || kind == 'collection',
     );
   }
 }

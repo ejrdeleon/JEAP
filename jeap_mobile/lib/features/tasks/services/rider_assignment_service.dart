@@ -35,7 +35,9 @@ class RiderAssignmentService {
   Future<void> accept(String id) => _action(id, 'accept');
   Future<void> confirmPickup(String id) => _action(id, 'scan');
   Future<void> startDelivery(String id) => _action(id, 'out-for-delivery');
-  Future<void> completeDelivery(String id) => _action(id, 'deliver');
+  Future<void> completeDelivery(String id, String proofImagePath) async {
+    await _api.postImage('/rider/assignments/$id/deliver', proofImagePath);
+  }
   Future<void> failDelivery(String id, String reason) =>
       _action(id, 'fail', {'reason': reason});
 

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:jeap_mobile/core/network/api_exception.dart';
 import 'package:jeap_mobile/core/theme/app_theme.dart';
 import 'package:jeap_mobile/features/account/presentation/screens/change_password_screen.dart';
@@ -99,6 +100,7 @@ class _RiderDashboardState extends State<_RiderDashboard> {
             final pickups = tasks
                 .where((task) =>
                     task.isPickup &&
+                    task.status != TaskStatus.pickedUp &&
                     task.status != TaskStatus.delivered &&
                     task.status != TaskStatus.failed)
                 .length;
@@ -271,6 +273,7 @@ class _RiderAssignmentListScreenState
         _AssignmentPage.pickup => tasks
             .where((task) =>
                 task.isPickup &&
+                task.status != TaskStatus.pickedUp &&
                 task.status != TaskStatus.delivered &&
                 task.status != TaskStatus.failed)
             .toList(),
@@ -283,7 +286,8 @@ class _RiderAssignmentListScreenState
         _AssignmentPage.history => tasks
             .where((task) =>
                 task.status == TaskStatus.delivered ||
-                task.status == TaskStatus.failed)
+                task.status == TaskStatus.failed ||
+                (task.isPickup && task.status == TaskStatus.pickedUp))
             .toList(),
       };
 
@@ -361,11 +365,25 @@ class _RiderDeliveryDetailScreenState extends State<RiderDeliveryDetailScreen> {
         case TaskStatus.pending:
           await _service.accept(widget.task.id);
         case TaskStatus.accepted:
-          await _service.confirmPickup(widget.task.id);
+          if (widget.task.isPickup) {
+            await _service.confirmPickup(widget.task.id);
+          } else {
+            await _service.startDelivery(widget.task.id);
+          }
         case TaskStatus.pickedUp:
-          await _service.startDelivery(widget.task.id);
+          if (!widget.task.isPickup) {
+            await _service.startDelivery(widget.task.id);
+          } else {
+            return;
+          }
         case TaskStatus.outForDelivery:
-          await _service.completeDelivery(widget.task.id);
+          final proof = await ImagePicker().pickImage(
+            source: ImageSource.camera,
+            imageQuality: 78,
+            maxWidth: 1600,
+          );
+          if (proof == null) return;
+          await _service.completeDelivery(widget.task.id, proof.path);
         case TaskStatus.delivered:
         case TaskStatus.failed:
           return;
@@ -382,11 +400,60 @@ class _RiderDeliveryDetailScreenState extends State<RiderDeliveryDetailScreen> {
     }
   }
 
+  Future<void> _reportDeliveryFailure() async {
+    final controller = TextEditingController();
+    final reason = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Report delivery issue'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          minLines: 2,
+          maxLines: 4,
+          maxLength: 255,
+          decoration: const InputDecoration(
+            labelText: 'Reason for the failed attempt',
+            hintText: 'For example: recipient unavailable',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () {
+              final value = controller.text.trim();
+              if (value.length >= 3) Navigator.pop(context, value);
+            },
+            child: const Text('Submit'),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    if (reason == null || !mounted) return;
+
+    setState(() => _working = true);
+    try {
+      await _service.failDelivery(widget.task.id, reason);
+      if (mounted) Navigator.pop(context, true);
+    } on ApiException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error.message), backgroundColor: Colors.redAccent),
+      );
+    } finally {
+      if (mounted) setState(() => _working = false);
+    }
+  }
+
   String? get _action => switch (widget.task.status) {
-        TaskStatus.pending => 'Accept assignment',
-        TaskStatus.accepted => 'Start pickup',
-        TaskStatus.pickedUp => 'Start delivery',
-        TaskStatus.outForDelivery => 'Complete delivery',
+        TaskStatus.pending => widget.task.isPickup ? 'Accept pickup' : 'Accept delivery',
+        TaskStatus.accepted => widget.task.isPickup ? 'Confirm pickup' : 'Start delivery',
+        TaskStatus.pickedUp => widget.task.isPickup ? null : 'Start delivery',
+        TaskStatus.outForDelivery => 'Capture proof & complete delivery',
         _ => null,
       };
 
@@ -418,7 +485,7 @@ class _RiderDeliveryDetailScreenState extends State<RiderDeliveryDetailScreen> {
                         color: AppTheme.jeapPurple,
                         fontWeight: FontWeight.w700)),
                 const SizedBox(height: 8),
-                Text(task.buyerName,
+                Text(task.contactName,
                     style: const TextStyle(
                         color: AppTheme.textPrimary,
                         fontSize: 18,
@@ -427,9 +494,9 @@ class _RiderDeliveryDetailScreenState extends State<RiderDeliveryDetailScreen> {
                 _IconText(
                     icon: Icons.location_on_outlined,
                     text: task.deliveryAddress),
-                if (task.buyerPhone.isNotEmpty) ...[
+                if (task.contactPhone.isNotEmpty) ...[
                   const Divider(height: 24),
-                  _IconText(icon: Icons.phone_outlined, text: task.buyerPhone),
+                  _IconText(icon: Icons.phone_outlined, text: task.contactPhone),
                 ],
               ],
             ),
@@ -446,14 +513,39 @@ class _RiderDeliveryDetailScreenState extends State<RiderDeliveryDetailScreen> {
               ),
             ),
             const SizedBox(height: 9),
-            if (task.buyerPhone.isNotEmpty)
+            if (task.latitude != null &&
+                task.longitude != null &&
+                task.latitude! >= -90 &&
+                task.latitude! <= 90 &&
+                task.longitude! >= -180 &&
+                task.longitude! <= 180)
               OutlinedButton.icon(
                 onPressed: () async {
-                  final uri = Uri(scheme: 'tel', path: task.buyerPhone);
+                  final uri = Uri.https('www.google.com', '/maps/dir/', {
+                    'api': '1',
+                    'destination': '${task.latitude},${task.longitude}',
+                  });
+                  if (await canLaunchUrl(uri)) {
+                    await launchUrl(uri, mode: LaunchMode.externalApplication);
+                  }
+                },
+                icon: const Icon(Icons.map_outlined),
+                label: Text(task.isPickup ? 'Navigate to seller' : 'Navigate to customer'),
+              ),
+            if (task.contactPhone.isNotEmpty)
+              OutlinedButton.icon(
+                onPressed: () async {
+                  final uri = Uri(scheme: 'tel', path: task.contactPhone);
                   if (await canLaunchUrl(uri)) await launchUrl(uri);
                 },
                 icon: const Icon(Icons.call_outlined),
-                label: const Text('Call Customer'),
+                label: Text(task.isPickup ? 'Call Seller' : 'Call Customer'),
+              ),
+            if (!task.isPickup && task.status == TaskStatus.outForDelivery)
+              TextButton.icon(
+                onPressed: _working ? null : _reportDeliveryFailure,
+                icon: const Icon(Icons.report_outlined),
+                label: const Text('Report delivery issue'),
               ),
           ],
         ],
@@ -699,7 +791,7 @@ class _AssignmentCard extends StatelessWidget {
                             color: AppTheme.jeapPurple,
                             fontWeight: FontWeight.w700)),
                     const SizedBox(height: 5),
-                    Text(task.buyerName,
+                    Text(task.contactName,
                         style: const TextStyle(fontWeight: FontWeight.w700)),
                     const SizedBox(height: 3),
                     Text(task.deliveryAddress,
