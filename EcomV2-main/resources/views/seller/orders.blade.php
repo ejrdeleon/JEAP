@@ -29,7 +29,9 @@
                         $commission = (float)($order->commission?->amount ?? 0);
                     @endphp
                     <tr>
-                        <td><strong>{{ $order->order_number }}</strong><small class="seller-subline">{{ $order->placed_at?->format('M j, Y · g:i A') ?? '—' }}</small></td>
+                        <td><strong>{{ $order->order_number }}</strong><small class="seller-subline">{{ $order->placed_at?->format('M j, Y · g:i A') ?? '—' }}</small>
+                            @if($order->parcel)<small class="seller-subline">Tracking {{ $order->parcel->tracking_number }}</small>@endif
+                        </td>
                         <td>{{ $order->buyer?->name ?? 'Customer' }}</td>
                         <td><strong>{{ $order->items->sum('quantity') }}</strong><small class="seller-subline">{{ $order->items->pluck('name')->join(', ') }}</small></td>
                         <td>₱{{ number_format((float)$order->total, 2) }}</td>

@@ -19,4 +19,9 @@ class ParcelScan extends Model
     {
         return $this->belongsTo(Parcel::class);
     }
+
+    public function scannedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'scanned_by');
+    }
 }

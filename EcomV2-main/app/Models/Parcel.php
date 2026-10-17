@@ -33,12 +33,12 @@ class Parcel extends Model
 
     public function pickupAssignment(): HasOne
     {
-        return $this->hasOne(PickupAssignment::class);
+        return $this->hasOne(PickupAssignment::class)->latestOfMany();
     }
 
     public function deliveryAssignment(): HasOne
     {
-        return $this->hasOne(DeliveryAssignment::class);
+        return $this->hasOne(DeliveryAssignment::class)->latestOfMany();
     }
 
     public function scans(): HasMany

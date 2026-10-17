@@ -72,16 +72,10 @@
         <nav id="site-nav" class="storefront-pad subnav">
             <div class="subnav-bar">
                 <div class="subnav-left">
-                    <a class="nav-chip all-cats {{ request()->routeIs('products.*') ? 'is-active' : '' }}" href="{{ route('products.index') }}">All Categories</a>
-                    <a class="nav-chip {{ request()->routeIs('home') ? 'is-active' : '' }}" href="{{ route('home') }}">Homes</a>
+                    <a class="nav-chip {{ request()->routeIs('home') ? 'is-active' : '' }}" href="{{ route('home') }}">Home</a>
                     <a class="nav-chip {{ request()->routeIs('products.*') ? 'is-active' : '' }}" href="{{ route('products.index') }}">Products</a>
                     <a class="nav-chip {{ request()->routeIs('about') ? 'is-active' : '' }}" href="{{ route('about') }}">About</a>
                     <a class="nav-chip {{ request()->routeIs('contact') ? 'is-active' : '' }}" href="{{ route('contact') }}">Contact</a>
-                    <a class="nav-chip {{ request()->routeIs('login') ? 'is-active' : '' }}" href="{{ route('login') }}">Login</a>
-                    <a class="nav-chip {{ request()->routeIs('register') && ! request()->routeIs('register.*') ? 'is-active' : '' }}" href="{{ route('register') }}">Register</a>
-                    <a class="nav-chip {{ request()->routeIs('cart.*') ? 'is-active' : '' }}" href="{{ route('cart.index') }}">Cart</a>
-                    <a class="nav-chip {{ request()->routeIs('checkout') ? 'is-active' : '' }}" href="{{ route('checkout') }}">Checkout</a>
-                    <a class="nav-chip {{ request()->routeIs('profile') ? 'is-active' : '' }}" href="{{ auth()->check() ? route('profile') : route('login') }}">Profile</a>
                     @auth
                         @if (auth()->user()->hasAnyRole(['admin', 'super-admin']))
                             <a class="nav-chip nav-chip--accent" href="{{ route('admin.dashboard') }}">Admin</a>
@@ -98,8 +92,8 @@
                 </div>
                 <div class="subnav-right">
                     <a class="nav-chip nav-chip--accent {{ request()->routeIs('register.seller') ? 'is-active' : '' }}" href="{{ route('register.seller') }}">Sell on JEAP</a>
-                    <a class="nav-chip" href="{{ route('shipping.track') }}">Order Tracking</a>
-                    <a class="nav-chip" href="{{ route('shipping.home') }}">Shipping</a>
+                    <a class="nav-chip {{ request()->routeIs('shipping.home') ? 'is-active' : '' }}" href="{{ route('shipping.home') }}" @if(request()->routeIs('shipping.home')) aria-current="page" @endif>Shipping</a>
+                    <a class="nav-chip {{ request()->routeIs('shipping.track') ? 'is-active' : '' }}" href="{{ route('shipping.track') }}" @if(request()->routeIs('shipping.track')) aria-current="page" @endif>Order Tracking</a>
                 </div>
             </div>
         </nav>

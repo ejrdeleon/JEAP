@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers\Buyer;
 
+use App\Commerce\ShipmentWorkflow;
+use App\Enums\OrderStatus;
 use App\Http\Controllers\Controller;
 use App\Models\Address;
 use App\Models\Order;
@@ -14,7 +16,22 @@ class DashboardController extends Controller
 {
     public function home(): View
     {
-        return view('buyer.home', ['figma' => '01_Buyer_Home 1']);
+        $buyerId = auth()->id() ?? 0;
+        $baseQuery = Order::query()->where('buyer_id', $buyerId);
+        $orders = (clone $baseQuery)
+            ->with(['items', 'seller', 'parcel'])
+            ->latest('placed_at')
+            ->paginate(5);
+        $activeOrderCount = (clone $baseQuery)
+            ->whereNotIn('status', [OrderStatus::Completed->value, OrderStatus::Cancelled->value, OrderStatus::Returned->value])
+            ->count();
+
+        return view('buyer.home', [
+            'figma' => '01_Buyer_Home 1',
+            'orders' => $orders,
+            'totalOrderCount' => $orders->total(),
+            'activeOrderCount' => $activeOrderCount,
+        ]);
     }
 
     public function addresses(): View
@@ -68,7 +85,41 @@ class DashboardController extends Controller
     {
         abort_unless($order->buyer_id === auth()->id() || auth()->user()?->hasRole('admin'), 403);
 
-        return view('buyer.track', ['figma' => '06_Order_Tracking_Chat 1', 'order' => $order]);
+        $order->load([
+            'items',
+            'seller',
+            'statusHistories.actor',
+            'parcel.pickupAssignment.courier',
+            'parcel.deliveryAssignment.courier',
+            'parcel.scans.scannedBy',
+        ]);
+        $events = $order->statusHistories->map(fn ($history) => [
+            'label' => str($history->to_status?->value ?? 'Order update')->replace('_', ' ')->title()->toString(),
+            'notes' => $history->notes,
+            'actor' => $history->actor?->name,
+            'at' => $history->created_at,
+        ])->concat($order->parcel?->scans->map(fn ($scan) => [
+            'label' => 'Shipment update',
+            'notes' => $scan->notes,
+            'actor' => $scan->scannedBy?->name,
+            'at' => $scan->created_at,
+        ]) ?? collect())->sortBy('at')->values();
+
+        return view('buyer.track', ['order' => $order, 'events' => $events]);
+    }
+
+    public function confirmReceived(Request $request, Order $order, ShipmentWorkflow $workflow): RedirectResponse
+    {
+        abort_unless($order->buyer_id === $request->user()->id, 404);
+
+        DB::transaction(function () use ($order, $request, $workflow): void {
+            $lockedOrder = Order::query()->whereKey($order->id)->lockForUpdate()->firstOrFail();
+            abort_unless($lockedOrder->status === OrderStatus::Delivered, 409, 'Only delivered orders can be confirmed.');
+            $parcel = $lockedOrder->parcel()->lockForUpdate()->firstOrFail();
+            $workflow->transition($lockedOrder, $parcel, OrderStatus::Completed, $request->user(), 'Buyer confirmed receipt of the order.');
+        });
+
+        return back()->with('status', 'Receipt confirmed. Thank you for shopping with JEAP.');
     }
 
     private function addressRules(): array

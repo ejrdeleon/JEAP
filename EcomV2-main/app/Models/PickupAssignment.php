@@ -28,4 +28,14 @@ class PickupAssignment extends Model
     {
         return $this->belongsTo(Parcel::class);
     }
+
+    public function courier(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'courier_id');
+    }
+
+    public function seller(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'seller_id');
+    }
 }

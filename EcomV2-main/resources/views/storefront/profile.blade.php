@@ -1,55 +1,44 @@
 @extends('layouts.storefront')
 
-@section('title', 'Profile')
+@section('title', 'Account information | JEAP')
 @section('crumb')
-    <a href="{{ route('about') }}">pages</a>
-    <span>/</span>
-    <span>profile</span>
+    <span>My account</span><span>/</span><span>Account information</span>
 @endsection
 
 @section('content')
-<section class="s3-main s3-profile" data-figma="Profile 7:492">
-    <aside class="s3-tabs">
-        <img src="{{ asset('images/storefront/avatar.svg') }}" alt="">
-        <h5 style="margin:24px 0 8px;">{{ $user->name }}</h5>
-        <p><a href="mailto:{{ $user->email }}">{{ $user->email }}</a></p>
-        <a class="s3-tab is-on" href="{{ route('profile') }}">Account info →</a>
-        <a class="s3-tab" href="{{ route('buyer.home') }}">My order →</a>
-        <a class="s3-tab" href="{{ route('buyer.addresses') }}">My address →</a>
-        <a class="s3-tab" href="{{ route('profile') }}">Change password →</a>
-        <x-logout-form button-class="s3-btn" style="margin-top:16px;">log out</x-logout-form>
-    </aside>
-    <div>
-        <h4 style="margin:0 0 24px;font-size:22px;">Account info</h4>
-        @if ($errors->any())
-            <p class="err">{{ $errors->first() }}</p>
-        @endif
-        @if (session('toast'))
-            <p>{{ session('toast') }}</p>
-        @endif
-        <form method="post" action="/profile">
-            @csrf
-            <div class="s3-two">
-                <div class="s3-field">
-                    <label>First Name</label>
-                    <input name="first_name" value="{{ old('first_name', $user->first_name) }}" required>
+<div class="account-page" data-figma="Profile 7:492">
+    <header class="account-page-heading">
+        <div><span class="account-eyebrow">MY JEAP ACCOUNT</span><h1>Account information</h1><p>Manage your profile and find your orders and delivery details.</p></div>
+    </header>
+
+    <div class="account-page-layout">
+        <aside class="account-side-card" aria-label="Account navigation">
+            <div class="account-avatar" aria-hidden="true">{{ mb_strtoupper(mb_substr($user->first_name ?: $user->email, 0, 1)) }}</div>
+            <strong>{{ $user->name }}</strong>
+            <a class="account-email" href="mailto:{{ $user->email }}">{{ $user->email }}</a>
+            <nav class="account-links">
+                <a class="is-current" href="{{ route('profile') }}" aria-current="page">Account information</a>
+                <a href="{{ route('buyer.home') }}">My orders</a>
+                @if($user->hasRole('buyer'))<a href="{{ route('buyer.addresses') }}">Delivery addresses</a>@endif
+            </nav>
+            <x-logout-form button-class="account-logout">Sign out</x-logout-form>
+        </aside>
+
+        <section class="account-form-card" aria-labelledby="account-form-title">
+            @if ($errors->any())<div class="account-message is-error" role="alert">{{ $errors->first() }}</div>@endif
+            @if (session('toast'))<div class="account-message is-success" role="status">{{ session('toast') }}</div>@endif
+            <div class="account-form-heading"><div><span class="account-eyebrow">PERSONAL DETAILS</span><h2 id="account-form-title">Your profile</h2></div><span class="account-status status-{{ str($user->status->value)->slug('_') }}">{{ str($user->status->value)->replace('_', ' ')->title() }}</span></div>
+            <form method="post" action="{{ route('profile.update') }}">
+                @csrf
+                <div class="account-field-grid">
+                    <div class="account-field"><label for="profile-first-name">First name</label><input id="profile-first-name" name="first_name" value="{{ old('first_name', $user->first_name) }}" autocomplete="given-name" required @error('first_name') aria-invalid="true" @enderror>@error('first_name')<small>{{ $message }}</small>@enderror</div>
+                    <div class="account-field"><label for="profile-last-name">Last name</label><input id="profile-last-name" name="last_name" value="{{ old('last_name', $user->last_name) }}" autocomplete="family-name" required @error('last_name') aria-invalid="true" @enderror>@error('last_name')<small>{{ $message }}</small>@enderror</div>
+                    <div class="account-field"><label for="profile-email">Email address</label><input id="profile-email" type="email" name="email" value="{{ old('email', $user->email) }}" autocomplete="email" required @error('email') aria-invalid="true" @enderror>@error('email')<small>{{ $message }}</small>@enderror</div>
+                    <div class="account-field"><label for="profile-phone">Phone number <span>Optional</span></label><input id="profile-phone" type="tel" name="phone" value="{{ old('phone', $user->phone) }}" autocomplete="tel" @error('phone') aria-invalid="true" @enderror>@error('phone')<small>{{ $message }}</small>@enderror</div>
                 </div>
-                <div class="s3-field">
-                    <label>Last Name</label>
-                    <input name="last_name" value="{{ old('last_name', $user->last_name) }}" required>
-                </div>
-            </div>
-            <div class="s3-field">
-                <label>Email Address</label>
-                <input type="email" name="email" value="{{ old('email', $user->email) }}" required>
-            </div>
-            <div class="s3-field">
-                <label>Phone Number (optional)</label>
-                <input name="phone" value="{{ old('phone', $user->phone) }}">
-            </div>
-            <p>Status: {{ $user->status->value }} · Role: {{ $user->roles->pluck('name')->join(', ') }}</p>
-            <button class="s3-btn" type="submit" style="min-width:126px;">save</button>
-        </form>
+                <div class="account-form-footer"><p>Account type: {{ $user->roles->pluck('name')->map(fn ($role) => str($role)->replace('-', ' ')->title())->join(', ') ?: 'Member' }}</p><button type="submit">Save changes</button></div>
+            </form>
+        </section>
     </div>
-</section>
+</div>
 @endsection

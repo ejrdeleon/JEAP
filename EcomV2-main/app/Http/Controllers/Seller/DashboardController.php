@@ -3,16 +3,18 @@
 namespace App\Http\Controllers\Seller;
 
 use App\Enums\OrderStatus;
+use App\Enums\PaymentStatus;
 use App\Http\Controllers\Controller;
 use App\Models\Category;
 use App\Models\Order;
 use App\Models\OrderStatusHistory;
+use App\Models\Parcel;
+use App\Models\PickupAssignment;
 use App\Models\Product;
 use App\Models\ProductVariant;
-use App\Enums\PaymentStatus;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
@@ -122,7 +124,7 @@ class DashboardController extends Controller
     {
         return view('seller.orders', [
             'orders' => Order::query()->where('seller_id', auth()->id())
-                ->with(['buyer', 'items', 'commission'])->latest('placed_at')->paginate(15),
+                ->with(['buyer', 'items', 'commission', 'parcel.pickupAssignment.courier', 'parcel.deliveryAssignment.courier'])->latest('placed_at')->paginate(15),
         ]);
     }
 
@@ -162,6 +164,22 @@ class DashboardController extends Controller
                 'notes' => $next === OrderStatus::ReadyForPickup ? 'Seller marked the order ready for pickup.' : null,
                 'created_at' => now(),
             ]);
+
+            if ($next === OrderStatus::ReadyForPickup) {
+                $parcel = Parcel::query()->firstOrCreate(
+                    ['order_id' => $lockedOrder->id],
+                    [
+                        'tracking_number' => 'JEP'.strtoupper(Str::random(10)),
+                        'status' => OrderStatus::ReadyForPickup,
+                    ]
+                );
+
+                $parcel->update(['status' => OrderStatus::ReadyForPickup]);
+                PickupAssignment::query()->firstOrCreate(
+                    ['parcel_id' => $parcel->id],
+                    ['seller_id' => $lockedOrder->seller_id, 'status' => 'pending']
+                );
+            }
         });
 
         return back()->with('status', 'Order status updated to '.str($next->value)->replace('_', ' ')->lower().'.');
@@ -174,7 +192,12 @@ class DashboardController extends Controller
 
     public function shipments(): View
     {
-        return view('seller.stub', ['figma' => '10_Shipment_Management 1', 'title' => 'Shipment Management']);
+        return view('seller.shipments', [
+            'orders' => Order::query()->where('seller_id', auth()->id())
+                ->whereHas('parcel')
+                ->with(['parcel.pickupAssignment.courier', 'parcel.deliveryAssignment.courier'])
+                ->latest('placed_at')->paginate(15),
+        ]);
     }
 
     private function validatedProduct(Request $request): array

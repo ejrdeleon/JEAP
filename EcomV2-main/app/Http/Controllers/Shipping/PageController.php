@@ -4,18 +4,49 @@ namespace App\Http\Controllers\Shipping;
 
 use App\Http\Controllers\Controller;
 use App\Models\Parcel;
+use Illuminate\Http\Request;
 use Illuminate\View\View;
 
 class PageController extends Controller
 {
     public function home(): View
     {
-        return view('shipping.stub', ['figma' => '01_Home 1', 'title' => 'Shipping']);
+        return view('shipping.home');
     }
 
-    public function track(): View
+    public function track(Request $request): View
     {
-        return view('shipping.stub', ['figma' => '02_Track_Shipment 1', 'title' => 'Track Shipment']);
+        $parcel = null;
+        $events = collect();
+        $trackingNumber = trim((string) $request->query('tracking_number', ''));
+
+        if ($trackingNumber !== '') {
+            $data = $request->validate([
+                'tracking_number' => ['required', 'string', 'alpha_dash', 'max:40'],
+            ]);
+            $trackingNumber = $data['tracking_number'];
+            $parcel = Parcel::query()
+                ->where('tracking_number', $trackingNumber)
+                ->with(['order.statusHistories', 'scans'])
+                ->firstOrFail();
+
+            $events = $parcel->order->statusHistories->map(fn ($history) => [
+                'label' => str($history->to_status?->value ?? 'Order update')->replace('_', ' ')->title()->toString(),
+                'at' => $history->created_at,
+                'sort_at' => $history->created_at?->timestamp ?? 0,
+            ])->concat($parcel->scans->map(fn ($scan) => [
+                'label' => match ($scan->location_type) {
+                    'seller' => 'Parcel picked up from seller',
+                    'hub' => 'Shipment received at logistics hub',
+                    'assignment' => 'Rider assignment updated',
+                    default => 'Shipment scan recorded',
+                },
+                'at' => $scan->created_at,
+                'sort_at' => $scan->created_at?->timestamp ?? 0,
+            ]))->sortBy('sort_at')->values();
+        }
+
+        return view('shipping.track', compact('parcel', 'events', 'trackingNumber'));
     }
 
     public function ship(): View

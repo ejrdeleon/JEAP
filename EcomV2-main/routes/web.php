@@ -11,7 +11,7 @@ use App\Http\Controllers\Auth\RegisterController;
 use App\Http\Controllers\Buyer\DashboardController as BuyerDashboard;
 use App\Http\Controllers\Courier\DashboardController as CourierDashboard;
 use App\Http\Controllers\Logistics\CourierReviewController;
-use App\Http\Controllers\Logistics\DashboardController as LogisticsDashboard;
+use App\Http\Controllers\Logistics\ShipmentController as LogisticsShipmentController;
 use App\Http\Controllers\PhilippineLocationController;
 use App\Http\Controllers\Seller\DashboardController as SellerDashboard;
 use App\Http\Controllers\Shipping\PageController as ShippingPage;
@@ -78,6 +78,7 @@ Route::middleware(['auth', 'approved'])->group(function () {
         Route::get('/cart', [BuyerDashboard::class, 'cart'])->name('cart');
         Route::get('/checkout', [BuyerDashboard::class, 'checkout'])->name('checkout');
         Route::get('/orders/{order}', [BuyerDashboard::class, 'track'])->name('orders.track');
+        Route::post('/orders/{order}/confirm-received', [BuyerDashboard::class, 'confirmReceived'])->middleware('throttle:10,1')->name('orders.confirm-received');
     });
 
     Route::middleware('role:seller')->prefix('seller')->name('seller.')->group(function () {
@@ -97,8 +98,12 @@ Route::middleware(['auth', 'approved'])->group(function () {
         Route::get('/', [CourierDashboard::class, 'index'])->name('dashboard');
     });
 
-    Route::middleware('role:logistics')->prefix('logistics')->name('logistics.')->group(function () {
-        Route::get('/', [LogisticsDashboard::class, 'index'])->name('dashboard');
+    Route::middleware('role:logistics|admin|super-admin')->prefix('logistics')->name('logistics.')->group(function () {
+        Route::get('/', [LogisticsShipmentController::class, 'index'])->name('dashboard');
+        Route::get('/shipments', [LogisticsShipmentController::class, 'index'])->name('shipments');
+        Route::post('/shipments/{parcel}/pickup-assignment', [LogisticsShipmentController::class, 'assignPickup'])->middleware('throttle:30,1')->name('shipments.assign-pickup');
+        Route::post('/shipments/{parcel}/progress', [LogisticsShipmentController::class, 'progress'])->middleware('throttle:30,1')->name('shipments.progress');
+        Route::post('/shipments/{parcel}/delivery-assignment', [LogisticsShipmentController::class, 'assignDelivery'])->middleware('throttle:30,1')->name('shipments.assign-delivery');
         Route::get('/couriers', [CourierReviewController::class, 'index'])->name('couriers');
         Route::post('/couriers/{user}', [CourierReviewController::class, 'decide'])
             ->middleware('throttle:30,1')

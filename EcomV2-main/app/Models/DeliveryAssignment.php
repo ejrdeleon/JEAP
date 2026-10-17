@@ -15,6 +15,7 @@ class DeliveryAssignment extends Model
         'status',
         'assigned_at',
         'delivered_at',
+        'proof_of_delivery_path',
     ];
 
     protected function casts(): array
@@ -33,5 +34,10 @@ class DeliveryAssignment extends Model
     public function attempts(): HasMany
     {
         return $this->hasMany(DeliveryAttempt::class);
+    }
+
+    public function courier(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'courier_id');
     }
 }

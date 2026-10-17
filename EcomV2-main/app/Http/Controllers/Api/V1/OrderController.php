@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Commerce\CommissionService;
+use App\Commerce\ShipmentWorkflow;
 use App\Enums\OrderStatus;
 use App\Http\Controllers\Controller;
 use App\Models\Cart;
@@ -23,7 +24,7 @@ class OrderController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
-        $query = Order::query()->with(['items', 'statusHistories'])->latest('placed_at');
+        $query = Order::query()->with(['items', 'statusHistories.actor', 'parcel.deliveryAssignment.courier'])->latest('placed_at');
 
         $user = $request->user();
 
@@ -51,7 +52,7 @@ class OrderController extends Controller
 
     public function show(Request $request, string $orderNumber): JsonResponse
     {
-        $query = Order::query()->where('order_number', $orderNumber)->with(['items', 'statusHistories']);
+        $query = Order::query()->where('order_number', $orderNumber)->with(['items', 'statusHistories.actor', 'parcel.deliveryAssignment.courier']);
 
         $user = $request->user();
 
@@ -184,24 +185,25 @@ class OrderController extends Controller
         ], 201);
     }
 
-    public function confirmReceived(Request $request, string $orderNumber): JsonResponse
+    public function confirmReceived(Request $request, string $orderNumber, ShipmentWorkflow $workflow): JsonResponse
     {
-        $order = Order::where('buyer_id', $request->user()->id)
-            ->where('order_number', $orderNumber)
-            ->firstOrFail();
+        $confirmed = DB::transaction(function () use ($request, $orderNumber, $workflow): bool {
+            $order = Order::query()->where('buyer_id', $request->user()->id)
+                ->where('order_number', $orderNumber)->lockForUpdate()->firstOrFail();
 
-        if ($order->status !== OrderStatus::Delivered) {
+            if ($order->status !== OrderStatus::Delivered) {
+                return false;
+            }
+
+            $parcel = $order->parcel()->lockForUpdate()->firstOrFail();
+            $workflow->transition($order, $parcel, OrderStatus::Completed, $request->user(), 'Buyer confirmed receipt of the order.');
+
+            return true;
+        });
+
+        if (! $confirmed) {
             return response()->json(['message' => 'Order is not in delivered status.'], 422);
         }
-
-        DB::transaction(function () use ($order) {
-            $order->update(['status' => OrderStatus::Completed]);
-            OrderStatusHistory::create([
-                'order_id' => $order->id,
-                'to_status' => OrderStatus::Completed->value,
-                'created_at' => now(),
-            ]);
-        });
 
         return response()->json(['message' => 'Order marked as completed.']);
     }
@@ -239,6 +241,9 @@ class OrderController extends Controller
 
     private function orderPayload(Order $order): array
     {
+        $address = $order->shipping_address_snapshot ?? [];
+        $deliveryAssignment = $order->parcel?->deliveryAssignment;
+
         return [
             'id' => $order->id,
             'order_number' => $order->order_number,
@@ -260,6 +265,22 @@ class OrderController extends Controller
                 : '',
             'placed_at' => $order->placed_at?->toISOString(),
             'created_at' => $order->created_at?->toISOString(),
+            'tracking_number' => $order->parcel?->tracking_number,
+            'shipment_status' => $order->parcel?->status?->value,
+            'assigned_rider' => $deliveryAssignment?->courier ? [
+                'name' => $deliveryAssignment->courier->name,
+                'phone' => $deliveryAssignment->courier->phone,
+            ] : null,
+            'delivery_coordinates' => [
+                'latitude' => $address['latitude'] ?? null,
+                'longitude' => $address['longitude'] ?? null,
+            ],
+            'tracking_history' => $order->statusHistories->map(fn ($history) => [
+                'status' => $history->to_status?->value,
+                'notes' => $history->notes,
+                'actor' => $history->actor?->name,
+                'timestamp' => $history->created_at?->toISOString(),
+            ])->values(),
             'items' => $order->items->map(fn ($i) => [
                 'product_id' => $i->product_id,
                 'product_name' => $i->name,

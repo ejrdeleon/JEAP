@@ -10,7 +10,6 @@ use App\Models\Commission;
 use App\Models\Order;
 use App\Models\Payment;
 use App\Models\Product;
-use App\Models\ProductVariant;
 use App\Models\User;
 use Database\Seeders\RoleSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -144,6 +143,15 @@ class SellerOperationsTest extends TestCase
 
         $this->assertSame(OrderStatus::ReadyForPickup, $order->fresh()->status);
         $this->assertDatabaseCount('order_status_histories', 3);
+        $this->assertDatabaseHas('parcels', [
+            'order_id' => $order->id,
+            'status' => OrderStatus::ReadyForPickup->value,
+        ]);
+        $this->assertDatabaseHas('pickup_assignments', [
+            'parcel_id' => $order->parcel()->value('id'),
+            'seller_id' => $seller->id,
+            'status' => 'pending',
+        ]);
     }
 
     public function test_seller_dashboard_metrics_are_scoped_to_the_signed_in_seller(): void

@@ -157,6 +157,81 @@ class CheckoutTest extends TestCase
         $this->get(route('checkout'))->assertRedirect(route('login'));
     }
 
+    public function test_buyer_dashboard_shows_only_the_signed_in_buyers_orders(): void
+    {
+        $this->seed(RoleSeeder::class);
+        [$buyer] = $this->makeCart(5);
+        $otherBuyer = User::factory()->create(['status' => UserStatus::Active]);
+        $otherBuyer->assignRole('buyer');
+
+        $this->actingAs($buyer)->post(route('checkout.place'), $this->checkoutData())
+            ->assertRedirect(route('buyer.home'));
+
+        $ownOrder = Order::query()->where('buyer_id', $buyer->id)->firstOrFail();
+        $otherSeller = User::factory()->create(['status' => UserStatus::Active]);
+        $otherOrder = Order::query()->create([
+            'checkout_group_id' => (string) Str::uuid(),
+            'order_number' => 'PRIVATE-ORDER-123',
+            'buyer_id' => $otherBuyer->id,
+            'seller_id' => $otherSeller->id,
+            'status' => OrderStatus::Placed,
+            'subtotal' => 12,
+            'shipping_fee' => 0,
+            'discount' => 0,
+            'total' => 12,
+            'placed_at' => now(),
+        ]);
+
+        $this->actingAs($buyer)->get(route('buyer.home'))
+            ->assertOk()
+            ->assertSee('Recent orders')
+            ->assertSee($ownOrder->order_number)
+            ->assertDontSee($otherOrder->order_number)
+            ->assertSee(route('buyer.orders.track', $ownOrder));
+    }
+
+    public function test_cart_explains_insufficient_stock_and_blocks_checkout(): void
+    {
+        $this->seed(RoleSeeder::class);
+        [$buyer] = $this->makeCart(1);
+
+        $this->actingAs($buyer)->get(route('cart.index'))
+            ->assertOk()
+            ->assertSee('Test Product')
+            ->assertSee('Only 1 available')
+            ->assertSee('Update or remove unavailable items to continue.')
+            ->assertSee('aria-label="Decrease quantity"', false)
+            ->assertDontSee('Shipping estimate:')
+            ->assertDontSee('Tax estimate:');
+    }
+
+    public function test_profile_form_updates_account_fields_with_labeled_inputs(): void
+    {
+        $this->seed(RoleSeeder::class);
+        [$buyer] = $this->makeCart(5);
+
+        $this->actingAs($buyer)->get(route('profile'))
+            ->assertOk()
+            ->assertSee('Account information')
+            ->assertSee('for="profile-first-name"', false)
+            ->assertSee('for="profile-email"', false)
+            ->assertDontSee('Change password');
+
+        $this->actingAs($buyer)->from(route('profile'))->post(route('profile.update'), [
+            'first_name' => 'Updated',
+            'last_name' => 'Buyer',
+            'email' => $buyer->email,
+            'phone' => '09171112222',
+        ])->assertRedirect(route('profile'))
+            ->assertSessionHas('toast', 'Account info saved');
+
+        $this->assertDatabaseHas('users', [
+            'id' => $buyer->id,
+            'first_name' => 'Updated',
+            'phone' => '09171112222',
+        ]);
+    }
+
     public function test_api_checkout_rejects_unsupported_payment_methods(): void
     {
         $this->seed(RoleSeeder::class);

@@ -15,9 +15,13 @@ class CartController extends Controller
 {
     public function index(Request $request): View
     {
-        $cart = $this->cart($request)->load(['items.variant.product.images', 'items.seller.sellerProfile']);
+        $cart = $this->cart($request)->load(['items.variant.product.images', 'items.seller']);
+        $canCheckout = $cart->items->isNotEmpty() && $cart->items->every(fn (CartItem $item): bool => $item->variant?->is_active
+            && $item->variant?->product?->status === 'active'
+            && $item->variant->stock >= $item->quantity
+        );
 
-        return view('storefront.cart', compact('cart'));
+        return view('storefront.cart', compact('cart', 'canCheckout'));
     }
 
     public function add(Request $request): RedirectResponse
