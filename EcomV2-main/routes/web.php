@@ -1,0 +1,148 @@
+<?php
+
+use App\Http\Controllers\Admin\AnnouncementController;
+use App\Http\Controllers\Admin\DashboardController as AdminDashboard;
+use App\Http\Controllers\Admin\DisputeController;
+use App\Http\Controllers\Admin\RegistrationReviewController;
+use App\Http\Controllers\Admin\UserManagementController;
+use App\Http\Controllers\Auth\GoogleAuthController;
+use App\Http\Controllers\Auth\LoginController;
+use App\Http\Controllers\Auth\RegisterController;
+use App\Http\Controllers\Buyer\DashboardController as BuyerDashboard;
+use App\Http\Controllers\Courier\DashboardController as CourierDashboard;
+use App\Http\Controllers\Logistics\CourierReviewController;
+use App\Http\Controllers\Logistics\DashboardController as LogisticsDashboard;
+use App\Http\Controllers\PhilippineLocationController;
+use App\Http\Controllers\Seller\DashboardController as SellerDashboard;
+use App\Http\Controllers\Shipping\PageController as ShippingPage;
+use App\Http\Controllers\Storefront\CartController;
+use App\Http\Controllers\Storefront\HomeController;
+use App\Http\Controllers\Storefront\PageController;
+use App\Http\Controllers\Storefront\ProductController;
+use App\Http\Controllers\SuperAdmin\DashboardController as SuperAdminDashboard;
+use Illuminate\Support\Facades\Route;
+
+Route::get('/', HomeController::class)->name('home');
+
+Route::get('/login', [LoginController::class, 'create'])->name('login');
+Route::post('/login', [LoginController::class, 'store'])->middleware('throttle:login');
+Route::get('/auth/google/redirect', [GoogleAuthController::class, 'redirect'])->middleware('throttle:login')->name('google.redirect');
+Route::get('/auth/google/callback', [GoogleAuthController::class, 'callback'])->middleware('throttle:login')->name('google.callback');
+Route::post('/logout', [LoginController::class, 'destroy'])->name('logout');
+
+Route::get('/register', [RegisterController::class, 'create'])->name('register');
+Route::post('/register', [RegisterController::class, 'store'])->middleware('throttle:register');
+Route::get('/register/seller', [RegisterController::class, 'createSeller'])->name('register.seller');
+Route::post('/register/seller', [RegisterController::class, 'storeSeller'])->middleware('throttle:register');
+Route::get('/register/rider', [RegisterController::class, 'createRider'])->name('register.rider');
+Route::post('/register/rider', [RegisterController::class, 'storeRider'])->middleware('throttle:register');
+Route::get('/register/logistics', [RegisterController::class, 'createLogistics'])->name('register.logistics');
+Route::post('/register/logistics', [RegisterController::class, 'storeLogistics'])->middleware('throttle:register');
+Route::get('/register/pending', [RegisterController::class, 'pending'])->name('register.pending');
+
+Route::get('/products', [ProductController::class, 'index'])->name('products.index');
+Route::get('/products/{slug}', [ProductController::class, 'show'])->name('products.show');
+Route::get('/products/{slug}/pay', [ProductController::class, 'pay'])->name('products.pay');
+
+Route::get('/cart', [CartController::class, 'index'])->name('cart.index');
+Route::post('/cart', [CartController::class, 'add'])->name('cart.add')->middleware('throttle:60,1');
+Route::patch('/cart/{item}', [CartController::class, 'update'])->name('cart.update');
+Route::delete('/cart/{item}', [CartController::class, 'remove'])->name('cart.remove');
+
+Route::get('/about', [PageController::class, 'about'])->name('about');
+Route::get('/contact', [PageController::class, 'contact'])->name('contact');
+Route::get('/help', [PageController::class, 'help'])->name('help');
+Route::get('/philippines/locations/{level}', [PhilippineLocationController::class, 'index'])
+    ->middleware('throttle:60,1')
+    ->whereIn('level', ['countries', 'regions', 'provinces', 'municipalities', 'barangays', 'postal-codes'])
+    ->name('philippines.locations');
+
+Route::middleware(['auth', 'approved'])->group(function () {
+    Route::middleware('role:buyer')->group(function () {
+        Route::get('/checkout', [PageController::class, 'checkout'])->name('checkout');
+        Route::post('/checkout', [PageController::class, 'place'])->name('checkout.place')->middleware('throttle:10,1');
+    });
+
+    Route::get('/search', [BuyerDashboard::class, 'search'])->name('search');
+    Route::get('/profile', [PageController::class, 'profile'])->name('profile');
+    Route::post('/profile', [PageController::class, 'updateProfile'])->name('profile.update')->middleware('throttle:20,1');
+
+    Route::prefix('buyer')->name('buyer.')->group(function () {
+        Route::get('/', [BuyerDashboard::class, 'home'])->name('home');
+        Route::middleware('role:buyer')->group(function () {
+            Route::get('/addresses', [BuyerDashboard::class, 'addresses'])->name('addresses');
+            Route::post('/addresses', [BuyerDashboard::class, 'storeAddress'])->name('addresses.store');
+            Route::put('/addresses/{address}', [BuyerDashboard::class, 'updateAddress'])->name('addresses.update');
+            Route::delete('/addresses/{address}', [BuyerDashboard::class, 'deleteAddress'])->name('addresses.delete');
+        });
+        Route::get('/cart', [BuyerDashboard::class, 'cart'])->name('cart');
+        Route::get('/checkout', [BuyerDashboard::class, 'checkout'])->name('checkout');
+        Route::get('/orders/{order}', [BuyerDashboard::class, 'track'])->name('orders.track');
+    });
+
+    Route::middleware('role:seller')->prefix('seller')->name('seller.')->group(function () {
+        Route::get('/', [SellerDashboard::class, 'index'])->name('dashboard');
+        Route::get('/catalog', [SellerDashboard::class, 'catalog'])->name('catalog');
+        Route::post('/catalog', [SellerDashboard::class, 'storeProduct'])->name('catalog.store');
+        Route::get('/catalog/{product}/edit', [SellerDashboard::class, 'editProduct'])->name('catalog.edit');
+        Route::put('/catalog/{product}', [SellerDashboard::class, 'updateProduct'])->name('catalog.update');
+        Route::delete('/catalog/{product}', [SellerDashboard::class, 'archiveProduct'])->name('catalog.archive');
+        Route::get('/orders', [SellerDashboard::class, 'orders'])->name('orders');
+        Route::patch('/orders/{order}/status', [SellerDashboard::class, 'updateOrderStatus'])->middleware('throttle:30,1')->name('orders.status');
+        Route::get('/promos', [SellerDashboard::class, 'promos'])->name('promos');
+        Route::get('/shipments', [SellerDashboard::class, 'shipments'])->name('shipments');
+    });
+
+    Route::middleware('role:courier')->prefix('courier')->name('courier.')->group(function () {
+        Route::get('/', [CourierDashboard::class, 'index'])->name('dashboard');
+    });
+
+    Route::middleware('role:logistics')->prefix('logistics')->name('logistics.')->group(function () {
+        Route::get('/', [LogisticsDashboard::class, 'index'])->name('dashboard');
+        Route::get('/couriers', [CourierReviewController::class, 'index'])->name('couriers');
+        Route::post('/couriers/{user}', [CourierReviewController::class, 'decide'])
+            ->middleware('throttle:30,1')
+            ->name('couriers.decide');
+    });
+
+    Route::middleware('role:admin|super-admin')->prefix('admin')->name('admin.')->group(function () {
+        Route::get('/', [AdminDashboard::class, 'index'])->name('dashboard');
+        Route::get('/verifications', [RegistrationReviewController::class, 'index'])->name('verifications');
+        Route::post('/verifications/{user}', [RegistrationReviewController::class, 'decide'])
+            ->middleware('throttle:30,1')
+            ->name('verifications.decide');
+        Route::get('/cms', [AdminDashboard::class, 'cms'])->name('cms');
+        Route::post('/cms', [AnnouncementController::class, 'store'])->name('cms.store');
+        Route::put('/cms/{announcement}', [AnnouncementController::class, 'update'])->name('cms.update');
+        Route::patch('/cms/{announcement}/publish', [AnnouncementController::class, 'togglePublished'])->name('cms.publish');
+        Route::get('/users', [AdminDashboard::class, 'users'])->name('users');
+        Route::patch('/users/{user}/status', [UserManagementController::class, 'updateStatus'])->name('users.status');
+        Route::get('/disputes', [AdminDashboard::class, 'disputes'])->name('disputes');
+        Route::patch('/disputes/{complaint}', [DisputeController::class, 'update'])->name('disputes.update');
+        Route::get('/reports', [AdminDashboard::class, 'reports'])->name('reports');
+    });
+
+    Route::middleware('role:super-admin')->prefix('super-admin')->name('super-admin.')->group(function () {
+        Route::get('/', [SuperAdminDashboard::class, 'index'])->name('dashboard');
+        Route::get('/admins', [SuperAdminDashboard::class, 'admins'])->name('admins');
+        Route::post('/admins', [SuperAdminDashboard::class, 'storeAdmin'])->middleware('throttle:10,1')->name('admins.store');
+        Route::patch('/admins/{user}/status', [SuperAdminDashboard::class, 'updateAdminStatus'])->name('admins.status');
+        Route::get('/settings', [SuperAdminDashboard::class, 'settings'])->name('settings');
+        Route::post('/settings/policies', [SuperAdminDashboard::class, 'storePolicy'])->name('settings.policies.store');
+        Route::put('/settings/policies/{policy}', [SuperAdminDashboard::class, 'updatePolicy'])->name('settings.policies.update');
+    });
+});
+
+Route::prefix('shipping')->name('shipping.')->group(function () {
+    Route::get('/', [ShippingPage::class, 'home'])->name('home');
+    Route::get('/track', [ShippingPage::class, 'track'])->name('track');
+    Route::get('/services', [ShippingPage::class, 'services'])->name('services');
+    Route::get('/pricing', [ShippingPage::class, 'pricing'])->name('pricing');
+
+    Route::middleware(['auth', 'approved'])->group(function () {
+        Route::get('/ship', [ShippingPage::class, 'ship'])->name('ship');
+        Route::get('/shipments', [ShippingPage::class, 'shipments'])->name('shipments');
+        Route::get('/shipments/{parcel}', [ShippingPage::class, 'details'])->name('details');
+        Route::get('/account', [ShippingPage::class, 'account'])->name('account');
+    });
+});

@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1298" height="326" viewBox="0 0 1298 326" fill="none">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1298" y2="326">
+      <stop stop-color="#1B1638"/>
+      <stop offset="1" stop-color="#4B3EC4"/>
+    </linearGradient>
+  </defs>
+  <rect width="1298" height="326" fill="url(#g)"/>
+  <text x="80" y="170" font-family="Inter, Arial" font-size="42" font-weight="800" fill="#fff">JEAP marketplace</text>
+  <text x="80" y="210" font-family="Inter, Arial" font-size="18" fill="#DDD8FF">Shop smart. Delivered easy. Philippine multi-vendor + in-house logistics.</text>
+</svg>

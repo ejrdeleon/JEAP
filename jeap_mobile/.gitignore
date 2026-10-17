@@ -1,0 +1,82 @@
+# ── Miscellaneous ──────────────────────────────────────────────────────────
+*.class
+*.log
+*.pyc
+*.swp
+.DS_Store
+.atom/
+.buildlog/
+.history
+.svn/
+.swiftpm/
+migrate_working_dir/
+
+# ── IntelliJ / Android Studio ──────────────────────────────────────────────
+*.iml
+*.ipr
+*.iws
+.idea/
+
+# ── VS Code (optional — comment out if you want to commit launch configs) ──
+#.vscode/
+
+# ── Flutter / Dart / Pub ───────────────────────────────────────────────────
+**/doc/api/
+**/ios/Flutter/.last_build_id
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.pub-cache/
+.pub/
+/build/
+/coverage/
+
+# ── Dart code generation ───────────────────────────────────────────────────
+*.g.dart
+*.freezed.dart
+*.mocks.dart
+
+# ── Symbolication / Obfuscation ────────────────────────────────────────────
+app.*.symbols
+app.*.map.json
+
+# ── Android build artifacts ────────────────────────────────────────────────
+/android/.gradle/
+/android/app/debug/
+/android/app/profile/
+/android/app/release/
+android/local.properties
+
+# ── iOS build artifacts ────────────────────────────────────────────────────
+ios/Flutter/flutter_export_environment.sh
+ios/Pods/
+ios/.symlinks/
+ios/Runner/GeneratedPluginRegistrant.*
+
+# ── macOS build artifacts ──────────────────────────────────────────────────
+macos/Flutter/GeneratedPluginRegistrant.swift
+macos/Flutter/ephemeral/
+
+# ── Web build artifacts ────────────────────────────────────────────────────
+/web/
+
+# ── Windows build artifacts ────────────────────────────────────────────────
+/windows/flutter/generated_plugin_registrant.cc
+/windows/flutter/generated_plugin_registrant.h
+/windows/flutter/generated_plugins.cmake
+
+# ── Linux build artifacts ──────────────────────────────────────────────────
+/linux/flutter/generated_plugin_registrant.cc
+/linux/flutter/generated_plugin_registrant.h
+/linux/flutter/generated_plugins.cmake
+
+# ── Widget Preview ─────────────────────────────────────────────────────────
+.widget_preview/
+
+# ── Environment / secrets (never commit these) ─────────────────────────────
+.env
+.env.*
+*.pem
+*.key
+google-services.json
+GoogleService-Info.plist

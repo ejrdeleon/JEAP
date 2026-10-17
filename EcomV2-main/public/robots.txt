@@ -1,0 +1,9 @@
+User-agent: *
+Disallow: /admin
+Disallow: /logistics
+Disallow: /seller
+Disallow: /courier
+Disallow: /buyer
+Disallow: /api
+Disallow: /profile
+Disallow: /register/pending

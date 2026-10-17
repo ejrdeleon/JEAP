@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="428" height="310" viewBox="0 0 428 310" fill="none">
+  <rect width="428" height="310" fill="#111"/>
+  <circle cx="360" cy="230" r="90" fill="#1C1C28"/>
+  <rect x="286" y="86" width="92" height="168" rx="18" fill="#2A2A36"/>
+  <rect x="296" y="102" width="72" height="128" rx="8" fill="#111"/>
+  <circle cx="332" cy="242" r="5" fill="#4B3EC4"/>
+  <text x="28" y="78" font-family="Inter, Arial, sans-serif" font-size="28" font-weight="800" fill="#fff">redmi note 12</text>
+  <text x="28" y="110" font-family="Inter, Arial, sans-serif" font-size="14" fill="#BBB">Rise to the challenge</text>
+  <rect x="28" y="140" width="118" height="40" rx="4" fill="#fff"/>
+  <text x="87" y="165" text-anchor="middle" font-family="Inter, Arial, sans-serif" font-size="13" font-weight="700" fill="#111">Shop now</text>
+</svg>
