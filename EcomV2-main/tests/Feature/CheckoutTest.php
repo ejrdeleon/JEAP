@@ -36,7 +36,16 @@ class CheckoutTest extends TestCase
         $this->get(route('products.show', $variant->product->slug))
             ->assertOk()
             ->assertDontSee('buy with')
-            ->assertDontSee('paypal.svg');
+            ->assertDontSee('paypal.svg')
+            ->assertSee('data-quantity-decrease', false)
+            ->assertSee('data-quantity-increase', false)
+            ->assertSee('data-existing-quantity="2"', false);
+
+        $this->get(route('products.pay', $variant->product->slug))
+            ->assertOk()
+            ->assertSee('data-quantity-decrease', false)
+            ->assertSee('data-quantity-increase', false)
+            ->assertSee('data-existing-quantity="2"', false);
 
         $this->actingAs($buyer)->post(route('checkout.place'), $this->checkoutData())
             ->assertRedirect(route('buyer.home'))
@@ -157,6 +166,24 @@ class CheckoutTest extends TestCase
         $this->get(route('checkout'))->assertRedirect(route('login'));
     }
 
+    public function test_buyer_navigation_opens_the_live_catalog_cart_and_cod_checkout(): void
+    {
+        $this->seed(RoleSeeder::class);
+        [$buyer] = $this->makeCart(5);
+
+        $this->actingAs($buyer)->get(route('search', ['q' => 'Test']))
+            ->assertRedirect(route('products.index', ['q' => 'Test']));
+        $this->actingAs($buyer)->get(route('buyer.cart'))->assertRedirect(route('cart.index'));
+        $this->actingAs($buyer)->get(route('buyer.checkout'))->assertRedirect(route('checkout'));
+
+        $this->get(route('products.index', ['q' => 'Test', 'min_price' => 7]))
+            ->assertOk()->assertSee('No products found.');
+        $this->get(route('products.index', ['q' => 'Test', 'min_price' => 5, 'max_price' => 7, 'sort' => 'price_asc', 'in_stock' => 1]))
+            ->assertOk()->assertSee('Test Product');
+        $this->get(route('products.index', ['min_price' => 10, 'max_price' => 5]))
+            ->assertSessionHasErrors('max_price');
+    }
+
     public function test_buyer_dashboard_shows_only_the_signed_in_buyers_orders(): void
     {
         $this->seed(RoleSeeder::class);
@@ -201,6 +228,9 @@ class CheckoutTest extends TestCase
             ->assertSee('Only 1 available')
             ->assertSee('Update or remove unavailable items to continue.')
             ->assertSee('aria-label="Decrease quantity"', false)
+            ->assertSee('aria-label="Increase quantity"', false)
+            ->assertSee('data-cart-update-form', false)
+            ->assertSee('disabled', false)
             ->assertDontSee('Shipping estimate:')
             ->assertDontSee('Tax estimate:');
     }
@@ -317,6 +347,32 @@ class CheckoutTest extends TestCase
             'product_id' => $variant->product_id,
             'rating' => 5,
             'comment' => 'Works well.',
+        ]);
+    }
+
+    public function test_buyer_can_cancel_an_unshipped_order_with_a_reason_and_stock_is_restored(): void
+    {
+        $this->seed(RoleSeeder::class);
+        [$buyer, , $variant] = $this->makeCart(5);
+        $this->actingAs($buyer)->post(route('checkout.place'), $this->checkoutData())->assertRedirect(route('buyer.home'));
+        $order = Order::query()->firstOrFail();
+        $this->assertSame(3, $variant->fresh()->stock);
+
+        $this->actingAs($buyer)->from(route('buyer.home'))->post(route('buyer.orders.cancel', $order), ['reason' => 'Changed'])
+            ->assertRedirect(route('buyer.home'))->assertSessionHasErrors('reason');
+        $this->assertSame(OrderStatus::Placed, $order->fresh()->status);
+
+        $this->actingAs($buyer)->from(route('buyer.home'))->post(route('buyer.orders.cancel', $order), ['reason' => 'Ordered by mistake'])
+            ->assertRedirect(route('buyer.home'))->assertSessionHas('status', 'Your order was cancelled.');
+
+        $this->assertSame(OrderStatus::Cancelled, $order->fresh()->status);
+        $this->assertSame('Ordered by mistake', $order->fresh()->cancellation_reason);
+        $this->assertSame(5, $variant->fresh()->stock);
+        $this->assertDatabaseHas('payments', ['order_id' => $order->id, 'status' => 'cancelled']);
+        $this->assertDatabaseHas('order_status_histories', [
+            'order_id' => $order->id,
+            'from_status' => OrderStatus::Placed->value,
+            'to_status' => OrderStatus::Cancelled->value,
         ]);
     }
 

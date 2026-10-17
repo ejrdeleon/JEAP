@@ -50,7 +50,7 @@
             <div class="s3-meta">
                 <div><strong>SKU:</strong> {{ $variant?->sku }}</div>
                 <div><strong>Category:</strong> {{ $product->category?->name }}</div>
-                <div><strong>Brand:</strong> {{ $product->seller?->sellerProfile?->business_name ?? 'JEAP' }}</div>
+                <div><strong>Store:</strong> @if($product->seller)<a href="{{ route('stores.show', $product->seller) }}">{{ $product->seller->sellerProfile?->business_name ?? $product->seller->name }}</a>@else JEAP @endif</div>
             </div>
         </div>
         <aside>
@@ -58,19 +58,36 @@
                 <small>Total Price:</small>
                 <div class="price">₱{{ number_format($variant?->price ?? 0, 2) }}</div>
                 <p class="in-stock" aria-live="polite">{{ $variant && $variant->stock > 0 ? '● In stock' : 'Out of stock' }}</p>
-                <form method="post" action="{{ route('cart.add') }}">
+                <form method="post" action="{{ route('cart.add') }}" data-cart-add-form data-existing-quantity="{{ $cartQuantity }}">
                     @csrf
                     @if($variant)
                         <input type="hidden" name="product_variant_id" value="{{ $variant->id }}">
                     @endif
-                    <div class="s3-qty" style="width:100%;height:53px;border-radius:4px;">
-                        <button type="button" onclick="this.nextElementSibling.stepDown()">−</button>
-                        <input type="number" name="quantity" value="1" min="1" max="{{ $variant?->stock ?? 1 }}" @disabled(! $variant || $variant->stock < 1)>
-                        <button type="button" onclick="this.previousElementSibling.stepUp()">+</button>
+                    <div class="s3-qty" data-quantity-control style="width:100%;height:53px;border-radius:4px;">
+                        <button type="button" data-quantity-decrease aria-label="Decrease quantity" @disabled(! $variant || $variant->stock < 1)>−</button>
+                        <input type="number" name="quantity" value="1" min="1" max="{{ $variant?->stock ?? 1 }}" data-quantity-input @disabled(! $variant || $variant->stock < 1)>
+                        <button type="button" data-quantity-increase aria-label="Increase quantity" @disabled(! $variant || $variant->stock < 1)>+</button>
                     </div>
                     <button class="s3-add" type="submit" @disabled(! $variant || $variant->stock < 1)>Add To Cart</button>
                 </form>
-                <p style="font-size:13px;margin-top:16px;">Wishlist · Compare</p>
+                @auth
+                    @if(auth()->user()->hasRole('buyer'))
+                        <div class="pdp-save-actions">
+                            <form method="post" action="{{ route($isWishlisted ? 'buyer.wishlist.remove' : 'buyer.wishlist.save', $product) }}">
+                                @csrf
+                                @if($isWishlisted) @method('DELETE') @endif
+                                <button type="submit">{{ $isWishlisted ? '♥ Saved to wishlist' : '♡ Save to wishlist' }}</button>
+                            </form>
+                            <form method="post" action="{{ route($isFollowingSeller ? 'buyer.sellers.unfollow' : 'buyer.sellers.follow', $product->seller) }}">
+                                @csrf
+                                @if($isFollowingSeller) @method('DELETE') @endif
+                                <button type="submit">{{ $isFollowingSeller ? 'Following this store' : 'Follow this store' }}</button>
+                            </form>
+                        </div>
+                    @endif
+                @else
+                    <a class="pdp-save-link" href="{{ route('login') }}">Sign in to save this product</a>
+                @endauth
                 <small>Guaranteed Safe Checkout</small>
                 <img src="{{ asset('images/storefront/pay.svg') }}" alt="" style="display:block;margin-top:8px;">
             </div>

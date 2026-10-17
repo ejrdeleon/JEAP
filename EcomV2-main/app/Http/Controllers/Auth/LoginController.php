@@ -40,9 +40,17 @@ class LoginController extends Controller
             $request->session()->invalidate();
             $request->session()->regenerateToken();
 
+            if ($user->status === UserStatus::Unverified) {
+                $request->session()->put('email_verification_user_id', $user->id);
+
+                return to_route('email.verify.show')->with('status', 'Verify your email before signing in.');
+            }
+
             $message = $user->status === UserStatus::PendingApproval
                 ? 'Your account is pending approval. You cannot sign in yet.'
-                : 'Your account is not active.';
+                : ($user->status === UserStatus::PendingActivation
+                    ? 'Activate your rider account using the link sent to your email before signing in.'
+                    : 'Your account is not active.');
 
             return back()->withErrors(['email' => $message])->onlyInput('email');
         }

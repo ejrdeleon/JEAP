@@ -22,7 +22,15 @@ php artisan serve --port=8080
 
 Open http://127.0.0.1:8080
 
-After `php artisan migrate --seed`, demo staff accounts use `SEED_USER_PASSWORD` from your local `.env` (default in seeder is only for local development). Rerunning the seeders resets those demo accounts to that password. Do not use those passwords on a public domain.
+After `php artisan migrate --seed`, the demo accounts use `SEED_USER_PASSWORD` from your local `.env` (the seeder's default is only for local development). Rerunning the seeders resets these accounts to that password. Do not use demo accounts or passwords on a public domain.
+
+| Role | Demo login | Dashboard |
+| --- | --- | --- |
+| Buyer | `buyer@jeap.test` | `/buyer` |
+| Seller | `seller@jeap.test` | `/seller` |
+| Rider (courier) | `rider@jeap.test` | `/courier` |
+| Logistics | `hub@jeap.test` | `/logistics` |
+| Admin | `admin@jeap.test` | `/admin` |
 
 Pending users cannot log in. Couriers are approved by logistics; everyone else by admin.
 

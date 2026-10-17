@@ -4,6 +4,7 @@
 @section('nav')
     <a class="active" href="{{ route('logistics.shipments') }}">Shipments</a>
     <a href="{{ route('logistics.couriers') }}">Courier approvals</a>
+    @if (auth()->user()->hasRole('logistics'))<a href="{{ route('logistics.riders') }}">Rider management</a>@endif
 @endsection
 
 @section('content')

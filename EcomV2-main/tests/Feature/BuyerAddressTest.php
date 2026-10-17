@@ -65,13 +65,13 @@ class BuyerAddressTest extends TestCase
         $buyer = $this->createBuyer();
 
         $this->actingAs($buyer)->get(route('buyer.addresses'))
-        ->assertOk()
-        ->assertSee('data-country-select', false)
-        ->assertSee('data-location-level="regions"', false)
-        ->assertSee('data-location-level="provinces"', false)
-        ->assertSee('data-location-level="municipalities"', false)
-        ->assertSee('data-location-level="barangays"', false)
-        ->assertSee('ZIP / postal code suggestions');
+            ->assertOk()
+            ->assertSee('data-country-select', false)
+            ->assertSee('data-location-level="regions"', false)
+            ->assertSee('data-location-level="provinces"', false)
+            ->assertSee('data-location-level="municipalities"', false)
+            ->assertSee('data-location-level="barangays"', false)
+            ->assertSee('ZIP / postal code suggestions');
     }
 
     public function test_address_coordinates_are_validated_as_a_pair_and_within_range(): void
@@ -201,6 +201,26 @@ class BuyerAddressTest extends TestCase
             ->assertJsonPath('locations.0.parent_code', '130000000');
 
         Http::assertSent(fn (ClientRequest $request): bool => $request->url() === 'https://psgc.gitlab.io/api/regions/');
+    }
+
+    public function test_psgc_location_endpoint_falls_back_to_public_mirror_when_psa_fails(): void
+    {
+        config([
+            'services.psgc.token' => 'test-psa-token',
+            'services.psgc.version' => 'Q2_TEST',
+        ]);
+        Http::fake([
+            'classification.psa.gov.ph/psgc/Q2_TEST/regions*' => Http::response([], 401),
+            'psgc.gitlab.io/api/regions/' => Http::response([
+                ['code' => '130000000', 'psgc10DigitCode' => '1300000000', 'name' => 'National Capital Region'],
+            ]),
+        ]);
+
+        $this->getJson(route('philippines.locations', 'regions'))
+            ->assertOk()
+            ->assertJsonPath('source', 'PSGC community mirror')
+            ->assertJsonPath('locations.0.code', '1300000000')
+            ->assertJsonPath('locations.0.name', 'National Capital Region');
     }
 
     public function test_country_and_postal_dropdown_apis_return_available_options(): void

@@ -18,9 +18,9 @@
         @endif
         <form method="post" action="{{ route('register') }}">
             @csrf
-            <div class="s3-field">
-                <label>Your name</label>
-                <input name="name" value="{{ old('name') }}" placeholder="Jhon Deo" required>
+            <div class="s3-two">
+                <div class="s3-field"><label for="register-first-name">First name</label><input id="register-first-name" name="first_name" value="{{ old('first_name') }}" autocomplete="given-name" minlength="2" maxlength="50" required></div>
+                <div class="s3-field"><label for="register-last-name">Last name</label><input id="register-last-name" name="last_name" value="{{ old('last_name') }}" autocomplete="family-name" minlength="2" maxlength="50" required></div>
             </div>
             <div class="s3-field">
                 <label>Email Address</label>
@@ -28,8 +28,9 @@
             </div>
             <div class="s3-field">
                 <label>Phone</label>
-                <input name="phone" value="{{ old('phone') }}" placeholder="09XX XXX XXXX">
+                <input name="phone" value="{{ old('phone') }}" placeholder="09XX XXX XXXX" autocomplete="tel" required>
             </div>
+            <div class="s3-field"><label for="register-birthday">Date of birth</label><input id="register-birthday" type="date" name="birthday" value="{{ old('birthday') }}" max="{{ now()->subYears(18)->toDateString() }}" autocomplete="bday" required></div>
             <div class="s3-field">
                 <label>Password</label>
                 <input type="password" name="password" placeholder="...." required>
@@ -38,6 +39,7 @@
                 <label>Confirm Password</label>
                 <input type="password" name="password_confirmation" placeholder="...." required>
             </div>
+            <label class="register-terms"><input type="checkbox" name="terms" value="1" @checked(old('terms')) required> I agree to the JEAP Terms and Privacy Policy.</label>
             <p><button class="s3-btn" type="submit" style="min-width:163px;">Register</button></p>
             <div class="s3-auth-divider"><span>OR</span></div>
             <a class="s3-google-button" href="{{ route('google.redirect', ['from' => 'register']) }}">
@@ -47,8 +49,6 @@
             <p><a class="s3-link" href="{{ route('login') }}">already user ? Login</a></p>
             <p class="s3-extra" style="border:0;padding-top:8px;">
                 <a class="s3-link" href="{{ route('register.seller') }}">Sell on JEAP</a>
-                &nbsp;·&nbsp;
-                <a class="s3-link" href="{{ route('register.rider') }}">Become a rider</a>
                 &nbsp;·&nbsp;
                 <a class="s3-link" href="{{ route('register.logistics') }}">Sorting center</a>
             </p>

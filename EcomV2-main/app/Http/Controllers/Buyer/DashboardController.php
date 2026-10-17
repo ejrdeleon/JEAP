@@ -4,9 +4,12 @@ namespace App\Http\Controllers\Buyer;
 
 use App\Commerce\ShipmentWorkflow;
 use App\Enums\OrderStatus;
+use App\Enums\PaymentStatus;
 use App\Http\Controllers\Controller;
 use App\Models\Address;
 use App\Models\Order;
+use App\Models\OrderStatusHistory;
+use App\Models\ProductVariant;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -66,19 +69,21 @@ class DashboardController extends Controller
         return back()->with('toast', 'Delivery address removed.');
     }
 
-    public function search(): View
+    public function search(Request $request): RedirectResponse
     {
-        return view('buyer.stub', ['figma' => '03_Search_Filters 1', 'title' => 'Search & Filters']);
+        $filters = $request->only(['q', 'category', 'min_price', 'max_price', 'sort', 'in_stock']);
+
+        return redirect()->route('products.index', array_filter($filters, fn ($value) => $value !== null && $value !== ''));
     }
 
-    public function cart(): View
+    public function cart(): RedirectResponse
     {
-        return view('buyer.stub', ['figma' => '04_MultiSeller_Cart 1', 'title' => 'Multi-seller Cart']);
+        return redirect()->route('cart.index');
     }
 
-    public function checkout(): View
+    public function checkout(): RedirectResponse
     {
-        return view('buyer.stub', ['figma' => '05_Checkout_Payment 1', 'title' => 'Checkout Payment']);
+        return redirect()->route('checkout');
     }
 
     public function track(Order $order): View
@@ -120,6 +125,40 @@ class DashboardController extends Controller
         });
 
         return back()->with('status', 'Receipt confirmed. Thank you for shopping with JEAP.');
+    }
+
+    public function cancelOrder(Request $request, Order $order): RedirectResponse
+    {
+        abort_unless($order->buyer_id === $request->user()->id, 404);
+        $data = $request->validate([
+            'reason' => ['required', 'string', 'min:10', 'max:300'],
+        ]);
+
+        DB::transaction(function () use ($order, $request, $data): void {
+            $lockedOrder = Order::query()->whereKey($order->id)->lockForUpdate()->firstOrFail();
+            abort_unless(in_array($lockedOrder->status, [OrderStatus::Placed, OrderStatus::Confirmed, OrderStatus::Preparing], true), 409, 'This order can no longer be cancelled online.');
+            $from = $lockedOrder->status;
+
+            foreach ($lockedOrder->items as $item) {
+                ProductVariant::query()->whereKey($item->product_variant_id)->increment('stock', $item->quantity);
+            }
+            $lockedOrder->payments()->where('status', PaymentStatus::Pending->value)->update(['status' => PaymentStatus::Cancelled->value]);
+            $lockedOrder->commission()->update(['status' => 'void']);
+            $lockedOrder->update([
+                'status' => OrderStatus::Cancelled,
+                'cancellation_reason' => trim($data['reason']),
+            ]);
+            OrderStatusHistory::query()->create([
+                'order_id' => $lockedOrder->id,
+                'from_status' => $from,
+                'to_status' => OrderStatus::Cancelled,
+                'actor_id' => $request->user()->id,
+                'notes' => 'Buyer cancelled the order: '.trim($data['reason']),
+                'created_at' => now(),
+            ]);
+        });
+
+        return back()->with('status', 'Your order was cancelled.');
     }
 
     private function addressRules(): array

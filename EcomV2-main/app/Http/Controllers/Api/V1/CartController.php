@@ -33,7 +33,7 @@ class CartController extends Controller
     {
         $data = $request->validate([
             'product_variant_id' => ['required', 'integer', 'exists:product_variants,id'],
-            'quantity'           => ['required', 'integer', 'min:1'],
+            'quantity' => ['required', 'integer', 'min:1'],
         ]);
 
         $variant = ProductVariant::query()->whereKey($data['product_variant_id'])
@@ -59,10 +59,10 @@ class CartController extends Controller
             $item->update(['quantity' => $newQuantity, 'unit_price' => $variant->price]);
         } else {
             $cart->items()->create([
-                'seller_id'          => $variant->product->seller_id,
+                'seller_id' => $variant->product->seller_id,
                 'product_variant_id' => $variant->id,
-                'quantity'           => $data['quantity'],
-                'unit_price'         => $variant->price,
+                'quantity' => $data['quantity'],
+                'unit_price' => $variant->price,
             ]);
         }
 
@@ -103,21 +103,21 @@ class CartController extends Controller
         $product = $variant?->product;
 
         return [
-            'id'           => $item->id,
-            'product_id'   => $product?->id,
+            'id' => $item->id,
+            'product_id' => $product?->id,
             'product_name' => $product?->name,
-            'variant_id'   => $variant?->id,
-            'color'        => $variant?->color,
-            'size'         => $variant?->size,
-            'sku'          => $variant?->sku,
-            'price'        => (float) $item->unit_price,
-            'quantity'     => $item->quantity,
-            'subtotal'     => round((float) $item->unit_price * $item->quantity, 2),
-            'image_url'    => $product?->images->first()?->path
-                ? asset('storage/' . $product->images->first()->path)
+            'variant_id' => $variant?->id,
+            'color' => $variant?->color,
+            'size' => $variant?->size,
+            'sku' => $variant?->sku,
+            'price' => (float) $item->unit_price,
+            'quantity' => $item->quantity,
+            'subtotal' => round((float) $item->unit_price * $item->quantity, 2),
+            'image_url' => $product?->images->first()?->path
+                ? asset('storage/'.$product->images->first()->path)
                 : null,
-            'seller_name'  => $item->seller
-                ? trim($item->seller->first_name . ' ' . $item->seller->last_name)
+            'seller_name' => $item->seller
+                ? trim($item->seller->first_name.' '.$item->seller->last_name)
                 : null,
         ];
     }

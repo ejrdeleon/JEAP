@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -23,6 +24,11 @@ class Product extends Model
         return [
             'is_featured' => 'boolean',
         ];
+    }
+
+    public function scopeNotOnVacation(Builder $query): Builder
+    {
+        return $query->whereDoesntHave('seller.sellerProfile', fn (Builder $profile) => $profile->where('vacation_mode', true));
     }
 
     public function seller(): BelongsTo

@@ -139,7 +139,7 @@
                 </div>
                 <div>
                     <strong>Partner</strong>
-                    <p><a href="{{ route('register.seller') }}">Become Seller</a><br><a href="{{ route('register.rider') }}">Become a rider</a><br><a href="{{ route('register.logistics') }}">Sorting Center</a></p>
+                    <p><a href="{{ route('register.seller') }}">Become Seller</a><br><a href="{{ route('register.logistics') }}">Sorting Center</a></p>
                 </div>
             </div>
         </div>

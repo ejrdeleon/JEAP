@@ -6,6 +6,7 @@ use App\Enums\UserStatus;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
@@ -27,6 +28,7 @@ class User extends Authenticatable
         'email',
         'phone',
         'birthday',
+        'terms_accepted_at',
         'password',
     ];
 
@@ -40,6 +42,7 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'birthday' => 'date',
+            'terms_accepted_at' => 'datetime',
             'password' => 'hashed',
             'status' => UserStatus::class,
         ];
@@ -94,5 +97,15 @@ class User extends Authenticatable
     public function products(): HasMany
     {
         return $this->hasMany(Product::class, 'seller_id');
+    }
+
+    public function wishlistProducts(): BelongsToMany
+    {
+        return $this->belongsToMany(Product::class, 'buyer_wishlists', 'buyer_id', 'product_id')->withTimestamps();
+    }
+
+    public function followedSellers(): BelongsToMany
+    {
+        return $this->belongsToMany(self::class, 'buyer_followed_sellers', 'buyer_id', 'seller_id')->withTimestamps();
     }
 }

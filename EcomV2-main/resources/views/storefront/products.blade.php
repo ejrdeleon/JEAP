@@ -45,15 +45,32 @@
             </div>
             <div class="s3-sidebox">
                 <h3>filters <a href="{{ route('products.index') }}" style="float:right;font-size:13px;">Reset All</a></h3>
-                <p>By Brands / Price / Color — visual filters from Figma; catalog still filters by category + search.</p>
+                <form method="get" class="catalog-filter-form">
+                    @if(request('q'))<input type="hidden" name="q" value="{{ request('q') }}">@endif
+                    @if(request('category'))<input type="hidden" name="category" value="{{ request('category') }}">@endif
+                    <label>Minimum price <input type="number" name="min_price" min="0" step="0.01" value="{{ request('min_price') }}" placeholder="₱ 0"></label>
+                    <label>Maximum price <input type="number" name="max_price" min="0" step="0.01" value="{{ request('max_price') }}" placeholder="No limit"></label>
+                    <label>Sort by
+                        <select name="sort">
+                            <option value="relevance" @selected(request('sort', 'relevance') === 'relevance')>Recommended</option>
+                            <option value="newest" @selected(request('sort') === 'newest')>Newest</option>
+                            <option value="price_asc" @selected(request('sort') === 'price_asc')>Price: low to high</option>
+                            <option value="price_desc" @selected(request('sort') === 'price_desc')>Price: high to low</option>
+                        </select>
+                    </label>
+                    <label class="catalog-stock-filter"><input type="checkbox" name="in_stock" value="1" @checked(request()->boolean('in_stock'))> In stock only</label>
+                    <button type="submit">Apply filters</button>
+                </form>
             </div>
         </aside>
         <div>
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
                 <strong>{{ $products->total() }} items</strong>
-                <form method="get">
+                <form method="get" class="catalog-search-form">
                     @if(request('category'))<input type="hidden" name="category" value="{{ request('category') }}">@endif
-                    <input name="q" value="{{ request('q') }}" placeholder="Search" style="height:43px;border:1px solid #e5e5ee;padding:0 12px;">
+                    @foreach(['min_price', 'max_price', 'sort', 'in_stock'] as $filter)<input type="hidden" name="{{ $filter }}" value="{{ request($filter) }}">@endforeach
+                    <input name="q" value="{{ request('q') }}" placeholder="Search products" style="height:43px;border:1px solid #e5e5ee;padding:0 12px;">
+                    <button type="submit">Search</button>
                 </form>
             </div>
             <div class="s3-grid4">

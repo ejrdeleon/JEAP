@@ -7,6 +7,8 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use App\Models\ReturnRequest;
+use App\Models\VoucherUsage;
 
 class Order extends Model
 {
@@ -23,6 +25,7 @@ class Order extends Model
         'shipping_address_id',
         'shipping_address_snapshot',
         'notes',
+        'cancellation_reason',
         'placed_at',
     ];
 
@@ -72,5 +75,15 @@ class Order extends Model
     public function commission(): HasOne
     {
         return $this->hasOne(Commission::class);
+    }
+
+    public function returnRequest(): HasOne
+    {
+        return $this->hasOne(ReturnRequest::class);
+    }
+
+    public function voucherUsage(): HasOne
+    {
+        return $this->hasOne(VoucherUsage::class);
     }
 }

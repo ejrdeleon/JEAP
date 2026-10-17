@@ -19,5 +19,7 @@ class DatabaseSeeder extends Seeder
             ['code' => 'AREA-A'],
             ['name' => 'Area A — Santa Cruz', 'description' => 'Laguna hub sample coverage', 'is_active' => true]
         );
+
+        $this->call(DemoBuyerCourierSeeder::class);
     }
 }

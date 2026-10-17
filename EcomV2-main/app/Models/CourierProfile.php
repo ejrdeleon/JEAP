@@ -9,8 +9,12 @@ class CourierProfile extends Model
 {
     protected $fillable = [
         'user_id',
+        'logistics_profile_id',
         'vehicle_type',
         'plate_number',
+        'license_number',
+        'license_expires_at',
+        'is_online',
         'assigned_delivery_area_id',
         'approved_by',
     ];
@@ -23,5 +27,15 @@ class CourierProfile extends Model
     public function area(): BelongsTo
     {
         return $this->belongsTo(DeliveryArea::class, 'assigned_delivery_area_id');
+    }
+
+    public function logisticsProfile(): BelongsTo
+    {
+        return $this->belongsTo(LogisticsProfile::class);
+    }
+
+    protected function casts(): array
+    {
+        return ['license_expires_at' => 'date', 'is_online' => 'boolean'];
     }
 }

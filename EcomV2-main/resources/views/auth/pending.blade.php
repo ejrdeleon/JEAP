@@ -11,7 +11,7 @@
 <section class="s3-main" style="padding:80px 30px;">
     <h1>Pending approval</h1>
     <p>{{ session('status') ?? 'Your account cannot sign in until it is approved.' }}</p>
-    <p>Shoppers, sellers, and sorting centers are reviewed by Admin. Riders are reviewed by the sorting center.</p>
+    <p>Seller and logistics applications are reviewed by an admin. Rider accounts are created by an approved logistics company.</p>
     <p><a href="{{ route('home') }}">Back to store</a></p>
 </section>
 @endsection

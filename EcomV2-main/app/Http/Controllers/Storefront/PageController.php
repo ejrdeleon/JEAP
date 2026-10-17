@@ -149,7 +149,7 @@ class PageController extends Controller
                 foreach ($sellerItems as $item) {
                     $variant = ProductVariant::query()->whereKey($item->product_variant_id)
                         ->lockForUpdate()->with('product')->first();
-                    if (! $variant || ! $variant->is_active || $variant->product?->status !== 'active') {
+                    if (! $variant || ! $variant->is_active || $variant->product?->status !== 'active' || $variant->product?->seller?->sellerProfile?->vacation_mode) {
                         throw ValidationException::withMessages([
                             'cart' => 'A product in your cart is no longer available. Remove it and try again.',
                         ]);

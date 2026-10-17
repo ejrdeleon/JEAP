@@ -1,24 +1,31 @@
 <?php
 
 use App\Http\Controllers\Admin\AnnouncementController;
+use App\Http\Controllers\Admin\ContactMessageController as AdminContactMessageController;
 use App\Http\Controllers\Admin\DashboardController as AdminDashboard;
 use App\Http\Controllers\Admin\DisputeController;
+use App\Http\Controllers\Admin\KycDocumentController;
 use App\Http\Controllers\Admin\RegistrationReviewController;
 use App\Http\Controllers\Admin\UserManagementController;
+use App\Http\Controllers\Auth\EmailVerificationController;
 use App\Http\Controllers\Auth\GoogleAuthController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\RegisterController;
 use App\Http\Controllers\Buyer\DashboardController as BuyerDashboard;
+use App\Http\Controllers\Buyer\WishlistController;
 use App\Http\Controllers\Courier\DashboardController as CourierDashboard;
 use App\Http\Controllers\Logistics\CourierReviewController;
+use App\Http\Controllers\Logistics\RiderController as LogisticsRiderController;
 use App\Http\Controllers\Logistics\ShipmentController as LogisticsShipmentController;
 use App\Http\Controllers\PhilippineLocationController;
 use App\Http\Controllers\Seller\DashboardController as SellerDashboard;
 use App\Http\Controllers\Shipping\PageController as ShippingPage;
 use App\Http\Controllers\Storefront\CartController;
+use App\Http\Controllers\Storefront\ContactController;
 use App\Http\Controllers\Storefront\HomeController;
 use App\Http\Controllers\Storefront\PageController;
 use App\Http\Controllers\Storefront\ProductController;
+use App\Http\Controllers\Storefront\StoreController;
 use App\Http\Controllers\SuperAdmin\DashboardController as SuperAdminDashboard;
 use Illuminate\Support\Facades\Route;
 
@@ -29,6 +36,9 @@ Route::post('/login', [LoginController::class, 'store'])->middleware('throttle:l
 Route::get('/auth/google/redirect', [GoogleAuthController::class, 'redirect'])->middleware('throttle:login')->name('google.redirect');
 Route::get('/auth/google/callback', [GoogleAuthController::class, 'callback'])->middleware('throttle:login')->name('google.callback');
 Route::post('/logout', [LoginController::class, 'destroy'])->name('logout');
+Route::get('/email/verify', [EmailVerificationController::class, 'show'])->name('email.verify.show');
+Route::post('/email/verify', [EmailVerificationController::class, 'verify'])->middleware('throttle:10,1')->name('email.verify');
+Route::post('/email/verify/resend', [EmailVerificationController::class, 'resend'])->middleware('throttle:3,1')->name('email.verify.resend');
 
 Route::get('/register', [RegisterController::class, 'create'])->name('register');
 Route::post('/register', [RegisterController::class, 'store'])->middleware('throttle:register');
@@ -39,10 +49,13 @@ Route::post('/register/rider', [RegisterController::class, 'storeRider'])->middl
 Route::get('/register/logistics', [RegisterController::class, 'createLogistics'])->name('register.logistics');
 Route::post('/register/logistics', [RegisterController::class, 'storeLogistics'])->middleware('throttle:register');
 Route::get('/register/pending', [RegisterController::class, 'pending'])->name('register.pending');
+Route::get('/rider/activate/{user}/{token}', [LogisticsRiderController::class, 'showActivation'])->name('rider.activate.show');
+Route::post('/rider/activate/{user}/{token}', [LogisticsRiderController::class, 'activate'])->middleware('throttle:10,1')->name('rider.activate');
 
 Route::get('/products', [ProductController::class, 'index'])->name('products.index');
 Route::get('/products/{slug}', [ProductController::class, 'show'])->name('products.show');
 Route::get('/products/{slug}/pay', [ProductController::class, 'pay'])->name('products.pay');
+Route::get('/stores/{seller}', [StoreController::class, 'show'])->name('stores.show');
 
 Route::get('/cart', [CartController::class, 'index'])->name('cart.index');
 Route::post('/cart', [CartController::class, 'add'])->name('cart.add')->middleware('throttle:60,1');
@@ -51,6 +64,7 @@ Route::delete('/cart/{item}', [CartController::class, 'remove'])->name('cart.rem
 
 Route::get('/about', [PageController::class, 'about'])->name('about');
 Route::get('/contact', [PageController::class, 'contact'])->name('contact');
+Route::post('/contact', [ContactController::class, 'store'])->middleware('throttle:5,1')->name('contact.submit');
 Route::get('/help', [PageController::class, 'help'])->name('help');
 Route::get('/philippines/locations/{level}', [PhilippineLocationController::class, 'index'])
     ->middleware('throttle:60,1')
@@ -70,6 +84,12 @@ Route::middleware(['auth', 'approved'])->group(function () {
     Route::prefix('buyer')->name('buyer.')->group(function () {
         Route::get('/', [BuyerDashboard::class, 'home'])->name('home');
         Route::middleware('role:buyer')->group(function () {
+            Route::get('/wishlist', [WishlistController::class, 'index'])->name('wishlist');
+            Route::post('/wishlist/{product}', [WishlistController::class, 'saveProduct'])->name('wishlist.save');
+            Route::delete('/wishlist/{product}', [WishlistController::class, 'removeProduct'])->name('wishlist.remove');
+            Route::post('/sellers/{seller}/follow', [WishlistController::class, 'followSeller'])->name('sellers.follow');
+            Route::delete('/sellers/{seller}/follow', [WishlistController::class, 'unfollowSeller'])->name('sellers.unfollow');
+            Route::post('/orders/{order}/cancel', [BuyerDashboard::class, 'cancelOrder'])->middleware('throttle:10,1')->name('orders.cancel');
             Route::get('/addresses', [BuyerDashboard::class, 'addresses'])->name('addresses');
             Route::post('/addresses', [BuyerDashboard::class, 'storeAddress'])->name('addresses.store');
             Route::put('/addresses/{address}', [BuyerDashboard::class, 'updateAddress'])->name('addresses.update');
@@ -96,6 +116,8 @@ Route::middleware(['auth', 'approved'])->group(function () {
 
     Route::middleware('role:courier')->prefix('courier')->name('courier.')->group(function () {
         Route::get('/', [CourierDashboard::class, 'index'])->name('dashboard');
+        Route::patch('/availability', [CourierDashboard::class, 'updateAvailability'])->name('availability');
+        Route::put('/profile', [CourierDashboard::class, 'updateProfile'])->name('profile.update');
     });
 
     Route::middleware('role:logistics|admin|super-admin')->prefix('logistics')->name('logistics.')->group(function () {
@@ -108,6 +130,11 @@ Route::middleware(['auth', 'approved'])->group(function () {
         Route::post('/couriers/{user}', [CourierReviewController::class, 'decide'])
             ->middleware('throttle:30,1')
             ->name('couriers.decide');
+        Route::middleware('role:logistics')->group(function (): void {
+            Route::get('/riders', [LogisticsRiderController::class, 'index'])->name('riders');
+            Route::post('/riders', [LogisticsRiderController::class, 'store'])->middleware('throttle:10,1')->name('riders.store');
+            Route::post('/riders/{user}/resend-activation', [LogisticsRiderController::class, 'resend'])->middleware('throttle:3,1')->name('riders.resend');
+        });
     });
 
     Route::middleware('role:admin|super-admin')->prefix('admin')->name('admin.')->group(function () {
@@ -116,6 +143,7 @@ Route::middleware(['auth', 'approved'])->group(function () {
         Route::post('/verifications/{user}', [RegistrationReviewController::class, 'decide'])
             ->middleware('throttle:30,1')
             ->name('verifications.decide');
+        Route::get('/documents/{document}', [KycDocumentController::class, 'download'])->name('documents.download');
         Route::get('/cms', [AdminDashboard::class, 'cms'])->name('cms');
         Route::post('/cms', [AnnouncementController::class, 'store'])->name('cms.store');
         Route::put('/cms/{announcement}', [AnnouncementController::class, 'update'])->name('cms.update');
@@ -124,6 +152,7 @@ Route::middleware(['auth', 'approved'])->group(function () {
         Route::patch('/users/{user}/status', [UserManagementController::class, 'updateStatus'])->name('users.status');
         Route::get('/disputes', [AdminDashboard::class, 'disputes'])->name('disputes');
         Route::patch('/disputes/{complaint}', [DisputeController::class, 'update'])->name('disputes.update');
+        Route::get('/contact-messages', [AdminContactMessageController::class, 'index'])->name('contact-messages');
         Route::get('/reports', [AdminDashboard::class, 'reports'])->name('reports');
     });
 

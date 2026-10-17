@@ -23,7 +23,7 @@
                     @if ($user->kycDocuments->isNotEmpty())
                         <div class="admin-docs"><strong>KYC documents</strong>
                             @foreach ($user->kycDocuments as $document)
-                                <span>{{ $document->type }} · {{ $document->review_status }}</span>
+                                <a href="{{ route('admin.documents.download', $document) }}">{{ str($document->type->value)->replace('_', ' ')->title() }} · Download</a>
                             @endforeach
                         </div>
                     @endif

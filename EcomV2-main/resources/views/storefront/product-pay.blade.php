@@ -41,13 +41,13 @@
             <span class="s3-chip">free shipping</span>
             <p class="in-stock">{{ $variant && $variant->stock > 0 ? '● In stock' : 'Out of stock' }}</p>
             <p><strong>qty</strong></p>
-            <form method="post" action="{{ route('cart.add') }}" style="display:flex;flex-wrap:wrap;gap:16px;align-items:center;">
+            <form method="post" action="{{ route('cart.add') }}" style="display:flex;flex-wrap:wrap;gap:16px;align-items:center;" data-cart-add-form data-existing-quantity="{{ $cartQuantity }}">
                 @csrf
                 <input type="hidden" name="product_variant_id" value="{{ $variant?->id }}">
-                <div class="s3-qty" style="height:53px;">
-                    <button type="button" onclick="this.nextElementSibling.stepDown()">−</button>
-                    <input type="number" name="quantity" value="1" min="1" max="{{ $variant?->stock ?? 1 }}" @disabled(! $variant || $variant->stock < 1)>
-                    <button type="button" onclick="this.previousElementSibling.stepUp()">+</button>
+                <div class="s3-qty" data-quantity-control style="height:53px;">
+                    <button type="button" data-quantity-decrease aria-label="Decrease quantity" @disabled(! $variant || $variant->stock < 1)>−</button>
+                    <input type="number" name="quantity" value="1" min="1" max="{{ $variant?->stock ?? 1 }}" data-quantity-input @disabled(! $variant || $variant->stock < 1)>
+                    <button type="button" data-quantity-increase aria-label="Increase quantity" @disabled(! $variant || $variant->stock < 1)>+</button>
                 </div>
                 <button class="s3-add" type="submit" style="width:min(199px, 100%);margin:0;" @disabled(! $variant || $variant->stock < 1)>Add To Cart</button>
                 <a href="{{ route('profile') }}" style="width:50px;height:50px;display:grid;place-items:center;border:1px solid #eee;">♡</a>

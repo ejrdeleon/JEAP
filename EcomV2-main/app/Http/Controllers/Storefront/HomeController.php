@@ -18,6 +18,7 @@ class HomeController extends Controller
             ->get();
 
         $products = Product::query()
+            ->notOnVacation()
             ->where('status', 'active')
             ->whereHas('variants', fn ($query) => $query->where('is_active', true))
             ->with([

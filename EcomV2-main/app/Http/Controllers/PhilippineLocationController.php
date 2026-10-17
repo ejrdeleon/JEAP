@@ -55,13 +55,28 @@ class PhilippineLocationController extends Controller
         $token = config('services.psgc.token');
         $version = config('services.psgc.version');
         $provider = is_string($token) && trim($token) !== '' ? 'psa' : 'mirror';
-        $cacheKey = 'psgc.'.$provider.'.'.$version.'.'.$level.'.'.md5(json_encode($filters));
+        $cacheKey = 'psgc.v2.'.$provider.'.'.$version.'.'.$level.'.'.md5(json_encode($filters));
 
         try {
-            $locations = Cache::remember($cacheKey, now()->addWeek(), function () use ($level, $filters, $version, $token, $provider): array {
-                return $provider === 'psa'
-                    ? $this->fetchPsaLocations($level, $filters, $version, $token)
-                    : $this->fetchMirrorLocations($level, $filters);
+            $result = Cache::remember($cacheKey, now()->addWeek(), function () use ($level, $filters, $version, $token, $provider): array {
+                if ($provider === 'psa') {
+                    try {
+                        return [
+                            'source' => 'PSA PSGC',
+                            'locations' => $this->fetchPsaLocations($level, $filters, $version, $token),
+                        ];
+                    } catch (ConnectionException|RequestException|\UnexpectedValueException $exception) {
+                        Log::warning('PSA PSGC lookup failed; trying the community mirror.', [
+                            'exception' => $exception::class,
+                            'status' => $exception instanceof RequestException ? $exception->response->status() : null,
+                        ]);
+                    }
+                }
+
+                return [
+                    'source' => 'PSGC community mirror',
+                    'locations' => $this->fetchMirrorLocations($level, $filters),
+                ];
             });
         } catch (ConnectionException $exception) {
             Log::warning('Unable to connect to the Philippine location API.', ['exception' => $exception::class]);
@@ -79,10 +94,7 @@ class PhilippineLocationController extends Controller
             return $this->unavailable();
         }
 
-        return response()->json([
-            'source' => $provider === 'psa' ? 'PSA PSGC' : 'PSGC community mirror',
-            'locations' => $locations,
-        ]);
+        return response()->json($result);
     }
 
     private function fetchPsaLocations(string $level, array $filters, string $version, string $token): array

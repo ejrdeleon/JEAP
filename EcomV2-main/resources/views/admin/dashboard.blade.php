@@ -6,6 +6,7 @@
     <a href="{{ route('admin.cms') }}">Marketplace CMS</a>
     <a href="{{ route('admin.users') }}">Users</a>
     <a href="{{ route('admin.disputes') }}">Disputes</a>
+    <a href="{{ route('admin.contact-messages') }}">Contact messages</a>
     <a href="{{ route('admin.reports') }}">Reports</a>
     @if (auth()->user()->hasRole('super-admin'))
         <a href="{{ route('super-admin.dashboard') }}">Super admin</a>

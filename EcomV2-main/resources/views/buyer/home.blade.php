@@ -19,6 +19,7 @@
         <article><span>In progress</span><strong>{{ $activeOrderCount }}</strong></article>
         @if(auth()->user()?->hasRole('buyer'))
             <a href="{{ route('buyer.addresses') }}"><span>Delivery details</span><strong>Manage addresses <span aria-hidden="true">→</span></strong></a>
+            <a href="{{ route('buyer.wishlist') }}"><span>Saved items</span><strong>Wishlist &amp; followed stores <span aria-hidden="true">→</span></strong></a>
         @else
             <a href="{{ auth()->check() ? route('profile') : route('login') }}"><span>Account settings</span><strong>{{ auth()->check() ? 'View profile' : 'Sign in' }} <span aria-hidden="true">→</span></strong></a>
         @endif
@@ -40,6 +41,14 @@
                 <div class="buyer-order-actions">
                     <strong>₱{{ number_format((float) $order->total, 2) }}</strong>
                     <a href="{{ route('buyer.orders.track', $order) }}">{{ $order->parcel ? 'Track order' : 'View order' }} <span aria-hidden="true">→</span></a>
+                    @if(in_array($order->status, [\App\Enums\OrderStatus::Placed, \App\Enums\OrderStatus::Confirmed, \App\Enums\OrderStatus::Preparing], true))
+                        <form method="post" action="{{ route('buyer.orders.cancel', $order) }}" class="buyer-cancel-form">
+                            @csrf
+                            <label for="cancel-reason-{{ $order->id }}">Cancel order</label>
+                            <input id="cancel-reason-{{ $order->id }}" name="reason" minlength="10" maxlength="300" placeholder="Tell us why" required>
+                            <button type="submit">Cancel</button>
+                        </form>
+                    @endif
                 </div>
             </article>
         @empty
