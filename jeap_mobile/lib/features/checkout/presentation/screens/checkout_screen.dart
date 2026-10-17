@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:jeap_mobile/core/theme/app_theme.dart';
 import 'package:jeap_mobile/core/widgets/jeap_app_bar.dart';
 import 'package:jeap_mobile/core/widgets/primary_button.dart';
+import 'package:jeap_mobile/core/network/api_exception.dart';
 import 'package:jeap_mobile/features/cart/services/cart_service.dart';
-import 'package:jeap_mobile/features/orders/models/order.dart';
+import 'package:jeap_mobile/features/account/models/address.dart';
+import 'package:jeap_mobile/features/account/services/address_service.dart';
 import 'package:jeap_mobile/features/orders/services/order_service.dart';
 import 'package:jeap_mobile/features/checkout/presentation/screens/order_success_screen.dart';
 
@@ -19,30 +21,30 @@ class CheckoutScreen extends StatefulWidget {
 }
 
 class _CheckoutScreenState extends State<CheckoutScreen> {
-  // Address
-  final String _address =
-      'Unit 4B, 123 Main Street, Barangay 1, Quezon City, Metro Manila 1100';
+  final AddressService _addressService = AddressService();
+  List<Address> _addresses = [];
+  int? _selectedAddressId;
+  bool _loadingAddresses = true;
+  String? _addressError;
 
-  // Payment
-  String? _paymentMethod;
-  static const _paymentMethods = [
-    'Cash on Delivery',
-    'GCash',
-    'Maya',
-    'Credit / Debit Card',
-  ];
+  final String _paymentMethod = 'cod';
 
-  // Voucher
   final _voucherCtrl = TextEditingController();
   double _discount = 0;
   String? _appliedVoucher;
   bool _applyingVoucher = false;
 
-  static const _deliveryFee = 60.0;
+  static const _deliveryFee = 50.0;
 
   double get _total => widget.subtotal - _discount + _deliveryFee;
 
   bool _loading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadAddresses();
+  }
 
   @override
   void dispose() {
@@ -50,68 +52,87 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     super.dispose();
   }
 
-  void _applyVoucher() {
+  Future<void> _loadAddresses() async {
+    try {
+      final addresses = await _addressService.fetchAddresses();
+      if (!mounted) return;
+      final selected = addresses.isEmpty
+          ? null
+          : addresses.firstWhere(
+              (address) => address.isDefault,
+              orElse: () => addresses.first,
+            );
+      setState(() {
+        _addresses = addresses;
+        _selectedAddressId = selected?.id;
+        _loadingAddresses = false;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _addressError = error.toString();
+        _loadingAddresses = false;
+      });
+    }
+  }
+
+  Future<void> _applyVoucher() async {
     final code = _voucherCtrl.text.trim().toUpperCase();
     if (code.isEmpty) return;
     setState(() => _applyingVoucher = true);
-    Future.delayed(const Duration(milliseconds: 600), () {
+    try {
+      final discount = await OrderService().validateVoucher(
+        code: code,
+        subtotal: widget.subtotal,
+      );
       if (!mounted) return;
       setState(() {
-        _applyingVoucher = false;
-        // TODO: validate via API
-        if (code == 'JEAP10') {
-          _discount = widget.subtotal * 0.10;
-          _appliedVoucher = code;
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-                content: Text('Voucher applied! 10% off'),
-                backgroundColor: AppTheme.statusGreen),
-          );
-        } else {
-          _discount = 0;
-          _appliedVoucher = null;
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-                content: Text('Invalid or expired voucher.'),
-                backgroundColor: Colors.redAccent),
-          );
-        }
+        _discount = discount;
+        _appliedVoucher = code;
       });
-    });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Voucher applied! ₱${discount.toStringAsFixed(2)} off'),
+          backgroundColor: AppTheme.statusGreen,
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _discount = 0;
+        _appliedVoucher = null;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            error is ApiException
+                ? error.message
+                : 'Could not validate voucher.',
+          ),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _applyingVoucher = false);
+    }
   }
 
   Future<void> _placeOrder() async {
-    if (_paymentMethod == null) {
+    if (_selectedAddressId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select a payment method.')),
+        const SnackBar(
+            content: Text('Please save and select a delivery address.')),
       );
       return;
     }
     setState(() => _loading = true);
     try {
-      final orderItems = widget.items
-          .map((i) => OrderItem(
-                productId: i.productId,
-                productName: i.productName,
-                price: i.price,
-                quantity: i.quantity,
-                imageUrl: i.imageUrl,
-                variations: i.variations,
-              ))
-          .toList();
       await OrderService().placeOrder(
-        items: orderItems,
-        deliveryAddress: _address,
-        paymentMethod: _paymentMethod!,
+        addressId: _selectedAddressId!,
+        cartItemIds: widget.items.map((item) => item.id).toList(),
+        paymentMethod: _paymentMethod,
         voucherCode: _appliedVoucher,
-        discount: _discount,
-        deliveryFee: _deliveryFee,
       );
-      // Only reached if the order was actually created.
-      final cart = CartService();
-      for (final i in widget.items) {
-        await cart.removeItem(i.id);
-      }
     } catch (e) {
       if (!mounted) return;
       setState(() => _loading = false);
@@ -215,64 +236,54 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
                     // ── Delivery Address ─────────────────────────────────
                     _sectionTitle('Delivery Address'),
-                    _InfoCard(
-                      child: Row(
-                        children: [
-                          const Icon(Icons.location_on_outlined,
-                              color: AppTheme.jeapPurple, size: 20),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Text(_address,
-                                style: const TextStyle(fontSize: 13)),
-                          ),
-                          TextButton(
-                            onPressed: () {},
-                            child: const Text('Change',
-                                style: TextStyle(
-                                    color: AppTheme.jeapPurple, fontSize: 12)),
-                          ),
-                        ],
+                    if (_loadingAddresses)
+                      const Center(child: CircularProgressIndicator())
+                    else if (_addresses.isEmpty)
+                      _InfoCard(
+                        child: Text(
+                          _addressError ??
+                              'No saved delivery addresses were found. Add an address before checkout.',
+                          style: const TextStyle(fontSize: 13),
+                        ),
+                      )
+                    else
+                      DropdownButtonFormField<int>(
+                        initialValue: _selectedAddressId,
+                        decoration: const InputDecoration(
+                          border: OutlineInputBorder(),
+                          labelText: 'Choose a saved address',
+                        ),
+                        items: _addresses
+                            .where((address) => address.id != null)
+                            .map(
+                              (address) => DropdownMenuItem<int>(
+                                value: address.id,
+                                child: Text(
+                                  '${address.label}: ${address.fullAddress}',
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            )
+                            .toList(),
+                        onChanged: (id) =>
+                            setState(() => _selectedAddressId = id),
                       ),
-                    ),
                     const SizedBox(height: 16),
 
                     // ── Payment Method ───────────────────────────────────
                     _sectionTitle('Payment Method'),
-                    ..._paymentMethods.map((method) => GestureDetector(
-                          onTap: () => setState(() => _paymentMethod = method),
-                          child: Container(
-                            margin: const EdgeInsets.only(bottom: 8),
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 14, vertical: 12),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius:
-                                  BorderRadius.circular(AppTheme.buyerRadius),
-                              border: Border.all(
-                                color: _paymentMethod == method
-                                    ? AppTheme.jeapPurple
-                                    : AppTheme.borderColor,
-                                width: _paymentMethod == method ? 1.5 : 1,
-                              ),
-                            ),
-                            child: Row(
-                              children: [
-                                Icon(
-                                  _paymentMethod == method
-                                      ? Icons.radio_button_checked
-                                      : Icons.radio_button_unchecked,
-                                  color: _paymentMethod == method
-                                      ? AppTheme.jeapPurple
-                                      : AppTheme.textSecondary,
-                                  size: 20,
-                                ),
-                                const SizedBox(width: 10),
-                                Text(method,
-                                    style: const TextStyle(fontSize: 14)),
-                              ],
-                            ),
-                          ),
-                        )),
+                    const _InfoCard(
+                      child: Row(
+                        children: [
+                          Icon(Icons.payments_outlined,
+                              color: AppTheme.jeapPurple, size: 20),
+                          SizedBox(width: 10),
+                          Text('Cash on Delivery',
+                              style: TextStyle(fontSize: 14)),
+                        ],
+                      ),
+                    ),
                     const SizedBox(height: 16),
 
                     // ── Order Summary ────────────────────────────────────

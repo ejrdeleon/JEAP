@@ -142,6 +142,24 @@ class BuyerAddressTest extends TestCase
         ))->assertUnprocessable()->assertJsonValidationErrors('latitude');
     }
 
+    public function test_existing_address_api_updates_only_the_signed_in_buyers_address(): void
+    {
+        $buyer = $this->createBuyer();
+        $address = $buyer->addresses()->create($this->addressData());
+
+        $this->actingAs($buyer, 'sanctum')->putJson('/api/v1/addresses/'.$address->id, [
+            ...$this->addressData(),
+            'street_line' => '2 Updated Street',
+        ])->assertOk()->assertJsonPath('address.street_line', '2 Updated Street');
+
+        $otherBuyer = $this->createBuyer();
+        $otherAddress = $otherBuyer->addresses()->create($this->addressData());
+        $this->actingAs($buyer, 'sanctum')->putJson('/api/v1/addresses/'.$otherAddress->id, [
+            ...$this->addressData(),
+            'street_line' => 'Not allowed',
+        ])->assertNotFound();
+    }
+
     public function test_psgc_location_endpoint_proxies_official_results_and_filters(): void
     {
         config([

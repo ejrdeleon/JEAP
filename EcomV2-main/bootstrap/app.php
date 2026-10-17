@@ -40,5 +40,16 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
-        //
+        $exceptions->render(function (\Illuminate\Session\TokenMismatchException $e, \Illuminate\Http\Request $request) {
+            if ($request->expectsJson() || $request->ajax()) {
+                return response()->json(['message' => 'Your session expired. Please refresh the page and try again.'], 419);
+            }
+
+            $target = $request->headers->get('referer') ?: route('login');
+
+            return redirect()->to($target)
+                ->withInput($request->except(['_token', 'password', 'password_confirmation', 'current_password']))
+                ->withErrors(['email' => 'Your session expired. Please try signing in again.'])
+                ->with('status', 'Your session expired. Please try signing in again.');
+        });
     })->create();

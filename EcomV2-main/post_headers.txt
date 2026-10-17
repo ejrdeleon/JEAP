@@ -1,0 +1,17 @@
+HTTP/1.1 419 unknown status
+Host: jeap.store
+Connection: close
+Cache-Control: no-cache, private
+date: Sat, 17 Oct 2026 14:33:23 GMT
+Content-Type: text/html; charset=utf-8
+X-Frame-Options: SAMEORIGIN
+X-Content-Type-Options: nosniff
+Referrer-Policy: strict-origin-when-cross-origin
+Permissions-Policy: camera=(), microphone=(), geolocation=(self), payment=()
+X-XSS-Protection: 0
+Cross-Origin-Opener-Policy: same-origin
+Cross-Origin-Resource-Policy: same-origin
+Content-Security-Policy: default-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'; object-src 'none'; script-src 'self' https://maps.googleapis.com https://maps.gstatic.com http://127.0.0.1:5173 http://localhost:5173; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://maps.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; connect-src 'self' https://maps.googleapis.com https://maps.gstatic.com https://*.googleapis.com http://127.0.0.1:5173 http://localhost:5173 ws://127.0.0.1:5173 ws://localhost:5173; upgrade-insecure-requests
+Strict-Transport-Security: max-age=31536000; includeSubDomains
+Set-Cookie: jeap-session=eyJpdiI6IjVWWUkzNWZSK0k2MDJNajZYU01iaUE9PSIsInZhbHVlIjoiU3NJenBBT2UweFlMSmJKNVVqRStVd0x0MFFzcTBWM3pQRFlPeTVyUjgxUndIcFNaQlpkam9vYUxTS3RIbnNUVUlYcStPZnZUZURmYXltUFFKZ0kxSDN3YmVjcDRjNVRZZHhiaWVDN0VCclVHdEZHc09nQVBSQS94dzJBRFp2TVYiLCJtYWMiOiIyNTViODdmMGQ4MDEzZmY0YzI0NTMyODRhNmNmMTc2MWQxZDc0NTUzZTY1NzY2MGE0ZDIyNjNhNDY0MzU4MDdmIiwidGFnIjoiIn0%3D; expires=Sat, 17 Oct 2026 16:33:23 GMT; Max-Age=7200; path=/; secure; httponly; samesite=lax
+

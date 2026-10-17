@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1;
 use App\Commerce\CommissionService;
 use App\Commerce\ShipmentWorkflow;
 use App\Enums\OrderStatus;
+use App\Enums\PaymentStatus;
 use App\Http\Controllers\Controller;
 use App\Models\Cart;
 use App\Models\Order;
@@ -13,6 +14,8 @@ use App\Models\OrderStatusHistory;
 use App\Models\Payment;
 use App\Models\ProductVariant;
 use App\Models\Review;
+use App\Models\Voucher;
+use App\Models\VoucherUsage;
 use App\Payments\PaymentGateway;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -76,13 +79,24 @@ class OrderController extends Controller
             'payment_method' => ['required', 'in:cod'],
             'voucher_code' => ['nullable', 'string'],
             'notes' => ['nullable', 'string', 'max:500'],
+            'cart_item_ids' => ['nullable', 'array', 'min:1'],
+            'cart_item_ids.*' => ['required', 'integer', 'distinct'],
         ]);
 
         $address = $request->user()->addresses()->findOrFail($data['address_id']);
 
         $orders = DB::transaction(function () use ($address, $data, $request) {
             $cart = Cart::query()->where('user_id', $request->user()->id)->lockForUpdate()->first();
-            $items = $cart?->items()->lockForUpdate()->get() ?? collect();
+            $itemsQuery = $cart?->items()->lockForUpdate();
+            if ($itemsQuery && isset($data['cart_item_ids'])) {
+                $itemsQuery->whereIn('id', $data['cart_item_ids']);
+            }
+            $items = $itemsQuery?->get() ?? collect();
+            if (isset($data['cart_item_ids']) && $items->count() !== count($data['cart_item_ids'])) {
+                throw ValidationException::withMessages([
+                    'cart_item_ids' => 'One or more selected cart items are unavailable.',
+                ]);
+            }
             if ($items->isEmpty()) {
                 return null;
             }
@@ -113,9 +127,16 @@ class OrderController extends Controller
                 $subtotal = $sellerItems->sum(fn ($i) => $i->unit_price * $i->quantity);
                 $fee = 50.00;
                 $discount = 0.00;
+                $appliedVoucher = null;
 
-                if (! empty($data['voucher_code']) && strtoupper($data['voucher_code']) === 'JEAP10') {
-                    $discount = round($subtotal * 0.10, 2);
+                if (! empty($data['voucher_code'])) {
+                    $voucher = Voucher::query()->where('code', strtoupper(trim($data['voucher_code'])))->first();
+                    if ($voucher
+                        && ($voucher->seller_id === null || (int) $voucher->seller_id === (int) $sellerId)
+                        && $voucher->isUsableBy($request->user(), $subtotal)) {
+                        $discount = $voucher->computeDiscount($subtotal);
+                        $appliedVoucher = $voucher;
+                    }
                 }
 
                 $order = Order::create([
@@ -135,6 +156,16 @@ class OrderController extends Controller
                 ]);
 
                 app(CommissionService::class)->record($order);
+
+                if ($appliedVoucher) {
+                    VoucherUsage::query()->create([
+                        'voucher_id' => $appliedVoucher->id,
+                        'order_id' => $order->id,
+                        'buyer_id' => $request->user()->id,
+                        'discount_applied' => $discount,
+                    ]);
+                    $appliedVoucher->increment('used_count');
+                }
 
                 foreach ($sellerItems as $item) {
                     OrderItem::create([
@@ -170,7 +201,7 @@ class OrderController extends Controller
                 $orders[] = $order->load('items');
             }
 
-            $cart->items()->delete();
+            $cart->items()->whereIn('id', $items->pluck('id'))->delete();
 
             return $orders;
         });
@@ -183,6 +214,46 @@ class OrderController extends Controller
             'message' => 'Order placed successfully.',
             'orders' => array_map(fn ($o) => $this->orderPayload($o), $orders),
         ], 201);
+    }
+
+    public function cancel(Request $request, string $orderNumber): JsonResponse
+    {
+        $data = $request->validate(['reason' => ['required', 'string', 'min:10', 'max:300']]);
+
+        $cancelled = DB::transaction(function () use ($request, $orderNumber, $data): bool {
+            $order = Order::query()
+                ->where('buyer_id', $request->user()->id)
+                ->where('order_number', $orderNumber)
+                ->lockForUpdate()->firstOrFail();
+
+            if (! in_array($order->status, [OrderStatus::Placed, OrderStatus::Confirmed, OrderStatus::Preparing], true)) {
+                return false;
+            }
+
+            $from = $order->status;
+            foreach ($order->items as $item) {
+                ProductVariant::query()->whereKey($item->product_variant_id)->increment('stock', $item->quantity);
+            }
+            $order->payments()->where('status', PaymentStatus::Pending->value)->update(['status' => PaymentStatus::Cancelled->value]);
+            $order->commission()?->update(['status' => 'void']);
+            $order->update(['status' => OrderStatus::Cancelled, 'cancellation_reason' => trim($data['reason'])]);
+            OrderStatusHistory::query()->create([
+                'order_id' => $order->id,
+                'from_status' => $from,
+                'to_status' => OrderStatus::Cancelled,
+                'actor_id' => $request->user()->id,
+                'notes' => 'Buyer cancelled: '.trim($data['reason']),
+                'created_at' => now(),
+            ]);
+
+            return true;
+        });
+
+        if (! $cancelled) {
+            return response()->json(['message' => 'This order can no longer be cancelled.'], 422);
+        }
+
+        return response()->json(['message' => 'Order cancelled.']);
     }
 
     public function confirmReceived(Request $request, string $orderNumber, ShipmentWorkflow $workflow): JsonResponse

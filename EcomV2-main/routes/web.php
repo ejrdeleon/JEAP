@@ -19,6 +19,7 @@ use App\Http\Controllers\Logistics\RiderController as LogisticsRiderController;
 use App\Http\Controllers\Logistics\ShipmentController as LogisticsShipmentController;
 use App\Http\Controllers\PhilippineLocationController;
 use App\Http\Controllers\Seller\DashboardController as SellerDashboard;
+use App\Http\Controllers\Seller\StoreProfileController;
 use App\Http\Controllers\Shipping\PageController as ShippingPage;
 use App\Http\Controllers\Storefront\CartController;
 use App\Http\Controllers\Storefront\ContactController;
@@ -112,6 +113,8 @@ Route::middleware(['auth', 'approved'])->group(function () {
         Route::patch('/orders/{order}/status', [SellerDashboard::class, 'updateOrderStatus'])->middleware('throttle:30,1')->name('orders.status');
         Route::get('/promos', [SellerDashboard::class, 'promos'])->name('promos');
         Route::get('/shipments', [SellerDashboard::class, 'shipments'])->name('shipments');
+        Route::get('/store-profile', [StoreProfileController::class, 'edit'])->name('store-profile');
+        Route::post('/store-profile', [StoreProfileController::class, 'update'])->name('store-profile.update')->middleware('throttle:20,1');
     });
 
     Route::middleware('role:courier')->prefix('courier')->name('courier.')->group(function () {

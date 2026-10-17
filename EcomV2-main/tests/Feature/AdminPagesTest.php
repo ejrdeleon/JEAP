@@ -40,6 +40,26 @@ class AdminPagesTest extends TestCase
         $this->actingAs($superAdmin)->get('/admin')->assertOk();
     }
 
+    public function test_admin_reports_api_is_available_only_to_staff(): void
+    {
+        $admin = $this->createUserWithRole('admin');
+
+        $this->actingAs($admin, 'sanctum')
+            ->getJson('/api/v1/admin/reports')
+            ->assertOk()
+            ->assertJsonStructure([
+                'total_orders',
+                'gross_sales',
+                'active_users',
+                'user_statuses',
+                'monthly_sales',
+                'top_products',
+            ]);
+
+        $buyer = $this->createUserWithRole('buyer');
+        $this->actingAs($buyer, 'sanctum')->getJson('/api/v1/admin/reports')->assertForbidden();
+    }
+
     public function test_super_admin_login_redirects_to_the_super_admin_dashboard(): void
     {
         $superAdmin = User::factory()->create([

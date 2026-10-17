@@ -10,6 +10,8 @@ class Address {
   final String? buildingUnit;
   final String? otherDetails;
   final bool isDefault;
+  final String? recipientName;
+  final String? phone;
 
   const Address({
     this.id,
@@ -23,6 +25,10 @@ class Address {
     this.buildingUnit,
     this.otherDetails,
     this.isDefault = false,
+    this.recipientName,
+    this.phone,
+    this.regionName,
+    this.countryName,
   });
 
   String get fullAddress {
@@ -33,35 +39,50 @@ class Address {
       barangay,
       city,
       province,
+      if (regionName != null && regionName!.isNotEmpty) regionName,
+      if (countryName != null && countryName!.isNotEmpty) countryName,
       zipCode,
     ];
     return parts.join(', ');
   }
 
+  final String? regionName;
+  final String? countryName;
+
   factory Address.fromJson(Map<String, dynamic> json) => Address(
-        id: json['id'] as int?,
+        id: (json['id'] as num?)?.toInt(),
         label: json['label'] as String? ??
             json['recipient_name'] as String? ??
             'Home',
-        houseStreet:
-            (json['house_street'] ?? json['address_line'] ?? '') as String,
-        barangay: (json['barangay'] ?? '') as String,
-        city: (json['city'] ?? '') as String,
-        province: (json['province'] ?? '') as String,
-        zipCode: (json['zip_code'] ?? json['postal_code'] ?? '') as String,
+        houseStreet: (json['street_line'] ??
+            json['house_street'] ??
+            json['address_line'] ??
+            '') as String,
+        barangay: (json['barangay_name'] ?? json['barangay'] ?? '') as String,
+        city: (json['city_name'] ?? json['city'] ?? '') as String,
+        province: (json['province_name'] ?? json['province'] ?? '') as String,
+        zipCode: (json['postal_code'] ?? json['zip_code'] ?? '') as String,
         subdivision: json['subdivision'] as String?,
         buildingUnit: json['building_unit'] as String?,
         otherDetails: json['other_details'] as String?,
         isDefault: json['is_default'] as bool? ?? false,
+        recipientName: json['recipient_name'] as String?,
+        phone: json['phone'] as String?,
+        regionName: json['region_name'] as String?,
+        countryName: json['country_name'] as String?,
       );
 
   Map<String, dynamic> toJson() => {
         'label': label,
-        'house_street': houseStreet,
-        'barangay': barangay,
-        'city': city,
-        'province': province,
-        'zip_code': zipCode,
+        'recipient_name': recipientName ?? '',
+        'phone': phone ?? '',
+        if (regionName != null) 'region_name': regionName,
+        if (countryName != null) 'country_name': countryName,
+        'street_line': houseStreet,
+        'barangay_name': barangay,
+        'city_name': city,
+        'province_name': province,
+        'postal_code': zipCode,
         if (subdivision != null) 'subdivision': subdivision,
         if (buildingUnit != null) 'building_unit': buildingUnit,
         if (otherDetails != null) 'other_details': otherDetails,

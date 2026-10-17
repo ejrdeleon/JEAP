@@ -1,0 +1,18 @@
+HTTP/1.1 200 OK
+Host: jeap.store
+Connection: close
+Content-Type: text/html; charset=utf-8
+Cache-Control: no-cache, private
+Date: Sat, 17 Oct 2026 14:33:14 GMT
+X-Frame-Options: SAMEORIGIN
+X-Content-Type-Options: nosniff
+Referrer-Policy: strict-origin-when-cross-origin
+Permissions-Policy: camera=(), microphone=(), geolocation=(self), payment=()
+X-XSS-Protection: 0
+Cross-Origin-Opener-Policy: same-origin
+Cross-Origin-Resource-Policy: same-origin
+Content-Security-Policy: default-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'; object-src 'none'; script-src 'self' https://maps.googleapis.com https://maps.gstatic.com http://127.0.0.1:5173 http://localhost:5173; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://maps.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; connect-src 'self' https://maps.googleapis.com https://maps.gstatic.com https://*.googleapis.com http://127.0.0.1:5173 http://localhost:5173 ws://127.0.0.1:5173 ws://localhost:5173; upgrade-insecure-requests
+Strict-Transport-Security: max-age=31536000; includeSubDomains
+Set-Cookie: XSRF-TOKEN=eyJpdiI6IkZuN1g0WmtmUkF1WnlqbWl6Q200WWc9PSIsInZhbHVlIjoiOFFUN0Nma2VnOTYxM0VjMjBBbHJPeFlPY3JWR0RxV2RuamFVN3dNTmZNcTFNcEZHM2xRaXdJRjd4S0RXTk5SVUxPYkJrQm9NNEdvMURTQkUraTFwL3B3T2IrblJpSVlsMHJ0SitrTW5NQUVlaXNPZ1JmZmlLcUhPN2RWaGNvTysiLCJtYWMiOiIwNGUwZmM3MmFjZGMyZDUxOGQ3NjQzNjhjOGY0NTU3NzBmMjhlYThkNTQxYzA0MzQ3YWRlZjBiMDI1YjcyNDIxIiwidGFnIjoiIn0%3D; expires=Sat, 17 Oct 2026 16:33:14 GMT; Max-Age=7200; path=/; secure; samesite=lax
+Set-Cookie: jeap-session=eyJpdiI6IitWbWFtcDQxdVdjMGQxNUtwMmVlMlE9PSIsInZhbHVlIjoianJSbFo2NzBkV2o2bGlJdVhXSGVRTzJNNm14RjVmb1BKd1JiMGtQNUYrVXJmVWUvdmQwTXErejBIWTlHWGZnVVhBUjVIS0UvbzU2Tld5V3IxaDBRclZzQXg5S3dNb0tvZ21TbHZabVA0Q3BGZmpQR2gzMFBUb2NTMG9LU0w4Z3giLCJtYWMiOiIyM2E2MjczMWEwNzgwYTZiNWI3Mjg4NGQ4ODJkZTk3ZmNmMmJhNTNkY2ZkMDBkZWQ1ZjgxYzhhNjliZTRlMmVmIiwidGFnIjoiIn0%3D; expires=Sat, 17 Oct 2026 16:33:14 GMT; Max-Age=7200; path=/; secure; httponly; samesite=lax
+

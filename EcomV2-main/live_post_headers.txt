@@ -1,0 +1,28 @@
+HTTP/1.1 302 Found
+Date: Sat, 17 Oct 2026 14:39:28 GMT
+Content-Type: text/html; charset=utf-8
+Transfer-Encoding: chunked
+Connection: keep-alive
+Cache-Control: no-cache, private
+content-security-policy: default-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'; object-src 'none'; script-src 'self' https://maps.googleapis.com https://maps.gstatic.com http://127.0.0.1:5173 http://localhost:5173; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://maps.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; connect-src 'self' https://maps.googleapis.com https://maps.gstatic.com https://*.googleapis.com http://127.0.0.1:5173 http://localhost:5173 ws://127.0.0.1:5173 ws://localhost:5173; upgrade-insecure-requests
+cross-origin-opener-policy: same-origin
+cross-origin-resource-policy: same-origin
+Host: jeap.store
+location: https://jeap.store/login
+permissions-policy: camera=(), microphone=(), geolocation=(self), payment=()
+referrer-policy: strict-origin-when-cross-origin
+Set-Cookie: XSRF-TOKEN=eyJpdiI6IkkvdmpVc2RzbnNtUDk1QnYyL056bEE9PSIsInZhbHVlIjoibnVKVHdlcVlFY0pRSTQ5Y3hTbXF1L2NwZzkxeWlvL3UrU1NiUlV2S3prYi9pSG5STElSajc0ZE5pdEVWeG9nc0ZGYjJuVjYwc204L21FdTdvSm1vK0RSckRqd280VTRKTms4TUtuNDZocHdFby93eHhWajFpRUZ6T2plZjBNRlUiLCJtYWMiOiJiYzI2Y2EwMWUzMDgyMmRmNmJkNWE3M2FmMDYzYTk3YWM1OTg5MTQ4OGY0ZDYyYWFhZGFjZWNiMjQzYTMwOGRhIiwidGFnIjoiIn0%3D; expires=Sat, 17 Oct 2026 16:39:28 GMT; Max-Age=7200; path=/; secure; samesite=lax
+Set-Cookie: jeap-session=eyJpdiI6ImlDakxwZXBldFQxRUZSbDhkUmVHUGc9PSIsInZhbHVlIjoiR3BtSko3VGZPUlJKTmhjU3dVcXBHZUtGV2psTWJYN3U3cVNKeWpHd0Q3TFZ2RUVocHhDb1FabUVTSzhOTVJwMXNORHFQK1lhVzN1RzkzVGFpSU8ydUpVQzB6YnpobEQ5RVYrbC9FbFRLa0Y2aElDNHFUaVlIZGxIWG84bGE5TDQiLCJtYWMiOiI3OWE5ZmZiODE0YTZlMDE3MzExODQ4MTc4YTMzZDNlZDc2NzhkN2E2YzdlZWRkNzM4NjQyMTFiMjRjNzkwYTAzIiwidGFnIjoiIn0%3D; expires=Sat, 17 Oct 2026 16:39:28 GMT; Max-Age=7200; path=/; secure; httponly; samesite=lax
+strict-transport-security: max-age=31536000; includeSubDomains
+x-content-type-options: nosniff
+x-frame-options: SAMEORIGIN
+x-ratelimit-limit: 5
+x-ratelimit-remaining: 4
+x-xss-protection: 0
+cf-cache-status: DYNAMIC
+Nel: {"report_to":"cf-nel","success_fraction":0.0,"max_age":604800}
+Report-To: {"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=iNfYNaWt%2B%2B%2Fko5%2BbjA3cGJtez4f7iOPkzbWHMOytQJPl%2BTrYO7RK8tcauXRdhJ0rjWKPv4GyU2otVydWXMzK191DSGQsxzcGylri7oVx5gs4%2FODjEP1p%2FTGW8SJk"}]}
+Server: cloudflare
+CF-RAY: a4c00d889d7c07af-HKG
+alt-svc: h3=":443"; ma=86400
+

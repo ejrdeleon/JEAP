@@ -29,7 +29,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   bool get _canAddToCart {
     final needsColor =
         widget.product.colors.isNotEmpty && _selectedColor == null;
-    return !needsColor && _quantity >= 1;
+    return !needsColor && widget.product.variantId != null && _quantity >= 1;
   }
 
   Future<void> _addToCart({bool navigateToCart = false}) async {
@@ -43,6 +43,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     final p = widget.product;
     try {
       await CartService().addItem(
+        variantId: p.variantIdsByColor[_selectedColor] ?? p.variantId!,
         productId: p.id,
         productName: p.name,
         price: p.price,
@@ -182,8 +183,11 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                               spacing: 8,
                               children: p.colors
                                   .map((c) => GestureDetector(
-                                        onTap: () =>
-                                            setState(() => _selectedColor = c),
+                                        onTap: () => setState(() {
+                                          _selectedColor = c;
+                                          _stock = p.stocksByColor[c] ?? 0;
+                                          _quantity = 1;
+                                        }),
                                         child: Container(
                                           padding: const EdgeInsets.symmetric(
                                               horizontal: 14, vertical: 8),

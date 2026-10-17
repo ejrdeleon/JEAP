@@ -1,21 +1,26 @@
 import 'package:flutter/foundation.dart';
+import 'package:jeap_mobile/core/network/api_client.dart';
 import 'package:jeap_mobile/features/cart/models/buyer_cart_item.dart';
 
 export 'package:jeap_mobile/features/cart/models/buyer_cart_item.dart';
 
-final _cart = <BuyerCartItem>[];
-int _nextId = 1;
-
-/// TEMPORARY in-memory cart. Method signatures are async so swapping in
-/// ApiClient calls later changes nothing for the screens.
 class CartService {
-  /// Bumped on add/remove/clear. CartScreen listens to this because the
-  /// tab lives in an IndexedStack and would otherwise never refresh.
+  CartService({ApiClient? api}) : _api = api ?? const ApiClient();
+  final ApiClient _api;
+
   static final ValueNotifier<int> revision = ValueNotifier<int>(0);
 
-  Future<List<BuyerCartItem>> fetchCart() async => List.unmodifiable(_cart);
+  Future<List<BuyerCartItem>> fetchCart() async {
+    final res = await _api.get('/cart');
+    final items = (res is Map ? res['items'] : res) as List? ?? [];
+    return items
+        .whereType<Map>()
+        .map((e) => BuyerCartItem.fromApi(Map<String, dynamic>.from(e)))
+        .toList();
+  }
 
   Future<void> addItem({
+    required int variantId,
     required String productId,
     required String productName,
     required double price,
@@ -24,45 +29,29 @@ class CartService {
     String? imageUrl,
   }) async {
     if (quantity < 1) throw ArgumentError('Quantity must be at least 1.');
-    final idx = _cart.indexWhere(
-        (i) => i.productId == productId && _mapsEqual(i.variations, variations));
-    if (idx != -1) {
-      _cart[idx].quantity += quantity;
-    } else {
-      _cart.add(BuyerCartItem(
-        id: _nextId++,
-        productId: productId,
-        productName: productName,
-        price: price,
-        quantity: quantity,
-        imageUrl: imageUrl,
-        variations: variations,
-      ));
-    }
+    await _api.post('/cart', {
+      'product_variant_id': variantId,
+      'quantity': quantity,
+    });
     revision.value++;
   }
 
   Future<void> updateItem(int itemId, int quantity) async {
     if (quantity < 1) throw ArgumentError('Quantity must be at least 1.');
-    final idx = _cart.indexWhere((i) => i.id == itemId);
-    if (idx != -1) _cart[idx].quantity = quantity;
+    await _api.put('/cart/$itemId', {'quantity': quantity});
+    revision.value++;
   }
 
   Future<void> removeItem(int itemId) async {
-    _cart.removeWhere((i) => i.id == itemId);
+    await _api.delete('/cart/$itemId');
     revision.value++;
   }
 
   Future<void> clear() async {
-    _cart.clear();
+    final items = await fetchCart();
+    for (final item in items) {
+      await _api.delete('/cart/${item.id}');
+    }
     revision.value++;
   }
-}
-
-bool _mapsEqual(Map<String, String> a, Map<String, String> b) {
-  if (a.length != b.length) return false;
-  for (final k in a.keys) {
-    if (a[k] != b[k]) return false;
-  }
-  return true;
 }

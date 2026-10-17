@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:jeap_mobile/core/theme/app_theme.dart';
 import 'package:jeap_mobile/core/widgets/jeap_app_bar.dart';
 import 'package:jeap_mobile/core/widgets/primary_button.dart';
-import 'package:jeap_mobile/features/orders/models/order.dart';
 import 'package:jeap_mobile/features/orders/services/order_service.dart';
 
 class RatingScreen extends StatefulWidget {

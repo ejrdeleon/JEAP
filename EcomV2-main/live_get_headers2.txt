@@ -1,0 +1,25 @@
+HTTP/1.1 200 OK
+Date: Sat, 17 Oct 2026 14:40:54 GMT
+Content-Type: text/html; charset=utf-8
+Transfer-Encoding: chunked
+Connection: keep-alive
+Cache-Control: no-cache, private
+content-security-policy: default-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'; object-src 'none'; script-src 'self' https://maps.googleapis.com https://maps.gstatic.com http://127.0.0.1:5173 http://localhost:5173; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://maps.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; connect-src 'self' https://maps.googleapis.com https://maps.gstatic.com https://*.googleapis.com http://127.0.0.1:5173 http://localhost:5173 ws://127.0.0.1:5173 ws://localhost:5173; upgrade-insecure-requests
+cross-origin-opener-policy: same-origin
+cross-origin-resource-policy: same-origin
+Host: jeap.store
+permissions-policy: camera=(), microphone=(), geolocation=(self), payment=()
+referrer-policy: strict-origin-when-cross-origin
+Set-Cookie: XSRF-TOKEN=eyJpdiI6IlU3aEYzTUtwbk1YbzBCZ015WFVHYUE9PSIsInZhbHVlIjoiWVJ6ZWx4TWc0eDVzUVpuT3FCYWJaSnJNV1hnN2F0LzZaSHAxUFBzdStkQkJtckw5czhBMlZqY3FYVlVxenpZdFRIRjkvajJ0VEFyeG9EdTBZdExpM0VoRlZvWlB2eWpQd0hRRjhWRWhZSWJxYVRiM25aREhzTm1RcUJDVkNOR2siLCJtYWMiOiJiZjk4M2ZhMzFmZjRmZWRlZGU3MmUyZGIxOWY0YWJiMTY5ZDgzYjQzZjhmZDhkZmE4ZjY4MjUyNzVlOTQ0NDA2IiwidGFnIjoiIn0%3D; expires=Sat, 17 Oct 2026 16:40:54 GMT; Max-Age=7200; path=/; secure; samesite=lax
+Set-Cookie: jeap-session=eyJpdiI6IkZ0N1JBTjNNZ2xic2ZlT0ZKcCtGbFE9PSIsInZhbHVlIjoiSDJnZHBoM2N6SlI3VTNiSmd3L2JxaC9uVjNBY1cyU3l5Y1hZVjJhN3ZRSTh0K2kvdHhBSUpVelI3QlFaOGZsTGZXUjhxbUFnSXB3Z2JVeHBsYmFwSlNLTzdBOW1OWFF0VThHaEVHelNYSVZjb2dxS1JhVm1XNnNZRmtubkZzbW8iLCJtYWMiOiI5NThiYWM2MTI0MjZkZWExMjZlZTJkYjQ4MTAyM2U3NGNkNjUxNGQ3ODM0MTg5YjBkNTU2MWI2Y2M1YWNiYmNmIiwidGFnIjoiIn0%3D; expires=Sat, 17 Oct 2026 16:40:54 GMT; Max-Age=7200; path=/; secure; httponly; samesite=lax
+strict-transport-security: max-age=31536000; includeSubDomains
+x-content-type-options: nosniff
+x-frame-options: SAMEORIGIN
+x-xss-protection: 0
+cf-cache-status: DYNAMIC
+Nel: {"report_to":"cf-nel","success_fraction":0.0,"max_age":604800}
+Report-To: {"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=CQgReuc6e6E1Lx%2BN7PxUPPq%2FA5tyAQhPUSrquduhOvAwqO74ghcxCqQ4zKmo14pp8OWrW0tmk0xw3b8DOuioregHW%2FCAo0k%2FYpFCTSaVTxyIYM%2FTjC%2ByOo0PsN8n"}]}
+Server: cloudflare
+CF-RAY: a4c00f9f7f7bb603-NRT
+alt-svc: h3=":443"; ma=86400
+

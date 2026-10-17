@@ -15,16 +15,30 @@ class Conversation {
     this.unreadCount = 0,
   });
 
-  factory Conversation.fromJson(Map<String, dynamic> json) => Conversation(
-        id: json['id'] as int,
-        participantName: json['participant_name'] as String,
-        participantRole: json['participant_role'] as String,
-        lastMessage: json['last_message'] as String?,
-        lastMessageAt: json['last_message_at'] != null
-            ? DateTime.parse(json['last_message_at'] as String)
-            : null,
-        unreadCount: json['unread_count'] as int? ?? 0,
-      );
+  factory Conversation.fromJson(Map<String, dynamic> json) {
+    final participants = (json['participants'] as List? ?? [])
+        .whereType<Map>()
+        .map((participant) => Map<String, dynamic>.from(participant))
+        .toList();
+    final lastMessage = json['last_message'];
+    final participantName = participants.isNotEmpty
+        ? participants.first['name']?.toString()
+        : json['participant_name']?.toString();
+    final messageBody = lastMessage is Map
+        ? lastMessage['body']?.toString()
+        : lastMessage?.toString();
+    final sentAt =
+        lastMessage is Map ? lastMessage['sent_at'] : json['last_message_at'];
+
+    return Conversation(
+      id: (json['id'] as num).toInt(),
+      participantName: participantName ?? 'JEAP user',
+      participantRole: json['participant_role']?.toString() ?? 'contact',
+      lastMessage: messageBody,
+      lastMessageAt: sentAt is String ? DateTime.tryParse(sentAt) : null,
+      unreadCount: (json['unread_count'] as num?)?.toInt() ?? 0,
+    );
+  }
 }
 
 class ChatMessage {
@@ -42,9 +56,14 @@ class ChatMessage {
 
   factory ChatMessage.fromJson(Map<String, dynamic> json, int myUserId) =>
       ChatMessage(
-        id: json['id'] as int,
-        text: json['message'] as String,
-        isMine: (json['sender_id'] as int) == myUserId,
-        sentAt: DateTime.parse(json['created_at'] as String),
+        id: (json['id'] as num).toInt(),
+        text: (json['body'] ?? json['message'] ?? '').toString(),
+        isMine: json['is_mine'] is bool
+            ? json['is_mine'] as bool
+            : (json['user_id'] ?? json['sender_id']) == myUserId,
+        sentAt: DateTime.tryParse(
+              (json['created_at'] ?? json['sent_at'] ?? '').toString(),
+            ) ??
+            DateTime.now(),
       );
 }
