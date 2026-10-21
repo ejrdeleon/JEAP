@@ -10,12 +10,14 @@
 @section('content')
 @php
     $items = $cart?->items ?? collect();
-    $total = $items->sum(fn ($i) => $i->unit_price * $i->quantity);
+    $merchandise = $items->sum(fn ($i) => $i->unit_price * $i->quantity);
+    $shippingFee = $shippingFee ?? \App\Commerce\InventoryPolicy::shippingFee();
+    $total = $merchandise + $shippingFee;
     $defaultAddress = $addresses->firstWhere('is_default', true) ?? $addresses->first();
     $selectedAddressId = (string) old('address_id', $defaultAddress?->id ?? '');
     $selectedAddress = $addresses->firstWhere('id', (int) $selectedAddressId);
 @endphp
-<section class="s3-main" data-figma="Chackout 7:1501">
+<section class="s3-main">
     <h3 style="padding:48px 48px 0;margin:0;">checkout</h3>
     @if ($errors->any())
         <div class="s3-alert" role="alert" aria-live="polite">{{ $errors->first() }}</div>
@@ -109,7 +111,6 @@
             </form>
         </div>
         <aside>
-            <div class="s3-alert">Have a coupon? Click here to enter your code</div>
             <h3>Your Order</h3>
             <div class="s3-ordercard">
                 <div class="s3-line"><span>Product</span><span>sub total</span></div>
@@ -129,7 +130,8 @@
                 @empty
                     <p>Cart is empty.</p>
                 @endforelse
-                <p>Worldwide Standard Shipping Free <span style="float:right;">+ ₱0.00</span></p>
+                <p>Merchandise <span style="float:right;">₱{{ number_format($merchandise, 2) }}</span></p>
+                <p>Standard shipping <span style="float:right;">₱{{ number_format($shippingFee, 2) }}</span></p>
                 <div class="s3-line" style="border:0;"><strong>Order Total</strong><strong>₱{{ number_format($total, 2) }}</strong></div>
             </div>
             <div class="s3-paymethods">

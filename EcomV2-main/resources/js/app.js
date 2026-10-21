@@ -70,12 +70,21 @@ document.addEventListener('DOMContentLoaded', () => {
     document.querySelectorAll('[data-cart-add-form]').forEach((form) => {
         form.addEventListener('submit', async (event) => {
             const input = form.querySelector('[name="quantity"]');
-            const requested = Number(input?.value) || 1;
+            const maxQty = 10;
+            let requested = Number(input?.value) || 1;
             const current = Number(form.dataset.existingQuantity) || 0;
-            if (current + requested > 10
-                && !window.confirm(`This will add more than 10 of this product to your cart. Continue?`)) {
+            if (current >= maxQty) {
                 event.preventDefault();
+                showToast(`You already have ${maxQty} of this product in your cart.`);
                 return;
+            }
+            if (current + requested > maxQty) {
+                if (!window.confirm(`You can add at most ${maxQty} units of this product. Add up to the limit?`)) {
+                    event.preventDefault();
+                    return;
+                }
+                requested = maxQty - current;
+                if (input) input.value = String(requested);
             }
 
             event.preventDefault();
@@ -134,10 +143,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const handleQuantityChange = async (button, event) => {
             event.preventDefault();
-            const requested = Number(button.value);
-            if (requested > 10
-                && !window.confirm('This will leave more than 10 of this product in your cart. Continue?')) {
-                return;
+            let requested = Number(button.value);
+            if (requested > 10) {
+                if (!window.confirm('You can keep at most 10 units of this product. Set quantity to 10?')) {
+                    return;
+                }
+                requested = 10;
             }
 
             const originalValue = input ? Number(input.value) : 1;

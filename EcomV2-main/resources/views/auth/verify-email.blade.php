@@ -12,6 +12,7 @@
         <h2>Verify your email</h2>
         <p class="lede">Enter the 6-digit code sent to {{ $user->email }}. It is valid for 5 minutes.</p>
         @if (session('status'))<p class="s3-alert" role="status">{{ session('status') }}</p>@endif
+        @if (session('email_verification_preview'))<p class="s3-alert" role="status">Email sending is not configured yet. Your code is <strong>{{ session('email_verification_preview') }}</strong>.</p>@endif
         @if (session('mail_error'))<p class="err" role="alert">{{ session('mail_error') }}</p>@endif
         @error('code')<p class="err" role="alert">{{ $message }}</p>@enderror
         <form method="post" action="{{ route('email.verify') }}">

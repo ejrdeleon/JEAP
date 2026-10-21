@@ -23,12 +23,10 @@ class ProductController extends Controller
             'in_stock' => ['nullable', 'boolean'],
         ]);
         $query = Product::query()
-            ->notOnVacation()
-            ->where('status', 'active')
-            ->whereHas('variants', fn ($q) => $q->where('is_active', true))
+            ->listed()
             ->with([
                 'images',
-                'variants' => fn ($q) => $q->where('is_active', true),
+                'variants' => fn ($q) => $q->sellable(),
                 'category',
             ]);
 
@@ -39,21 +37,23 @@ class ProductController extends Controller
         }
 
         if (! empty($filters['category'])) {
-            $query->whereHas('category', fn ($q) => $q->where('slug', $filters['category']));
+            $query->whereHas('category', function ($q) use ($filters): void {
+                $q->where('slug', $filters['category'])
+                    ->orWhereHas('parent', fn ($parent) => $parent->where('slug', $filters['category']));
+            });
         }
 
         if (isset($filters['min_price']) || isset($filters['max_price']) || ! empty($filters['in_stock'])) {
             $query->whereHas('variants', function ($variants) use ($filters): void {
-                $variants->where('is_active', true)
+                $variants->sellable()
                     ->when(isset($filters['min_price']), fn ($q) => $q->where('price', '>=', $filters['min_price']))
-                    ->when(isset($filters['max_price']), fn ($q) => $q->where('price', '<=', $filters['max_price']))
-                    ->when(! empty($filters['in_stock']), fn ($q) => $q->where('stock', '>', 0));
+                    ->when(isset($filters['max_price']), fn ($q) => $q->where('price', '<=', $filters['max_price']));
             });
         }
 
         match ($filters['sort'] ?? 'relevance') {
-            'price_asc' => $query->withMin(['variants' => fn ($q) => $q->where('is_active', true)], 'price')->orderBy('variants_min_price'),
-            'price_desc' => $query->withMax(['variants' => fn ($q) => $q->where('is_active', true)], 'price')->orderByDesc('variants_max_price'),
+            'price_asc' => $query->withMin(['variants' => fn ($q) => $q->sellable()], 'price')->orderBy('variants_min_price'),
+            'price_desc' => $query->withMax(['variants' => fn ($q) => $q->sellable()], 'price')->orderByDesc('variants_max_price'),
             default => $query->latest('products.created_at'),
         };
 
@@ -62,7 +62,7 @@ class ProductController extends Controller
         }
 
         $products = $query->paginate(12)->withQueryString();
-        $categories = Category::query()->where('is_active', true)->orderBy('sort_order')->get();
+        $categories = Category::query()->where('is_active', true)->parents()->orderBy('sort_order')->with('children')->get();
 
         return view('storefront.products', compact('products', 'categories'));
     }
@@ -83,12 +83,10 @@ class ProductController extends Controller
             ->firstOrFail();
 
         $related = Product::query()
-            ->notOnVacation()
-            ->where('status', 'active')
+            ->listed()
             ->where('category_id', $product->category_id)
             ->where('id', '!=', $product->id)
-            ->whereHas('variants', fn ($q) => $q->where('is_active', true))
-            ->with(['images', 'variants' => fn ($q) => $q->where('is_active', true)])
+            ->with(['images', 'variants' => fn ($q) => $q->sellable()])
             ->take(6)
             ->get();
 
@@ -117,11 +115,9 @@ class ProductController extends Controller
             ->firstOrFail();
 
         $related = Product::query()
-            ->notOnVacation()
-            ->where('status', 'active')
+            ->listed()
             ->where('id', '!=', $product->id)
-            ->whereHas('variants', fn ($q) => $q->where('is_active', true))
-            ->with(['images', 'variants' => fn ($q) => $q->where('is_active', true)])
+            ->with(['images', 'variants' => fn ($q) => $q->sellable()])
             ->take(6)
             ->get();
 

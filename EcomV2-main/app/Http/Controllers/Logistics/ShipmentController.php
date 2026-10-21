@@ -19,7 +19,7 @@ use Illuminate\View\View;
 
 class ShipmentController extends Controller
 {
-    public function index(): View
+    public function index(Request $request): View
     {
         $shippingStatuses = array_map(
             fn (OrderStatus $status) => $status->value,
@@ -34,11 +34,39 @@ class ShipmentController extends Controller
             ->whereIn('status', ['pending', 'accepted', 'out_for_delivery'])->pluck('courier_id');
         $availableCourierIds = $busyPickup->merge($busyDelivery)->unique()->values();
 
+        $area = trim((string) $request->query('area', ''));
+        $ordersQuery = Order::query()->whereIn('status', $shippingStatuses)
+            ->whereHas('parcel')
+            ->with(['buyer', 'seller', 'parcel.pickupAssignment.courier', 'parcel.deliveryAssignment.courier', 'commission']);
+        if ($area !== '') {
+            $ordersQuery->where(function ($query) use ($area): void {
+                $query->where('shipping_address_snapshot->city_name', $area)
+                    ->orWhere('shipping_address_snapshot->region_name', $area);
+            });
+        }
+
+        $orders = $ordersQuery->latest('placed_at')->paginate(25)->withQueryString();
+        $areas = Order::query()->whereIn('status', $shippingStatuses)->whereHas('parcel')
+            ->get(['shipping_address_snapshot'])
+            ->map(function (Order $order): string {
+                $snapshot = $order->shipping_address_snapshot ?? [];
+
+                return trim((string) ($snapshot['city_name'] ?? $snapshot['region_name'] ?? ''));
+            })
+            ->filter()
+            ->unique()
+            ->sort()
+            ->values();
+
         return view('logistics.dashboard', [
-            'orders' => Order::query()->whereIn('status', $shippingStatuses)
-                ->whereHas('parcel')
-                ->with(['buyer', 'seller', 'parcel.pickupAssignment.courier', 'parcel.deliveryAssignment.courier'])
-                ->latest('placed_at')->paginate(25),
+            'orders' => $orders,
+            'groupedOrders' => $orders->groupBy(function (Order $order): string {
+                $snapshot = $order->shipping_address_snapshot ?? [];
+
+                return trim((string) ($snapshot['city_name'] ?? $snapshot['region_name'] ?? '')) ?: 'Unspecified area';
+            }),
+            'areas' => $areas,
+            'selectedArea' => $area,
             'couriers' => User::query()->role('courier')->where('status', UserStatus::Active)
                 ->whereNotIn('id', $availableCourierIds)->orderBy('first_name')->get(),
         ]);

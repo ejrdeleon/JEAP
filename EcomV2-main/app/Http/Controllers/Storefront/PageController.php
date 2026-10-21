@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Storefront;
 
 use App\Commerce\CommissionService;
+use App\Commerce\InventoryPolicy;
 use App\Enums\OrderStatus;
 use App\Http\Controllers\Controller;
 use App\Models\Cart;
@@ -15,6 +16,7 @@ use App\Payments\PaymentGateway;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
@@ -46,6 +48,7 @@ class PageController extends Controller
             'cart' => $cart,
             'addresses' => $addresses,
             'mapsKey' => config('services.google.maps_browser_key'),
+            'shippingFee' => InventoryPolicy::shippingFee(),
         ]);
     }
 
@@ -154,9 +157,9 @@ class PageController extends Controller
                             'cart' => 'A product in your cart is no longer available. Remove it and try again.',
                         ]);
                     }
-                    if ($variant->stock < $item->quantity) {
+                    if (! InventoryPolicy::isSellable($variant) || $item->quantity > InventoryPolicy::maxQtyPerProduct() || $variant->stock < $item->quantity) {
                         throw ValidationException::withMessages([
-                            'cart' => "There is not enough stock for {$variant->product->name}.",
+                            'cart' => "{$variant->product->name} cannot be ordered. Stock must be at least ".InventoryPolicy::minSellableStock().' and quantity cannot exceed '.InventoryPolicy::maxQtyPerProduct().'.',
                         ]);
                     }
 
@@ -166,6 +169,7 @@ class PageController extends Controller
                     $lines[] = [$item, $variant, $lineTotal];
                 }
 
+                $shippingFee = InventoryPolicy::shippingFee();
                 $order = Order::create([
                     'checkout_group_id' => $groupId,
                     'order_number' => 'JEAP-'.strtoupper(Str::random(8)),
@@ -173,9 +177,9 @@ class PageController extends Controller
                     'seller_id' => $sellerId,
                     'status' => OrderStatus::Placed,
                     'subtotal' => $subtotal,
-                    'shipping_fee' => 0,
+                    'shipping_fee' => $shippingFee,
                     'discount' => 0,
-                    'total' => $subtotal,
+                    'total' => $subtotal + $shippingFee,
                     'shipping_address_id' => $savedAddress->id,
                     'shipping_address_snapshot' => $address,
                     'notes' => $data['notes'] ?? null,
@@ -238,9 +242,18 @@ class PageController extends Controller
             'last_name' => ['required', 'string', 'max:80'],
             'email' => ['required', 'email', 'max:255', 'unique:users,email,'.$request->user()->id],
             'phone' => ['nullable', 'string', 'max:32'],
+            'avatar' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
         ]);
 
-        $request->user()->update($data);
+        $user = $request->user();
+        unset($data['avatar']);
+        if ($request->hasFile('avatar')) {
+            if ($user->avatar_path && ! str_starts_with((string) $user->avatar_path, 'http')) {
+                Storage::disk('public')->delete($user->avatar_path);
+            }
+            $data['avatar_path'] = $request->file('avatar')->store('avatars/'.$user->id, 'public');
+        }
+        $user->update($data);
 
         return back()->with('toast', 'Account info saved');
     }

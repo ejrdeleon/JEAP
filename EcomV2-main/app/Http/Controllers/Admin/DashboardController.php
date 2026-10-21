@@ -2,9 +2,11 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Commerce\CommissionService;
 use App\Enums\UserStatus;
 use App\Http\Controllers\Controller;
 use App\Models\Announcement;
+use App\Models\Commission;
 use App\Models\Complaint;
 use App\Models\Order;
 use App\Models\User;
@@ -26,8 +28,9 @@ class DashboardController extends Controller
                 ->whereNotIn('status', ['CANCELLED', 'RETURNED'])
                 ->sum('total'),
             'openDisputes' => Complaint::query()->whereIn('status', ['open', 'under_review'])->count(),
-            'recentOrders' => Order::query()->with(['buyer', 'seller'])->latest()->limit(8)->get(),
-            'figma' => '01_Admin_Dashboard 1',
+            'logisticsCommission' => Commission::query()->whereNotIn('status', ['void'])->sum('amount'),
+            'commissionRate' => CommissionService::rate(),
+            'recentOrders' => Order::query()->with(['buyer', 'seller', 'commission'])->latest()->limit(8)->get(),
         ]);
     }
 
@@ -94,6 +97,9 @@ class DashboardController extends Controller
                 ->whereDoesntHave('roles', fn ($query) => $query->whereIn('name', ['admin', 'super-admin']))->count(),
             'userStatuses' => User::query()->selectRaw('status, count(*) as total')->groupBy('status')->get(),
             'monthlySales' => $months,
+            'logisticsCommission' => Commission::query()->whereNotIn('status', ['void'])->sum('amount'),
+            'pendingCommission' => Commission::query()->where('status', 'pending')->sum('amount'),
+            'commissionRate' => CommissionService::rate(),
             'topProducts' => DB::table('order_items')
                 ->join('orders', 'orders.id', '=', 'order_items.order_id')
                 ->whereNotIn('orders.status', ['CANCELLED', 'RETURNED'])

@@ -93,4 +93,22 @@ class LogisticsRiderOnboardingTest extends TestCase
         RiderActivationToken::query()->where('user_id', $rider->id)->update(['expires_at' => now()->subSecond()]);
         $this->get($last->activationUrl)->assertNotFound();
     }
+
+    public function test_hub_pages_share_the_same_sidebar(): void
+    {
+        $this->seed(RoleSeeder::class);
+        $logistics = User::factory()->create(['status' => UserStatus::Active]);
+        $logistics->assignRole('logistics');
+        LogisticsProfile::query()->create(['user_id' => $logistics->id, 'hub_business_name' => 'JEAP Laguna Sorting Center']);
+
+        foreach ([route('logistics.shipments'), route('logistics.couriers'), route('logistics.riders')] as $url) {
+            $this->actingAs($logistics)->get($url)
+                ->assertOk()
+                ->assertSee('Shipments', false)
+                ->assertSee('Courier approvals', false)
+                ->assertSee('Rider management', false)
+                ->assertDontSee('Warehouse', false)
+                ->assertDontSee('Rider approvals', false);
+        }
+    }
 }

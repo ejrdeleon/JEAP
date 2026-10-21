@@ -1,8 +1,7 @@
 @extends('layouts.dashboard')
 @section('title', 'Courier approvals')
 @section('nav')
-    <a href="{{ route('logistics.dashboard') }}">Warehouse</a>
-    <a class="active" href="{{ route('logistics.couriers') }}">Courier approvals</a>
+    @include('partials.logistics-nav')
 @endsection
 @section('content')
     <h1>Courier approval queue</h1>

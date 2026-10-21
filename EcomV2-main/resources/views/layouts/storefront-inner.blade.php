@@ -41,7 +41,7 @@
                                 <a href="{{ route('about') }}">About</a>
                                 <a href="{{ route('profile') }}">Profile</a>
                                 <a href="{{ route('login') }}">Login</a>
-                                <a href="{{ route('register') }}">Register</a>
+                                <a href="{{ route('register') }}">Sign up</a>
                                 <a href="{{ route('cart.index') }}">Cart</a>
                                 <a href="{{ route('checkout') }}">Checkout</a>
                                 <a href="{{ route('help') }}">Help</a>
@@ -71,7 +71,7 @@
                             @auth
                                 <a href="{{ route('profile') }}">{{ auth()->user()->first_name }}</a>
                             @else
-                                <a href="{{ route('login') }}">log in / Register</a>
+                                <a href="{{ route('login') }}">Log in / Sign up</a>
                             @endauth
                         </div>
                         <a class="s3-cartlink" href="{{ route('cart.index') }}">
@@ -95,11 +95,6 @@
                     <input type="search" name="q" placeholder="Search anything..." value="{{ request('q') }}">
                     <button type="submit" aria-label="Search">⌕</button>
                 </form>
-                <div class="s3-perks">
-                    <span>🚚 free shipping over ₱199</span>
-                    <span>↩ 30 days money back</span>
-                    <span>🔒 100% secure payment</span>
-                </div>
             </div>
             <div class="s3-crumb">
                 <a href="{{ route('home') }}">Home</a>
@@ -117,7 +112,7 @@
         <div class="s3-footer-inner">
             <div class="s3-fg">
                 <div>
-                    <strong>JEAP — 1st PH tech online market</strong>
+                    <strong>JEAP — Philippine marketplace</strong>
                     <p class="s3-hot">hotline 24/7</p>
                     <p class="s3-phone">{{ config('jeap.hotline') }}</p>
                     <p>Laguna, Philippines · in-house sorting center logistics</p>
@@ -127,13 +122,10 @@
                     </div>
                 </div>
                 <div>
-                    <strong>top Categories</strong>
-                    <p><a href="{{ route('products.index', ['category' => 'computers']) }}">Laptops</a></p>
-                    <p><a href="{{ route('products.index', ['category' => 'televisions']) }}">Televisions</a></p>
-                    <p><a href="{{ route('products.index', ['category' => 'mobiles']) }}">Mobiles</a></p>
-                    <p><a href="{{ route('products.index', ['category' => 'kitchen']) }}">Kitchen</a></p>
-                    <p><a href="{{ route('products.index', ['category' => 'gaming']) }}">Gaming</a></p>
-                    <p><a href="{{ route('products.index', ['category' => 'audios']) }}">Audios</a></p>
+                    <strong>Categories</strong>
+                    @foreach(($navCategories ?? collect())->take(6) as $cat)
+                        <p><a href="{{ route('products.index', ['category' => $cat->slug]) }}">{{ $cat->name }}</a></p>
+                    @endforeach
                 </div>
                 <div>
                     <strong>company</strong>
@@ -151,9 +143,8 @@
                 </div>
                 <div>
                     <strong>partner</strong>
-                    <p><a href="{{ route('register') }}">Become Seller</a></p>
-                    <p><a href="{{ route('register') }}">Courier</a></p>
-                    <p><a href="{{ route('register') }}">Sorting Center</a></p>
+                    <p><a href="{{ route('register.seller') }}">Become a seller</a></p>
+                    <p><a href="{{ route('register.logistics') }}">Sorting center</a></p>
                 </div>
             </div>
             <div class="s3-legal">

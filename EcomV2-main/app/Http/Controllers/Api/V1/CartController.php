@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Commerce\InventoryPolicy;
 use App\Http\Controllers\Controller;
 use App\Models\Cart;
 use App\Models\CartItem;
@@ -33,7 +34,7 @@ class CartController extends Controller
     {
         $data = $request->validate([
             'product_variant_id' => ['required', 'integer', 'exists:product_variants,id'],
-            'quantity' => ['required', 'integer', 'min:1'],
+            'quantity' => ['required', 'integer', 'min:1', 'max:'.InventoryPolicy::maxQtyPerProduct()],
         ]);
 
         $variant = ProductVariant::query()->whereKey($data['product_variant_id'])
@@ -42,17 +43,17 @@ class CartController extends Controller
             ->with('product')
             ->firstOrFail();
 
-        if ($variant->stock < $data['quantity']) {
-            return response()->json(['message' => 'Not enough stock.'], 422);
-        }
-
         $cart = $this->getOrCreateCart($request);
-
         $item = $cart->items()->where('product_variant_id', $variant->id)->first();
         $newQuantity = ($item?->quantity ?? 0) + $data['quantity'];
+        $limit = min(InventoryPolicy::maxQtyPerProduct(), $variant->stock);
 
-        if ($variant->stock < $newQuantity) {
-            return response()->json(['message' => 'Not enough stock.'], 422);
+        if (! InventoryPolicy::isSellable($variant)) {
+            return response()->json(['message' => 'This product needs at least '.InventoryPolicy::minSellableStock().' units in stock before it can be sold.'], 422);
+        }
+
+        if ($newQuantity > $limit) {
+            return response()->json(['message' => 'You can add at most '.InventoryPolicy::maxQtyPerProduct().' units of this product.'], 422);
         }
 
         if ($item) {
@@ -72,7 +73,7 @@ class CartController extends Controller
     public function update(Request $request, int $itemId): JsonResponse
     {
         $data = $request->validate([
-            'quantity' => ['required', 'integer', 'min:1'],
+            'quantity' => ['required', 'integer', 'min:1', 'max:'.InventoryPolicy::maxQtyPerProduct()],
         ]);
 
         $cart = $this->getOrCreateCart($request);
@@ -81,8 +82,9 @@ class CartController extends Controller
         if (! $item->variant?->is_active || $item->variant?->product?->status !== 'active') {
             return response()->json(['message' => 'This product is no longer available.'], 422);
         }
-        if ($item->variant->stock < $data['quantity']) {
-            return response()->json(['message' => 'Not enough stock.'], 422);
+        $limit = min(InventoryPolicy::maxQtyPerProduct(), $item->variant->stock);
+        if (! InventoryPolicy::isSellable($item->variant) || $data['quantity'] > $limit) {
+            return response()->json(['message' => 'You can keep at most '.InventoryPolicy::maxQtyPerProduct().' units of this product.'], 422);
         }
         $item->update(['quantity' => $data['quantity'], 'unit_price' => $item->variant->price]);
 

@@ -4,7 +4,7 @@
 @section('crumb')
     <a href="{{ route('products.index') }}">Shop</a>
     <span>/</span>
-    <a href="{{ route('products.index', ['category' => $product->category?->slug]) }}">{{ $product->category?->name ?? 'Top Cell Phones & Tablets' }}</a>
+    <a href="{{ route('products.index', ['category' => $product->category?->slug]) }}">{{ $product->category?->name ?? 'Shop' }}</a>
     <span>/</span>
     <span>{{ $product->name }}</span>
 @endsection
@@ -17,7 +17,7 @@
     $cartItems = $cart?->items ?? collect();
     $cartTotal = $cartItems->sum(fn ($i) => $i->unit_price * $i->quantity);
 @endphp
-<section class="s3-main" data-figma="Single Product pay 7:1967">
+<section class="s3-main">
     <div class="s3-pdp">
         <div class="s3-gallery">
             <div class="s3-gallery-main">
@@ -38,18 +38,22 @@
             @if($product->description)
                 <p class="s3-bullets">{{ $product->description }}</p>
             @endif
-            <span class="s3-chip">free shipping</span>
-            <p class="in-stock">{{ $variant && $variant->stock > 0 ? '● In stock' : 'Out of stock' }}</p>
+            <span class="s3-chip">₱{{ number_format(\App\Commerce\InventoryPolicy::shippingFee(), 0) }} shipping · COD</span>
+            @php
+                $canBuy = $variant?->isSellable();
+                $maxQty = $variant ? min(\App\Commerce\InventoryPolicy::maxQtyPerProduct(), $variant->stock) : 1;
+            @endphp
+            <p class="in-stock">{{ $canBuy ? '● In stock' : 'Not available to sell yet' }}</p>
             <p><strong>qty</strong></p>
             <form method="post" action="{{ route('cart.add') }}" style="display:flex;flex-wrap:wrap;gap:16px;align-items:center;" data-cart-add-form data-existing-quantity="{{ $cartQuantity }}">
                 @csrf
                 <input type="hidden" name="product_variant_id" value="{{ $variant?->id }}">
                 <div class="s3-qty" data-quantity-control style="height:53px;">
-                    <button type="button" data-quantity-decrease aria-label="Decrease quantity" @disabled(! $variant || $variant->stock < 1)>−</button>
-                    <input type="number" name="quantity" value="1" min="1" max="{{ $variant?->stock ?? 1 }}" data-quantity-input @disabled(! $variant || $variant->stock < 1)>
-                    <button type="button" data-quantity-increase aria-label="Increase quantity" @disabled(! $variant || $variant->stock < 1)>+</button>
+                    <button type="button" data-quantity-decrease aria-label="Decrease quantity" @disabled(! $canBuy)>−</button>
+                    <input type="number" name="quantity" value="1" min="1" max="{{ $maxQty }}" data-quantity-input @disabled(! $canBuy)>
+                    <button type="button" data-quantity-increase aria-label="Increase quantity" @disabled(! $canBuy)>+</button>
                 </div>
-                <button class="s3-add" type="submit" style="width:min(199px, 100%);margin:0;" @disabled(! $variant || $variant->stock < 1)>Add To Cart</button>
+                <button class="s3-add" type="submit" style="width:min(199px, 100%);margin:0;" @disabled(! $canBuy)>Add To Cart</button>
                 <a href="{{ route('profile') }}" style="width:50px;height:50px;display:grid;place-items:center;border:1px solid #eee;">♡</a>
             </form>
             <p style="margin-top:16px;"><small>Guaranteed Safe Checkout</small></p>

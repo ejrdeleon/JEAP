@@ -19,7 +19,6 @@ use App\Http\Controllers\Logistics\RiderController as LogisticsRiderController;
 use App\Http\Controllers\Logistics\ShipmentController as LogisticsShipmentController;
 use App\Http\Controllers\PhilippineLocationController;
 use App\Http\Controllers\Seller\DashboardController as SellerDashboard;
-use App\Http\Controllers\Seller\StoreProfileController;
 use App\Http\Controllers\Shipping\PageController as ShippingPage;
 use App\Http\Controllers\Storefront\CartController;
 use App\Http\Controllers\Storefront\ContactController;
@@ -73,7 +72,7 @@ Route::get('/philippines/locations/{level}', [PhilippineLocationController::clas
     ->name('philippines.locations');
 
 Route::middleware(['auth', 'approved'])->group(function () {
-    Route::middleware('role:buyer')->group(function () {
+    Route::middleware('role:buyer|super-admin')->group(function () {
         Route::get('/checkout', [PageController::class, 'checkout'])->name('checkout');
         Route::post('/checkout', [PageController::class, 'place'])->name('checkout.place')->middleware('throttle:10,1');
     });
@@ -84,7 +83,7 @@ Route::middleware(['auth', 'approved'])->group(function () {
 
     Route::prefix('buyer')->name('buyer.')->group(function () {
         Route::get('/', [BuyerDashboard::class, 'home'])->name('home');
-        Route::middleware('role:buyer')->group(function () {
+        Route::middleware('role:buyer|super-admin')->group(function () {
             Route::get('/wishlist', [WishlistController::class, 'index'])->name('wishlist');
             Route::post('/wishlist/{product}', [WishlistController::class, 'saveProduct'])->name('wishlist.save');
             Route::delete('/wishlist/{product}', [WishlistController::class, 'removeProduct'])->name('wishlist.remove');
@@ -102,7 +101,7 @@ Route::middleware(['auth', 'approved'])->group(function () {
         Route::post('/orders/{order}/confirm-received', [BuyerDashboard::class, 'confirmReceived'])->middleware('throttle:10,1')->name('orders.confirm-received');
     });
 
-    Route::middleware('role:seller')->prefix('seller')->name('seller.')->group(function () {
+    Route::middleware('role:seller|super-admin')->prefix('seller')->name('seller.')->group(function () {
         Route::get('/', [SellerDashboard::class, 'index'])->name('dashboard');
         Route::get('/catalog', [SellerDashboard::class, 'catalog'])->name('catalog');
         Route::post('/catalog', [SellerDashboard::class, 'storeProduct'])->name('catalog.store');
@@ -113,8 +112,6 @@ Route::middleware(['auth', 'approved'])->group(function () {
         Route::patch('/orders/{order}/status', [SellerDashboard::class, 'updateOrderStatus'])->middleware('throttle:30,1')->name('orders.status');
         Route::get('/promos', [SellerDashboard::class, 'promos'])->name('promos');
         Route::get('/shipments', [SellerDashboard::class, 'shipments'])->name('shipments');
-        Route::get('/store-profile', [StoreProfileController::class, 'edit'])->name('store-profile');
-        Route::post('/store-profile', [StoreProfileController::class, 'update'])->name('store-profile.update')->middleware('throttle:20,1');
     });
 
     Route::middleware('role:courier')->prefix('courier')->name('courier.')->group(function () {
@@ -133,7 +130,7 @@ Route::middleware(['auth', 'approved'])->group(function () {
         Route::post('/couriers/{user}', [CourierReviewController::class, 'decide'])
             ->middleware('throttle:30,1')
             ->name('couriers.decide');
-        Route::middleware('role:logistics')->group(function (): void {
+        Route::middleware('role:logistics|super-admin')->group(function (): void {
             Route::get('/riders', [LogisticsRiderController::class, 'index'])->name('riders');
             Route::post('/riders', [LogisticsRiderController::class, 'store'])->middleware('throttle:10,1')->name('riders.store');
             Route::post('/riders/{user}/resend-activation', [LogisticsRiderController::class, 'resend'])->middleware('throttle:3,1')->name('riders.resend');

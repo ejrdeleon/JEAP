@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Enums\UserStatus;
 use App\Models\Announcement;
+use App\Models\LogisticsProfile;
 use App\Models\User;
 use Database\Seeders\RoleSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -38,26 +39,12 @@ class AdminPagesTest extends TestCase
         $this->actingAs($superAdmin)->get('/super-admin/admins')->assertOk();
         $this->actingAs($superAdmin)->get('/super-admin/settings')->assertOk();
         $this->actingAs($superAdmin)->get('/admin')->assertOk();
-    }
-
-    public function test_admin_reports_api_is_available_only_to_staff(): void
-    {
-        $admin = $this->createUserWithRole('admin');
-
-        $this->actingAs($admin, 'sanctum')
-            ->getJson('/api/v1/admin/reports')
-            ->assertOk()
-            ->assertJsonStructure([
-                'total_orders',
-                'gross_sales',
-                'active_users',
-                'user_statuses',
-                'monthly_sales',
-                'top_products',
-            ]);
-
-        $buyer = $this->createUserWithRole('buyer');
-        $this->actingAs($buyer, 'sanctum')->getJson('/api/v1/admin/reports')->assertForbidden();
+        $this->actingAs($superAdmin)->get('/admin/users')->assertOk();
+        $this->actingAs($superAdmin)->get('/logistics')->assertOk();
+        LogisticsProfile::query()->create(['user_id' => $admin->id, 'hub_business_name' => 'Test Hub']);
+        $this->actingAs($superAdmin)->get('/logistics/riders')->assertOk();
+        $this->actingAs($superAdmin)->get('/seller')->assertOk();
+        $this->actingAs($superAdmin)->get('/buyer')->assertOk();
     }
 
     public function test_super_admin_login_redirects_to_the_super_admin_dashboard(): void

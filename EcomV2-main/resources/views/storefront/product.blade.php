@@ -14,8 +14,10 @@
     $variant = $product->defaultVariant();
     $images = $product->images;
     $main = $product->primaryImage();
+    $maxQty = $variant ? min(\App\Commerce\InventoryPolicy::maxQtyPerProduct(), $variant->stock) : 1;
+    $canBuy = $variant?->isSellable();
 @endphp
-<section class="s3-main" data-figma="Single Product 1:3733">
+<section class="s3-main">
     <div class="s3-pdp">
         <div class="s3-gallery">
             <div class="s3-gallery-main">
@@ -40,7 +42,7 @@
             @if($product->description)
                 <p class="s3-bullets">{{ $product->description }}</p>
             @endif
-            <span class="s3-chip">free shipping</span>
+            <span class="s3-chip">₱{{ number_format(\App\Commerce\InventoryPolicy::shippingFee(), 0) }} shipping · COD</span>
             <div style="margin:16px 0;">
                 @if($variant?->color)
                     <strong>Color:</strong> {{ $variant->color }}
@@ -57,18 +59,21 @@
             <div class="s3-paycard">
                 <small>Total Price:</small>
                 <div class="price">₱{{ number_format($variant?->price ?? 0, 2) }}</div>
-                <p class="in-stock" aria-live="polite">{{ $variant && $variant->stock > 0 ? '● In stock' : 'Out of stock' }}</p>
+                <p class="in-stock" aria-live="polite">{{ $canBuy ? '● In stock' : 'Not available to sell yet' }}</p>
                 <form method="post" action="{{ route('cart.add') }}" data-cart-add-form data-existing-quantity="{{ $cartQuantity }}">
                     @csrf
                     @if($variant)
                         <input type="hidden" name="product_variant_id" value="{{ $variant->id }}">
                     @endif
                     <div class="s3-qty" data-quantity-control style="width:100%;height:53px;border-radius:4px;">
-                        <button type="button" data-quantity-decrease aria-label="Decrease quantity" @disabled(! $variant || $variant->stock < 1)>−</button>
-                        <input type="number" name="quantity" value="1" min="1" max="{{ $variant?->stock ?? 1 }}" data-quantity-input @disabled(! $variant || $variant->stock < 1)>
-                        <button type="button" data-quantity-increase aria-label="Increase quantity" @disabled(! $variant || $variant->stock < 1)>+</button>
+                        <button type="button" data-quantity-decrease aria-label="Decrease quantity" @disabled(! $canBuy)>−</button>
+                        <input type="number" name="quantity" value="1" min="1" max="{{ $maxQty }}" data-quantity-input @disabled(! $canBuy)>
+                        <button type="button" data-quantity-increase aria-label="Increase quantity" @disabled(! $canBuy)>+</button>
                     </div>
-                    <button class="s3-add" type="submit" @disabled(! $variant || $variant->stock < 1)>Add To Cart</button>
+                    <button class="s3-add" type="submit" @disabled(! $canBuy)>Add To Cart</button>
+                    @if(! $canBuy)
+                        <p class="cart-stock is-unavailable">Sellers need at least {{ \App\Commerce\InventoryPolicy::minSellableStock() }} units in stock before this can be sold. Limit {{ \App\Commerce\InventoryPolicy::maxQtyPerProduct() }} per product in cart.</p>
+                    @endif
                 </form>
                 @auth
                     @if(auth()->user()->hasRole('buyer'))
@@ -121,7 +126,7 @@
                         @if($img)<img src="{{ asset($img->path) }}" alt="{{ $item->name }}">@endif
                         <h6>{{ $item->name }}</h6>
                         <div class="price">₱{{ number_format($v?->price ?? 0, 2) }}</div>
-                        <span class="s3-chip">free shipping</span>
+                        <span class="s3-chip">₱{{ number_format(\App\Commerce\InventoryPolicy::shippingFee(), 0) }} shipping · COD</span>
                     </a>
                 </article>
             @endforeach

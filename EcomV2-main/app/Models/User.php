@@ -30,6 +30,7 @@ class User extends Authenticatable
         'birthday',
         'terms_accepted_at',
         'password',
+        'avatar_path',
     ];
 
     protected $hidden = [
@@ -67,6 +68,19 @@ class User extends Authenticatable
     public function isApproved(): bool
     {
         return $this->status === UserStatus::Active;
+    }
+
+    public function avatarUrl(): ?string
+    {
+        if (! $this->avatar_path) {
+            return null;
+        }
+
+        if (str_starts_with($this->avatar_path, 'http://') || str_starts_with($this->avatar_path, 'https://')) {
+            return $this->avatar_path;
+        }
+
+        return asset('storage/'.$this->avatar_path);
     }
 
     public function sellerProfile(): HasOne

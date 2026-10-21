@@ -11,6 +11,8 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Laravel\Socialite\Contracts\User as SocialiteUser;
 use Laravel\Socialite\Facades\Socialite;
@@ -83,10 +85,15 @@ class GoogleAuthController extends Controller
                             'password' => Hash::make(Str::random(64)),
                             'email_verified_at' => now(),
                         ]);
-                        $user->forceFill(['google_id' => $googleId])->save();
+                        $user->forceFill([
+                            'google_id' => $googleId,
+                            'status' => UserStatus::Active,
+                        ])->save();
                         $user->assignRole('buyer');
                     }
                 }
+
+                $this->storeGoogleAvatar($user, $google->getAvatar());
 
                 return $user;
             });
@@ -113,6 +120,26 @@ class GoogleAuthController extends Controller
         Auth::login($user);
 
         return $login->completeSuccessfulLogin($request, $user, $cartSessionId);
+    }
+
+    private function storeGoogleAvatar(User $user, ?string $avatarUrl): void
+    {
+        if (! $avatarUrl || $user->avatar_path) {
+            return;
+        }
+
+        try {
+            $response = Http::timeout(8)->get($avatarUrl);
+            if (! $response->successful() || $response->body() === '') {
+                return;
+            }
+
+            $path = 'avatars/'.$user->id.'/google.jpg';
+            Storage::disk('public')->put($path, $response->body());
+            $user->forceFill(['avatar_path' => $path])->save();
+        } catch (Throwable) {
+            // Keep sign-in working even if Google's avatar cannot be stored.
+        }
     }
 
     private function returnToAuthPage(Request $request, string $message): RedirectResponse

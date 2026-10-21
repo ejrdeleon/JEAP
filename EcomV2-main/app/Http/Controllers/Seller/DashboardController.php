@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Seller;
 
+use App\Commerce\InventoryPolicy;
 use App\Enums\OrderStatus;
 use App\Enums\PaymentStatus;
 use App\Http\Controllers\Controller;
@@ -28,10 +29,9 @@ class DashboardController extends Controller
 
         return view('seller.dashboard', [
             'productCount' => Product::query()->where('seller_id', $sellerId)->where('status', 'active')->count(),
-            'lowStockCount' => ProductVariant::query()->whereHas('product', fn ($q) => $q->where('seller_id', $sellerId)->where('status', 'active'))->where('is_active', true)->where('stock', '<=', 5)->count(),
+            'lowStockCount' => ProductVariant::query()->whereHas('product', fn ($q) => $q->where('seller_id', $sellerId)->where('status', 'active'))->where('is_active', true)->where('stock', '<', InventoryPolicy::minSellableStock())->count(),
             'openOrderCount' => Order::query()->where('seller_id', $sellerId)->whereNotIn('status', [OrderStatus::Completed->value, OrderStatus::Cancelled->value, OrderStatus::Returned->value])->count(),
             'recentOrders' => Order::query()->where('seller_id', $sellerId)->with(['items', 'commission'])->latest('placed_at')->take(6)->get(),
-            'figma' => 'Seller center',
         ]);
     }
 
@@ -202,7 +202,7 @@ class DashboardController extends Controller
 
     private function validatedProduct(Request $request): array
     {
-        return $request->validate([
+        $data = $request->validate([
             'name' => ['required', 'string', 'max:180'],
             'category_id' => ['required', 'integer', Rule::exists('categories', 'id')->where('is_active', true)],
             'description' => ['nullable', 'string', 'max:10000'],
@@ -212,6 +212,14 @@ class DashboardController extends Controller
             'status' => ['required', Rule::in(['active', 'draft'])],
             'image' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
         ]);
+
+        if ($data['status'] === 'active' && $data['stock'] < InventoryPolicy::minSellableStock()) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'stock' => 'Active listings need at least '.InventoryPolicy::minSellableStock().' units in stock before they can be sold.',
+            ]);
+        }
+
+        return $data;
     }
 
     private function ownedProduct(Product $product): Product

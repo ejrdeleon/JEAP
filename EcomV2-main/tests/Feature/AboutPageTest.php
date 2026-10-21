@@ -31,24 +31,26 @@ class AboutPageTest extends TestCase
         $this->get('/')
             ->assertOk()
             ->assertSee('₱')
-            ->assertSee('PHP')
+            ->assertDontSee('COD only in v1')
+            ->assertDontSee('PHP pricing')
             ->assertDontSee('$')
             ->assertDontSee('Subscribe to get updates on deals')
             ->assertDontSee('USD');
     }
 
-    public function test_first_order_promotion_is_only_shown_to_guests(): void
+    public function test_guest_topbar_invites_sign_up_without_a_fake_discount(): void
     {
         $this->get('/')
             ->assertOk()
-            ->assertSee('Get 10%')
-            ->assertSee('Register Now');
+            ->assertSee('Sign up')
+            ->assertSee('Cash on Delivery')
+            ->assertDontSee('Get 10%')
+            ->assertDontSee('Register Now');
 
         $user = User::factory()->create();
 
         $this->actingAs($user)->get('/')
             ->assertOk()
-            ->assertDontSee('Get 10%')
-            ->assertDontSee('Register Now');
+            ->assertDontSee('Get 10% DISCOUNT');
     }
 }

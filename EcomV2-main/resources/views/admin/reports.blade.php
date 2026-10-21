@@ -11,11 +11,12 @@
 @endsection
 @section('content')
     <section class="admin-page">
-        <header class="admin-heading"><div><span class="admin-eyebrow">MARKETPLACE ANALYTICS</span><h1>Reports</h1><p>Order, sales, and account activity across JEAP.</p></div></header>
+        <header class="admin-heading"><div><h1>Reports</h1><p>Order, sales, and the {{ number_format($commissionRate, 0) }}% logistics cut on merchandise.</p></div></header>
         <div class="admin-stats admin-stats-three">
             <article><span>Total orders</span><strong>{{ number_format($totalOrders) }}</strong></article>
             <article><span>Gross sales</span><strong>₱{{ number_format($grossSales, 2) }}</strong></article>
             <article><span>Active marketplace users</span><strong>{{ number_format($activeUsers) }}</strong></article>
+            <article><span>Logistics commission</span><strong>₱{{ number_format($logisticsCommission, 2) }}</strong><small>{{ number_format($pendingCommission, 2) }} pending</small></article>
         </div>
         <div class="admin-report-grid">
             <section class="admin-panel"><h2>Monthly sales</h2><p class="admin-subtitle">Six most recent calendar months</p>

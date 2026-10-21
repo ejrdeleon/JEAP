@@ -48,7 +48,7 @@ class AppServiceProvider extends ServiceProvider
         });
 
         View::composer(['layouts.storefront', 'layouts.storefront-inner'], function ($view) {
-            $view->with('navCategories', Category::query()->where('is_active', true)->orderBy('sort_order')->get());
+            $view->with('navCategories', Category::query()->where('is_active', true)->parents()->orderBy('sort_order')->get());
 
             $cart = null;
             if (Auth::check()) {

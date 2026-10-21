@@ -3,12 +3,12 @@
 namespace App\Http\Controllers\Logistics;
 
 use App\Http\Controllers\Controller;
-use Illuminate\View\View;
+use Illuminate\Http\RedirectResponse;
 
 class DashboardController extends Controller
 {
-    public function index(): View
+    public function index(): RedirectResponse
     {
-        return view('logistics.dashboard', ['figma' => '12_Warehouse_Management 1']);
+        return redirect()->route('logistics.shipments');
     }
 }

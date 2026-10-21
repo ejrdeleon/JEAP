@@ -9,8 +9,9 @@
 </head>
 <body class="dash">
     <aside class="dash-side">
-        <strong>{{ $brand ?? 'JEAP' }}</strong>
-        <p style="opacity:.7;font-size:12px;">{{ $figma ?? '' }}</p>
+        <a class="dash-brand" href="{{ route('home') }}">
+            <img src="{{ asset('images/storefront/logo.svg') }}" alt="JEAP" width="88" height="32">
+        </a>
         <nav>
             @yield('nav')
             <a href="{{ route('home') }}">Storefront</a>

@@ -15,7 +15,7 @@
 @endphp
 <div class="seller-page">
     <div class="seller-heading">
-        <div><span class="seller-eyebrow">SELLER CENTER / CATALOG</span><h1>{{ $editing ? 'Edit product' : 'Your products' }}</h1><p>Keep your listings, prices, and stock up to date.</p></div>
+        <div><h1>{{ $editing ? 'Edit product' : 'Your products' }}</h1><p>Active listings need at least {{ \App\Commerce\InventoryPolicy::minSellableStock() }} units in stock.</p></div>
         @if($editing)<a class="seller-secondary" href="{{ route('seller.catalog') }}">Cancel edit</a>@endif
     </div>
     @if(session('status'))<div class="seller-flash">{{ session('status') }}</div>@endif
@@ -43,6 +43,7 @@
             </label>
             <label class="seller-field">Available stock
                 <input type="number" name="stock" min="0" step="1" value="{{ old('stock', $variant?->stock ?? 0) }}" required>
+                <small>Shoppers only see this product when stock is at least {{ \App\Commerce\InventoryPolicy::minSellableStock() }}.</small>
             </label>
             <label class="seller-field seller-field-wide">Product photo <span>(JPG, PNG or WebP, up to 5 MB)</span>
                 <input type="file" name="image" accept="image/jpeg,image/png,image/webp">

@@ -2,19 +2,25 @@
 
 @section('title', 'Shipment Operations')
 @section('nav')
-    <a class="active" href="{{ route('logistics.shipments') }}">Shipments</a>
-    <a href="{{ route('logistics.couriers') }}">Courier approvals</a>
-    @if (auth()->user()->hasRole('logistics'))<a href="{{ route('logistics.riders') }}">Rider management</a>@endif
+    @include('partials.logistics-nav')
 @endsection
 
 @section('content')
 <div class="shipment-page">
     <header class="shipment-heading">
         <div>
-            <span class="shipment-eyebrow">JEAP OPERATIONS</span>
             <h1>Shipments</h1>
-            <p>Assign pickups, record sorting-center handoffs, and send sorted parcels for delivery.</p>
+            <p>Grouped by destination. Assign pickups, receive parcels at the hub, then send them out for delivery. Logistics keeps 20% of merchandise plus the ₱{{ number_format(config('jeap.shipping_fee'), 0) }} shipping fee.</p>
         </div>
+        <form method="get" class="shipment-area-filter">
+            <label for="area">Destination</label>
+            <select id="area" name="area" onchange="this.form.submit()">
+                <option value="">All areas</option>
+                @foreach($areas ?? [] as $areaName)
+                    <option value="{{ $areaName }}" @selected(($selectedArea ?? '') === $areaName)>{{ $areaName }}</option>
+                @endforeach
+            </select>
+        </form>
     </header>
 
     @if(session('status'))<div class="shipment-notice is-success">{{ session('status') }}</div>@endif
@@ -26,20 +32,29 @@
             <span>{{ $orders->total() }} shipments</span>
         </div>
 
-        @forelse($orders as $order)
+        @forelse($groupedOrders ?? $orders->groupBy(fn () => 'Shipments') as $areaName => $areaOrders)
+            <h3 class="shipment-area-title">{{ $areaName }}</h3>
+            @foreach($areaOrders as $order)
             @php
                 $parcel = $order->parcel;
                 $pickup = $parcel?->pickupAssignment;
                 $delivery = $parcel?->deliveryAssignment;
                 $riderOptions = $couriers->concat(collect([$pickup?->courier, $delivery?->courier])->filter())->unique('id')->sortBy('first_name');
                 $status = $order->status;
+                $destination = trim(implode(', ', array_filter([
+                    $order->shipping_address_snapshot['barangay_name'] ?? null,
+                    $order->shipping_address_snapshot['city_name'] ?? null,
+                    $order->shipping_address_snapshot['region_name'] ?? null,
+                ])));
+                $cut = (float) ($order->commission?->amount ?? 0);
             @endphp
             <article class="shipment-row">
                 <div class="shipment-order-summary">
                     <span class="shipment-status">{{ str($status->value)->replace('_', ' ')->title() }}</span>
                     <h3>{{ $order->order_number }}</h3>
                     <p>{{ $parcel->tracking_number }} <span>·</span> {{ $order->seller?->name ?? 'Seller' }} to {{ $order->buyer?->name ?? 'Buyer' }}</p>
-                    <small>Placed {{ $order->placed_at?->format('M j, Y · g:i A') ?? '—' }}</small>
+                    @if($destination)<p>{{ $destination }}</p>@endif
+                    <small>Placed {{ $order->placed_at?->format('M j, Y · g:i A') ?? '—' }} · Logistics cut ₱{{ number_format($cut, 2) }}</small>
                 </div>
 
                 <div class="shipment-assignment">
@@ -94,6 +109,7 @@
                     @endif
                 </div>
             </article>
+            @endforeach
         @empty
             <div class="shipment-empty"><strong>No shipments need attention</strong><p>Orders appear here once the seller marks them ready for pickup.</p></div>
         @endforelse

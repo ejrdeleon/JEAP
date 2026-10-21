@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Storefront;
 
+use App\Commerce\InventoryPolicy;
 use App\Http\Controllers\Controller;
 use App\Models\Cart;
 use App\Models\CartItem;
@@ -16,11 +17,7 @@ class CartController extends Controller
     public function index(Request $request): View
     {
         $cart = $this->cart($request)->load(['items.variant.product.images', 'items.seller']);
-        $canCheckout = $cart->items->isNotEmpty() && $cart->items->every(fn (CartItem $item): bool => $item->variant?->is_active
-            && $item->variant?->product?->status === 'active'
-            && ! $item->variant?->product?->seller?->sellerProfile?->vacation_mode
-            && $item->variant->stock >= $item->quantity
-        );
+        $canCheckout = $cart->items->isNotEmpty() && $cart->items->every(fn (CartItem $item): bool => $this->itemIsCheckoutReady($item));
 
         return view('storefront.cart', compact('cart', 'canCheckout'));
     }
@@ -29,7 +26,7 @@ class CartController extends Controller
     {
         $data = $request->validate([
             'product_variant_id' => ['required', 'exists:product_variants,id'],
-            'quantity' => ['nullable', 'integer', 'min:1'],
+            'quantity' => ['nullable', 'integer', 'min:1', 'max:'.InventoryPolicy::maxQtyPerProduct()],
         ]);
 
         $variant = ProductVariant::query()
@@ -43,16 +40,14 @@ class CartController extends Controller
 
         $item = $cart->items()->where('product_variant_id', $variant->id)->first();
         $newQuantity = ($item?->quantity ?? 0) + $qty;
+        $limit = min(InventoryPolicy::maxQtyPerProduct(), $variant->stock);
 
-        if ($newQuantity > $variant->stock) {
-            if ($request->expectsJson() || $request->ajax()) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'The requested quantity is not available.',
-                    'stock' => $variant->stock,
-                ], 422);
-            }
-            return back()->withErrors(['quantity' => 'The requested quantity is not available.'])->withInput();
+        if (! InventoryPolicy::isSellable($variant)) {
+            return $this->quantityError($request, 'This product needs at least '.InventoryPolicy::minSellableStock().' units in stock before it can be sold.', $variant->stock);
+        }
+
+        if ($newQuantity > $limit) {
+            return $this->quantityError($request, 'You can add at most '.InventoryPolicy::maxQtyPerProduct().' units of this product.', $limit);
         }
 
         if ($item) {
@@ -83,7 +78,7 @@ class CartController extends Controller
     public function update(Request $request, CartItem $item): RedirectResponse|\Illuminate\Http\JsonResponse
     {
         $data = $request->validate([
-            'quantity' => ['required', 'integer', 'min:1'],
+            'quantity' => ['required', 'integer', 'min:1', 'max:'.InventoryPolicy::maxQtyPerProduct()],
         ]);
 
         $cart = $this->cart($request);
@@ -94,15 +89,9 @@ class CartController extends Controller
         }
 
         abort_unless($item->variant?->is_active && $item->variant?->product?->status === 'active' && ! $item->variant?->product?->seller?->sellerProfile?->vacation_mode, 404);
-        if ($data['quantity'] > $item->variant->stock) {
-            if ($request->expectsJson() || $request->ajax()) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'The requested quantity is not available.',
-                    'stock' => $item->variant->stock,
-                ], 422);
-            }
-            return back()->withErrors(['quantity' => 'The requested quantity is not available.'])->withInput();
+        $limit = min(InventoryPolicy::maxQtyPerProduct(), $item->variant->stock);
+        if (! InventoryPolicy::isSellable($item->variant) || $data['quantity'] > $limit) {
+            return $this->quantityError($request, 'You can keep at most '.InventoryPolicy::maxQtyPerProduct().' units of this product, and stock must be at least '.InventoryPolicy::minSellableStock().'.', $limit);
         }
         $item->update(['quantity' => $data['quantity'], 'unit_price' => $item->variant->price]);
 
@@ -112,12 +101,8 @@ class CartController extends Controller
             $cartCount = $cart->items->sum('quantity');
             $uniqueCount = $cart->items->count();
             $lineTotal = (float) $item->unit_price * $item->quantity;
-            $canCheckout = $cart->items->isNotEmpty() && $cart->items->every(fn (CartItem $i): bool => $i->variant?->is_active
-                && $i->variant?->product?->status === 'active'
-                && ! $i->variant?->product?->seller?->sellerProfile?->vacation_mode
-                && $i->variant->stock >= $i->quantity
-            );
-            $hasStock = $item->variant->stock >= $item->quantity;
+            $canCheckout = $cart->items->isNotEmpty() && $cart->items->every(fn (CartItem $i): bool => $this->itemIsCheckoutReady($i));
+            $hasStock = InventoryPolicy::isSellable($item->variant) && $item->variant->stock >= $item->quantity;
 
             return response()->json([
                 'success' => true,
@@ -131,7 +116,7 @@ class CartController extends Controller
                     'line_total_formatted' => '₱' . number_format($lineTotal, 2),
                     'stock' => $item->variant->stock,
                     'has_stock' => $hasStock,
-                    'can_increase' => $item->quantity < $item->variant->stock,
+                    'can_increase' => $item->quantity < min(InventoryPolicy::maxQtyPerProduct(), $item->variant->stock),
                     'can_decrease' => $item->quantity > 1,
                 ],
                 'cart' => [
@@ -162,11 +147,7 @@ class CartController extends Controller
             $cartTotal = $cart->items->sum(fn ($i) => (float) $i->unit_price * $i->quantity);
             $cartCount = $cart->items->sum('quantity');
             $uniqueCount = $cart->items->count();
-            $canCheckout = $cart->items->isNotEmpty() && $cart->items->every(fn (CartItem $i): bool => $i->variant?->is_active
-                && $i->variant?->product?->status === 'active'
-                && ! $i->variant?->product?->seller?->sellerProfile?->vacation_mode
-                && $i->variant->stock >= $i->quantity
-            );
+            $canCheckout = $cart->items->isNotEmpty() && $cart->items->every(fn (CartItem $i): bool => $this->itemIsCheckoutReady($i));
 
             return response()->json([
                 'success' => true,
@@ -185,6 +166,28 @@ class CartController extends Controller
         }
 
         return back()->with('toast', 'Removed from cart');
+    }
+
+    private function itemIsCheckoutReady(CartItem $item): bool
+    {
+        return InventoryPolicy::isSellable($item->variant)
+            && $item->variant?->product?->status === 'active'
+            && ! $item->variant?->product?->seller?->sellerProfile?->vacation_mode
+            && $item->variant->stock >= $item->quantity
+            && $item->quantity <= InventoryPolicy::maxQtyPerProduct();
+    }
+
+    private function quantityError(Request $request, string $message, int $stock): RedirectResponse|\Illuminate\Http\JsonResponse
+    {
+        if ($request->expectsJson() || $request->ajax()) {
+            return response()->json([
+                'success' => false,
+                'message' => $message,
+                'stock' => $stock,
+            ], 422);
+        }
+
+        return back()->withErrors(['quantity' => $message])->withInput();
     }
 
     private function cart(Request $request): Cart

@@ -63,7 +63,7 @@ class EmailVerificationController extends Controller
             return to_route('email.verify.show')->withErrors(['code' => $message]);
         }
 
-        $request->session()->forget('email_verification_user_id');
+        $request->session()->forget(['email_verification_user_id', 'email_verification_preview']);
         $message = $user->hasRole('buyer')
             ? 'Your email is verified. You can now sign in.'
             : 'Your email is verified. Your application is waiting for admin approval.';
@@ -81,6 +81,9 @@ class EmailVerificationController extends Controller
             ['user_id' => $user->id],
             ['code_hash' => Hash::make($code), 'expires_at' => now()->addMinutes(5), 'attempts' => 0],
         );
+        if (config('mail.default') === 'log') {
+            $request->session()->put('email_verification_preview', $code);
+        }
         try {
             $user->notify(new EmailVerificationCodeNotification($code));
         } catch (Throwable $exception) {

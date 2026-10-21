@@ -4,8 +4,12 @@
 @section('crumb')<span>Your cart</span>@endsection
 
 @section('content')
-@php $total = $cart->items->sum(fn ($item) => (float) $item->unit_price * $item->quantity); @endphp
-<section class="s3-main s3-cart cart-page" data-figma="Card 1:3510">
+@php
+    $merchandise = $cart->items->sum(fn ($item) => (float) $item->unit_price * $item->quantity);
+    $shippingFee = \App\Commerce\InventoryPolicy::shippingFee();
+    $maxQty = \App\Commerce\InventoryPolicy::maxQtyPerProduct();
+@endphp
+<section class="s3-main s3-cart cart-page">
     <div class="cart-items-column" data-cart-items-column>
         <header class="cart-page-heading">
             <div>
@@ -23,7 +27,9 @@
                 $product = $item->variant?->product;
                 $image = $product?->primaryImage();
                 $isAvailable = $item->variant?->is_active && $product?->status === 'active';
-                $hasStock = $isAvailable && $item->variant->stock >= $item->quantity;
+                $isSellable = $isAvailable && $item->variant->isSellable();
+                $hasStock = $isSellable && $item->variant->stock >= $item->quantity;
+                $lineMax = min($maxQty, $item->variant?->stock ?? 0);
             @endphp
             <article class="s3-pcard cart-item" data-cart-item="{{ $item->id }}" data-item-stock="{{ $item->variant?->stock ?? 0 }}">
                 @if($image)<img src="{{ asset($image->path) }}" alt="{{ $product->name }}">@else<div class="cart-product-placeholder" aria-hidden="true"><span></span></div>@endif
@@ -36,12 +42,13 @@
                         @csrf @method('PATCH')
                         <button type="submit" name="quantity" value="{{ max(1, $item->quantity - 1) }}" data-qty-btn="decrease" aria-label="Decrease quantity" @disabled($item->quantity <= 1)>−</button>
                         <input name="qty_display" value="{{ $item->quantity }}" readonly aria-label="Quantity" data-qty-input>
-                        <button type="submit" name="quantity" value="{{ $item->quantity + 1 }}" data-qty-btn="increase" aria-label="Increase quantity" @disabled(!$isAvailable || $item->quantity >= $item->variant->stock)>+</button>
+                        <button type="submit" name="quantity" value="{{ $item->quantity + 1 }}" data-qty-btn="increase" aria-label="Increase quantity" @disabled(!$isSellable || $item->quantity >= $lineMax)>+</button>
                     </form>
                     <div data-cart-stock-container>
                         @if(!$isAvailable)<p class="cart-stock is-unavailable">This product is no longer available. Remove it to continue.</p>
+                        @elseif(!$isSellable)<p class="cart-stock is-unavailable">This product needs at least {{ \App\Commerce\InventoryPolicy::minSellableStock() }} units in stock before it can be sold.</p>
                         @elseif(!$hasStock)<p class="cart-stock is-unavailable">Only {{ $item->variant->stock }} available. Reduce the quantity to continue.</p>
-                        @else<p class="cart-stock">In stock <span aria-hidden="true">·</span> {{ $item->variant->stock }} available</p>@endif
+                        @else<p class="cart-stock">In stock <span aria-hidden="true">·</span> up to {{ $lineMax }} per order</p>@endif
                     </div>
                 </div>
                 <form method="post" action="{{ route('cart.remove', $item) }}" class="cart-remove-form" data-cart-remove-form>
@@ -58,9 +65,10 @@
         <span class="account-eyebrow">YOUR ORDER</span><h2 id="cart-summary-title">Summary</h2>
         <div data-cart-summary-container>
             @if($cart->items->isNotEmpty())
-                <div class="s3-line"><span data-summary-products-count>{{ $cart->items->count() }} {{ Str::plural('product', $cart->items->count()) }}</span><strong data-summary-total>₱{{ number_format($total, 2) }}</strong></div>
-                <div class="s3-line cart-total"><strong>Subtotal</strong><strong data-summary-subtotal>₱{{ number_format($total, 2) }}</strong></div>
-                <p class="cart-summary-note">Cash on Delivery is available. Delivery details are confirmed during checkout.</p>
+                <div class="s3-line"><span data-summary-products-count>{{ $cart->items->count() }} {{ Str::plural('product', $cart->items->count()) }}</span><strong data-summary-total>₱{{ number_format($merchandise, 2) }}</strong></div>
+                <div class="s3-line"><span>Shipping</span><strong>₱{{ number_format($shippingFee, 2) }}</strong></div>
+                <div class="s3-line cart-total"><strong>Subtotal</strong><strong data-summary-subtotal>₱{{ number_format($merchandise, 2) }}</strong></div>
+                <p class="cart-summary-note">Cash on Delivery only. Standard shipping is ₱{{ number_format($shippingFee, 0) }} per seller order. Maximum {{ $maxQty }} units of the same product.</p>
                 <div class="s3-checkout-btn" data-checkout-btn-wrapper>
                     @if($canCheckout)<a class="s3-btn" href="{{ route('checkout') }}">Continue to checkout <span aria-hidden="true">→</span></a>
                     @else<p class="cart-checkout-blocked" role="status">Update or remove unavailable items to continue.</p>@endif

@@ -8,7 +8,10 @@ use Illuminate\Support\Facades\DB;
 
 class CommissionService
 {
-    public const RATE = 10.00;
+    public static function rate(): float
+    {
+        return (float) config('jeap.commission_rate', 20);
+    }
 
     public function record(Order $order): Commission
     {
@@ -20,12 +23,13 @@ class CommissionService
                 return $existing;
             }
 
-            $amount = round((float) $lockedOrder->total * self::RATE / 100, 2);
+            $rate = self::rate();
+            $amount = round((float) $lockedOrder->subtotal * $rate / 100, 2);
 
             return Commission::query()->create([
                 'order_id' => $lockedOrder->id,
                 'seller_id' => $lockedOrder->seller_id,
-                'rate' => self::RATE,
+                'rate' => $rate,
                 'amount' => $amount,
                 'status' => 'pending',
                 'accrued_at' => now(),

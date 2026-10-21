@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Commerce\InventoryPolicy;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -33,5 +35,16 @@ class ProductVariant extends Model
     public function product(): BelongsTo
     {
         return $this->belongsTo(Product::class);
+    }
+
+    public function scopeSellable(Builder $query): Builder
+    {
+        return $query->where('is_active', true)
+            ->where('stock', '>=', InventoryPolicy::minSellableStock());
+    }
+
+    public function isSellable(): bool
+    {
+        return InventoryPolicy::isSellable($this);
     }
 }

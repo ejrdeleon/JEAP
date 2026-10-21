@@ -1,10 +1,7 @@
 @extends('layouts.dashboard')
 @section('title', 'Administrator accounts')
 @section('nav')
-    <a href="{{ route('super-admin.dashboard') }}">Overview</a>
-    <a class="active" href="{{ route('super-admin.admins') }}">Administrator accounts</a>
-    <a href="{{ route('super-admin.settings') }}">Platform settings</a>
-    <a href="{{ route('admin.dashboard') }}">Admin workspace</a>
+    @include('partials.super-admin-nav')
 @endsection
 @section('content')
     <section class="admin-page">

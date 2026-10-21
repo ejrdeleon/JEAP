@@ -21,10 +21,8 @@ class StoreController extends Controller
             'sort' => ['nullable', 'in:newest,price_asc,price_desc'],
         ]);
         $productsQuery = Product::query()->where('seller_id', $seller->id)
-            ->notOnVacation()
-            ->where('status', 'active')
-            ->whereHas('variants', fn ($query) => $query->where('is_active', true))
-            ->with(['images', 'variants' => fn ($query) => $query->where('is_active', true), 'category']);
+            ->listed()
+            ->with(['images', 'variants' => fn ($query) => $query->sellable(), 'category']);
 
         if (! empty($filters['q'])) {
             $term = addcslashes($filters['q'], '%_\\');

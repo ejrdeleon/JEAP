@@ -9,7 +9,7 @@
 @endsection
 @section('content')
 <div class="seller-page">
-    <div class="seller-heading"><div><span class="seller-eyebrow">SELLER CENTER / ORDERS</span><h1>Orders</h1><p>Confirm new orders, prepare them, and mark parcels ready for pickup.</p></div></div>
+    <div class="seller-heading"><div><h1>Orders</h1><p>Confirm new orders, prepare them, and mark parcels ready for pickup. Logistics keeps {{ number_format(\App\Commerce\CommissionService::rate(), 0) }}% of merchandise. Shipping is not part of your payout.</p></div></div>
     @if(session('status'))<div class="seller-flash">{{ session('status') }}</div>@endif
     @if($errors->any())<div class="seller-errors">{{ $errors->first() }}</div>@endif
     <section class="seller-panel">
@@ -17,7 +17,7 @@
         @if($orders->isEmpty())
             <div class="seller-empty"><span>📦</span><strong>No orders to show</strong><p>New customer orders will appear here.</p></div>
         @else
-            <div class="seller-table-wrap"><table class="seller-table"><thead><tr><th>Order</th><th>Customer</th><th>Items</th><th>Order total</th><th>Commission (10%)</th><th>Estimated payout</th><th>Status / next step</th></tr></thead><tbody>
+            <div class="seller-table-wrap"><table class="seller-table"><thead><tr><th>Order</th><th>Customer</th><th>Items</th><th>Order total</th><th>Logistics ({{ number_format(\App\Commerce\CommissionService::rate(), 0) }}%)</th><th>Estimated payout</th><th>Status / next step</th></tr></thead><tbody>
                 @foreach($orders as $order)
                     @php
                         $next = match($order->status) {
@@ -36,7 +36,7 @@
                         <td><strong>{{ $order->items->sum('quantity') }}</strong><small class="seller-subline">{{ $order->items->pluck('name')->join(', ') }}</small></td>
                         <td>₱{{ number_format((float)$order->total, 2) }}</td>
                         <td>₱{{ number_format($commission, 2) }}</td>
-                        <td><strong>₱{{ number_format((float)$order->total - $commission, 2) }}</strong></td>
+                        <td><strong>₱{{ number_format((float)$order->subtotal - $commission, 2) }}</strong></td>
                         <td><span class="seller-badge {{ in_array($order->status->value, ['COMPLETED', 'DELIVERED']) ? 'is-active' : '' }}">{{ str($order->status->value)->replace('_', ' ')->title() }}</span>
                             @if($next)<div class="seller-order-actions">@foreach($next as $status => $label)<form method="post" action="{{ route('seller.orders.status', $order) }}">@csrf @method('PATCH')<input type="hidden" name="status" value="{{ $status }}"><button class="{{ $status === 'CANCELLED' ? 'is-danger' : '' }}" type="submit">{{ $label }}</button></form>@endforeach</div>@endif
                         </td>

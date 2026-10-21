@@ -6,6 +6,7 @@ use App\Enums\UserStatus;
 use App\Models\User;
 use Database\Seeders\RoleSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Http;
 use Laravel\Socialite\Facades\Socialite;
 use Laravel\Socialite\Two\User as GoogleUser;
 use Tests\TestCase;
@@ -18,6 +19,7 @@ class GoogleAuthenticationTest extends TestCase
     {
         parent::setUp();
         $this->seed(RoleSeeder::class);
+        Http::fake();
         config([
             'services.google.client_id' => 'test-client-id',
             'services.google.client_secret' => 'test-client-secret',
@@ -41,20 +43,19 @@ class GoogleAuthenticationTest extends TestCase
         $this->assertSame('register', session('auth.google.source'));
     }
 
-    public function test_verified_google_buyer_is_created_but_remains_pending_approval(): void
+    public function test_verified_google_buyer_is_created_and_signed_in(): void
     {
         Socialite::fake('google', $this->googleUser());
 
         $this->withSession(['auth.google.source' => 'register'])
             ->get(route('google.callback'))
-            ->assertRedirect(route('register'))
-            ->assertSessionHasErrors('google');
+            ->assertRedirect();
 
         $user = User::where('email', 'google.buyer@example.com')->firstOrFail();
         $this->assertSame('google-sub-1', $user->google_id);
-        $this->assertSame(UserStatus::PendingApproval, $user->status);
+        $this->assertSame(UserStatus::Active, $user->status);
         $this->assertTrue($user->hasRole('buyer'));
-        $this->assertGuest();
+        $this->assertAuthenticatedAs($user);
     }
 
     public function test_verified_google_email_links_existing_user_without_changing_role_or_status(): void

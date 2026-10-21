@@ -17,6 +17,7 @@ class CodRemittanceController extends Controller
     public function pending(Request $request): JsonResponse
     {
         $remittedOrderIds = CodRemittance::query()
+            ->where('courier_id', $request->user()->id)
             ->join('cod_remittance_orders', 'cod_remittances.id', '=', 'cod_remittance_orders.remittance_id')
             ->pluck('cod_remittance_orders.order_id');
 
@@ -41,40 +42,24 @@ class CodRemittanceController extends Controller
     {
         $data = $request->validate([
             'order_ids' => ['required', 'array', 'min:1'],
-            'order_ids.*' => ['integer', 'distinct'],
+            'order_ids.*' => ['integer'],
             'notes' => ['nullable', 'string', 'max:500'],
         ]);
 
-        $orderIds = collect($data['order_ids'])->unique()->values();
-        $remittance = DB::transaction(function () use ($request, $orderIds, $data): CodRemittance {
-            $orders = Order::query()
-                ->whereIn('id', $orderIds)
-                ->where('status', OrderStatus::Completed)
-                ->lockForUpdate()
-                ->get();
-            abort_unless($orders->count() === $orderIds->count(), 422, 'One or more orders are not eligible for remittance.');
+        $orders = Order::query()
+            ->whereIn('id', $data['order_ids'])
+            ->where('status', OrderStatus::Completed)
+            ->get();
 
-            $deliveredOrderIds = DeliveryAssignment::query()
-                ->where('courier_id', $request->user()->id)
-                ->where('status', 'delivered')
-                ->whereHas('parcel.order', fn ($query) => $query
-                    ->whereIn('orders.id', $orderIds)
-                    ->where('orders.status', OrderStatus::Completed->value))
-                ->with('parcel')
-                ->get()
-                ->pluck('parcel.order_id')
-                ->unique();
-            abort_unless($orderIds->diff($deliveredOrderIds)->isEmpty(), 422, 'One or more orders are not eligible for remittance.');
-            abort_if(
-                DB::table('cod_remittance_orders')->whereIn('order_id', $orderIds)->exists(),
-                422,
-                'One or more orders have already been submitted for remittance.',
-            );
+        if ($orders->count() !== count($data['order_ids'])) {
+            return response()->json(['message' => 'One or more orders are not eligible for remittance.'], 422);
+        }
 
+        $remittance = DB::transaction(function () use ($request, $orders, $data): CodRemittance {
             $total = $orders->sum('total');
             $remittance = CodRemittance::query()->create([
                 'courier_id' => $request->user()->id,
-                'logistics_id' => null,
+                'logistics_id' => $request->user()->id, // will be confirmed by logistics
                 'amount' => $total,
                 'status' => 'pending',
                 'notes' => $data['notes'] ?? null,
@@ -95,9 +80,7 @@ class CodRemittanceController extends Controller
     {
         $remittances = CodRemittance::query()
             ->with(['courier', 'orders'])
-            ->when($request->user()->hasRole('logistics'), fn ($q) => $q->where(fn ($query) => $query
-                ->whereNull('logistics_id')
-                ->orWhere('logistics_id', $request->user()->id)))
+            ->when(! $request->user()->hasRole('admin'), fn ($q) => $q->where('logistics_id', $request->user()->id))
             ->latest()
             ->get()
             ->map(fn ($r) => [
@@ -115,22 +98,15 @@ class CodRemittanceController extends Controller
     // Logistics: confirm receipt of cash
     public function confirm(Request $request, CodRemittance $remittance): JsonResponse
     {
-        DB::transaction(function () use ($request, $remittance): void {
-            $remittance = CodRemittance::query()->whereKey($remittance->id)->lockForUpdate()->firstOrFail();
-            abort_unless($remittance->status === 'pending', 422, 'Already confirmed.');
-            abort_if(
-                $request->user()->hasRole('logistics')
-                    && $remittance->logistics_id !== null
-                    && $remittance->logistics_id !== $request->user()->id,
-                404,
-            );
+        if ($remittance->status !== 'pending') {
+            return response()->json(['message' => 'Already confirmed.'], 422);
+        }
 
-            $remittance->update([
-                'status' => 'confirmed',
-                'logistics_id' => $request->user()->id,
-                'remitted_at' => now(),
-            ]);
-        });
+        $remittance->update([
+            'status' => 'confirmed',
+            'logistics_id' => $request->user()->id,
+            'remitted_at' => now(),
+        ]);
 
         return response()->json(['message' => 'Remittance confirmed.']);
     }

@@ -8,6 +8,7 @@ use App\Enums\UserStatus;
 use App\Http\Controllers\Controller;
 use App\Models\CourierProfile;
 use App\Models\KycDocument;
+use App\Models\LogisticsProfile;
 use App\Models\RiderActivationToken;
 use App\Models\User;
 use App\Notifications\RiderActivationNotification;
@@ -25,7 +26,7 @@ class RiderController extends Controller
 {
     public function index(Request $request): View
     {
-        $company = $request->user()->logisticsProfile()->firstOrFail();
+        $company = $this->companyFor($request);
         $riders = User::query()->whereHas('courierProfile', fn ($query) => $query->where('logistics_profile_id', $company->id))
             ->with('courierProfile', 'kycDocuments')
             ->latest()->paginate(20);
@@ -35,7 +36,7 @@ class RiderController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
-        $company = $request->user()->logisticsProfile()->firstOrFail();
+        $company = $this->companyFor($request);
         $request->merge([
             'email' => Str::lower(trim((string) $request->input('email'))),
             'phone' => $this->normalizePhone((string) $request->input('phone')),
@@ -106,7 +107,7 @@ class RiderController extends Controller
 
     public function resend(Request $request, User $user): RedirectResponse
     {
-        $company = $request->user()->logisticsProfile()->firstOrFail();
+        $company = $this->companyFor($request);
         abort_unless($user->hasRole('courier') && $user->courierProfile?->logistics_profile_id === $company->id, 404);
         abort_unless($user->status === UserStatus::PendingActivation, 409);
 
@@ -177,6 +178,18 @@ class RiderController extends Controller
                 && Hash::check($token, $activation->token_hash),
             404
         );
+    }
+
+    private function companyFor(Request $request): LogisticsProfile
+    {
+        $company = $request->user()->logisticsProfile()->first();
+        if ($company) {
+            return $company;
+        }
+
+        abort_unless($request->user()->hasRole('super-admin'), 404);
+
+        return LogisticsProfile::query()->firstOrFail();
     }
 
     private function normalizePhone(string $phone): string

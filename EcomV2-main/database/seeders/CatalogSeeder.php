@@ -29,51 +29,72 @@ class CatalogSeeder extends Seeder
         $seller->syncRoles(['seller']);
         $seller->sellerProfile()->updateOrCreate(
             ['user_id' => $seller->id],
-            ['business_name' => 'JEAP Demo Electronics']
+            ['business_name' => 'JEAP Demo Shop']
         );
 
-        $categories = [
-            ['name' => 'Gaming', 'file' => 'cat-gaming.png'],
-            ['name' => 'Sport Equip', 'file' => 'cat-sport.png'],
-            ['name' => 'Kitchen', 'file' => 'cat-kitchen.png'],
-            ['name' => 'Robot Cleaner', 'file' => 'cat-robot.png'],
-            ['name' => 'Mobiles', 'file' => 'cat-mobiles.png'],
-            ['name' => 'Office', 'file' => 'cat-office.png'],
-            ['name' => 'Cameras', 'file' => 'cat-cameras.png'],
-            ['name' => 'Computers', 'file' => 'cat-computers.png'],
-            ['name' => 'Televisions', 'file' => 'cat-televisions.png'],
-            ['name' => 'Audios', 'file' => 'cat-audios.png'],
+        $tree = [
+            ['Women\'s Apparel', null],
+            ['Men\'s Apparel', null],
+            ['Mobile & Gadgets', ['Mobiles' => 'cat-mobiles.png']],
+            ['Computers & Office', ['Computers' => 'cat-computers.png', 'Office' => 'cat-office.png']],
+            ['Consumer Electronics', ['Televisions' => 'cat-televisions.png', 'Audios' => 'cat-audios.png', 'Cameras' => 'cat-cameras.png', 'Gaming' => 'cat-gaming.png']],
+            ['Home Appliances', ['Kitchen' => 'cat-kitchen.png', 'Robot Cleaner' => 'cat-robot.png']],
+            ['Home & Living', null],
+            ['Beauty & Personal Care', null],
+            ['Groceries', null],
+            ['Sports & Outdoor', ['Sport Equip' => 'cat-sport.png']],
+            ['Toys, Kids & Babies', null],
+            ['Automotive', null],
+            ['Pet Care', null],
+            ['Fashion Accessories', null],
+            ['Bags', null],
+            ['Watches', null],
         ];
 
         $models = [];
-        foreach ($categories as $i => $row) {
-            $models[$row['name']] = Category::query()->updateOrCreate(
-                ['slug' => Str::slug($row['name'])],
+        foreach ($tree as $index => [$parentName, $children]) {
+            $parent = Category::query()->updateOrCreate(
+                ['slug' => Str::slug($parentName)],
                 [
-                    'name' => $row['name'],
-                    'image_path' => 'images/categories/'.$row['file'],
+                    'name' => $parentName,
+                    'parent_id' => null,
                     'is_line_of_business' => true,
                     'is_active' => true,
-                    'sort_order' => $i + 1,
+                    'sort_order' => ($index + 1) * 10,
                 ]
             );
+            $models[$parentName] = $parent;
+
+            foreach ($children ?? [] as $childName => $file) {
+                $models[$childName] = Category::query()->updateOrCreate(
+                    ['slug' => Str::slug($childName)],
+                    [
+                        'name' => $childName,
+                        'parent_id' => $parent->id,
+                        'image_path' => 'images/categories/'.$file,
+                        'is_line_of_business' => false,
+                        'is_active' => true,
+                        'sort_order' => $parent->sort_order + array_search($childName, array_keys($children), true) + 1,
+                    ]
+                );
+            }
         }
 
         $catalog = [
-            ['Air Purifier with HEPA Filter', 'Kitchen', 489, 619, 24, 80, '15% OFF'],
-            ['Shaork Robot Vacuum', 'Robot Cleaner', 325, 428, 1, 19, '5% OFF'],
-            ['Durotan Manual Espresso Machine', 'Kitchen', 489, 619, 82, 100, '15% OFF'],
-            ['Sona QLED Ultra HD 4K Smart TV', 'Televisions', 1759, 2069, 7, 85, '15% OFF'],
+            ['Air Purifier with HEPA Filter', 'Kitchen', 489, 619, 24, 80, null],
+            ['Shaork Robot Vacuum', 'Robot Cleaner', 325, 428, 12, 19, null],
+            ['Durotan Manual Espresso Machine', 'Kitchen', 489, 619, 82, 100, null],
+            ['Sona QLED Ultra HD 4K Smart TV', 'Televisions', 1759, 2069, 7, 85, null],
             ['iPad mini 2023 Wi-Fi 256GB', 'Computers', 699, 799, 12, 40, null],
-            ['Marshall Standmore Speaker Black', 'Audios', 289, 349, 18, 50, 'top rated'],
-            ['Gaming Console Bundle', 'Gaming', 559, 629, 9, 30, 'best seller'],
-            ['Pro Mirrorless Camera Kit', 'Cameras', 1299, 1499, 4, 20, null],
+            ['Marshall Standmore Speaker Black', 'Audios', 289, 349, 18, 50, null],
+            ['Gaming Console Bundle', 'Gaming', 559, 629, 9, 30, null],
+            ['Pro Mirrorless Camera Kit', 'Cameras', 1299, 1499, 14, 20, null],
             ['Ultrabook 14-inch Office Laptop', 'Office', 899, 999, 11, 25, null],
-            ['Flagship 5G Smartphone', 'Mobiles', 799, 899, 22, 60, '15% OFF'],
+            ['Flagship 5G Smartphone', 'Mobiles', 799, 899, 22, 60, null],
         ];
 
         foreach ($catalog as $i => $row) {
-            [$name, $cat, $price, $compare, $sold, $stock, $badge] = $row;
+            [$name, $cat, $price, $compare, $sold, $stock] = $row;
             $category = $models[$cat];
             $image = $category->image_path;
 
@@ -96,14 +117,16 @@ class CatalogSeeder extends Seeder
                     'compare_at_price' => $compare,
                     'stock' => $stock,
                     'is_active' => true,
-                    'attributes' => ['sold' => $sold, 'badge' => $badge],
+                    'attributes' => ['sold' => $sold],
                 ]
             );
 
-            $product->images()->updateOrCreate(
-                ['path' => $image],
-                ['alt' => $name, 'sort_order' => 0, 'variant_id' => $variant->id]
-            );
+            if ($image) {
+                $product->images()->updateOrCreate(
+                    ['path' => $image],
+                    ['alt' => $name, 'sort_order' => 0, 'variant_id' => $variant->id]
+                );
+            }
         }
     }
 }

@@ -30,6 +30,14 @@ class AccountRegistrationTest extends TestCase
             'email' => ' Juan.DelaCruz@Example.com ',
             'phone' => '09171234567',
             'birthday' => '1998-05-14',
+            'street_line' => '12 Mabini Street',
+            'region_name' => 'National Capital Region',
+            'province_name' => 'Metro Manila',
+            'city_name' => 'Manila',
+            'barangay_name' => 'Ermita',
+            'postal_code' => '1000',
+            'region_code' => '1300000000',
+            'city_code' => '1380600000',
             'password' => 'Mamimili@2026',
             'password_confirmation' => 'Mamimili@2026',
             'terms' => '1',
@@ -41,6 +49,7 @@ class AccountRegistrationTest extends TestCase
         $this->assertSame(UserStatus::Unverified, $user->status);
         $this->assertNotNull($user->birthday);
         $this->assertTrue(Hash::check('Mamimili@2026', $user->password));
+        $this->assertSame('Manila', $user->addresses()->firstOrFail()->city_name);
         Notification::assertSentTo($user, EmailVerificationCodeNotification::class);
 
         $notification = Notification::sent($user, EmailVerificationCodeNotification::class)->first();
@@ -111,6 +120,35 @@ class AccountRegistrationTest extends TestCase
         $this->post(route('email.verify'), ['code' => '123456'])->assertSessionHasErrors('code');
         $this->post(route('email.verify'), ['code' => $newNotification->code])->assertRedirect(route('login'));
         $this->assertSame(UserStatus::Active, $user->fresh()->status);
+    }
+
+    public function test_unverified_signup_can_be_replaced_with_the_same_email(): void
+    {
+        $this->seed(RoleSeeder::class);
+        Notification::fake();
+
+        $payload = [
+            'first_name' => 'Ernest James',
+            'last_name' => 'De Leon',
+            'email' => 'ernestjamesdeleon2005@gmail.com',
+            'phone' => '09524804110',
+            'birthday' => '2005-01-15',
+            'street_line' => '38 J.P Rizal',
+            'region_name' => 'Calabarzon',
+            'province_name' => 'Laguna',
+            'city_name' => 'Santa Cruz',
+            'barangay_name' => 'Poblacion',
+            'postal_code' => '4009',
+            'password' => 'Mamimili@2026',
+            'password_confirmation' => 'Mamimili@2026',
+            'terms' => '1',
+        ];
+
+        $this->post(route('register'), $payload)->assertRedirect(route('email.verify.show'));
+        $this->post(route('register'), $payload)->assertRedirect(route('email.verify.show'));
+
+        $this->assertSame(1, User::query()->where('email', 'ernestjamesdeleon2005@gmail.com')->count());
+        $this->assertSame(UserStatus::Unverified, User::query()->where('email', 'ernestjamesdeleon2005@gmail.com')->value('status'));
     }
 
     public function test_riders_cannot_self_register(): void

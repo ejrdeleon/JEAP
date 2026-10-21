@@ -10,12 +10,12 @@
 @section('content')
 <div class="seller-page">
     <div class="seller-heading">
-        <div><span class="seller-eyebrow">SELLER CENTER</span><h1>Good to see you, {{ auth()->user()->first_name }}.</h1><p>Here’s how your store is doing today.</p></div>
+        <div><h1>Good to see you, {{ auth()->user()->first_name }}.</h1><p>Here’s how your store is doing today.</p></div>
         <a class="seller-primary" href="{{ route('seller.catalog') }}">＋ Add a product</a>
     </div>
     <div class="seller-stats">
         <article><span>Active products</span><strong>{{ number_format($productCount) }}</strong><a href="{{ route('seller.catalog') }}">Manage catalog →</a></article>
-        <article><span>Low-stock variants</span><strong>{{ number_format($lowStockCount) }}</strong><small>Variants with 5 or fewer units</small></article>
+        <article><span>Below sellable stock</span><strong>{{ number_format($lowStockCount) }}</strong><small>Active listings with fewer than {{ \App\Commerce\InventoryPolicy::minSellableStock() }} units</small></article>
         <article><span>Open orders</span><strong>{{ number_format($openOrderCount) }}</strong><a href="{{ route('seller.orders') }}">View orders →</a></article>
     </div>
     <section class="seller-panel">
@@ -26,7 +26,7 @@
             <div class="seller-table-wrap"><table class="seller-table"><thead><tr><th>Order</th><th>Placed</th><th>Items</th><th>Total</th><th>Commission</th><th>Est. payout</th><th>Status</th></tr></thead><tbody>
                 @foreach($recentOrders as $order)
                     @php($commissionAmount = (float)($order->commission?->amount ?? 0))
-                    <tr><td><strong>{{ $order->order_number }}</strong></td><td>{{ $order->placed_at?->format('M j, Y') ?? '—' }}</td><td>{{ $order->items->sum('quantity') }}</td><td>₱{{ number_format((float)$order->total, 2) }}</td><td>₱{{ number_format($commissionAmount, 2) }}</td><td>₱{{ number_format((float)$order->total - $commissionAmount, 2) }}</td><td><span class="seller-badge">{{ str($order->status->value)->replace('_', ' ')->title() }}</span></td></tr>
+                    <tr><td><strong>{{ $order->order_number }}</strong></td><td>{{ $order->placed_at?->format('M j, Y') ?? '—' }}</td><td>{{ $order->items->sum('quantity') }}</td><td>₱{{ number_format((float)$order->total, 2) }}</td><td>₱{{ number_format($commissionAmount, 2) }}</td><td>₱{{ number_format((float)$order->subtotal - $commissionAmount, 2) }}</td><td><span class="seller-badge">{{ str($order->status->value)->replace('_', ' ')->title() }}</span></td></tr>
                 @endforeach
             </tbody></table></div>
         @endif

@@ -1,9 +1,7 @@
 @extends('layouts.dashboard')
 @section('title', 'Rider management')
 @section('nav')
-    <a href="{{ route('logistics.dashboard') }}">Shipments</a>
-    <a href="{{ route('logistics.couriers') }}">Rider approvals</a>
-    <a class="active" href="{{ route('logistics.riders') }}">Riders</a>
+    @include('partials.logistics-nav')
 @endsection
 @section('content')
 <section class="admin-page">

@@ -1,21 +1,19 @@
 @extends('layouts.storefront')
 
-@section('title', 'Product')
+@section('title', 'Shop')
 @section('crumb')
-    <a href="{{ route('products.index') }}">Shop</a>
-    <span>/</span>
-    <span>Top Cell Phones &amp; Tablets</span>
+    <span>Shop</span>
 @endsection
 
 @section('content')
-<section class="s3-main" data-figma="Product 7:813">
+<section class="s3-main">
     <div class="s3-bannerpair">
-        <a class="s3-promo" href="{{ route('products.index', ['category' => 'mobiles']) }}">
-            <h3>top cell phones &amp; tablets</h3>
-            <img src="{{ asset('images/storefront/catalog-banner.svg') }}?v=2" alt="Noise Cancelling headphones">
+        <a class="s3-promo" href="{{ route('products.index') }}">
+            <h3>Shop JEAP marketplace</h3>
+            <img src="{{ asset('images/storefront/catalog-banner.svg') }}?v=2" alt="">
         </a>
-        <a class="s3-promo s3-promo--side" href="{{ route('products.index', ['category' => 'mobiles']) }}">
-            <img src="{{ asset('images/storefront/catalog-side.svg') }}?v=2" alt="Redmi Note 12">
+        <a class="s3-promo s3-promo--side" href="{{ route('products.index', ['category' => 'mobile-gadgets']) }}">
+            <img src="{{ asset('images/storefront/catalog-side.svg') }}?v=2" alt="">
         </a>
     </div>
     <div class="s3-popcats">
@@ -86,7 +84,7 @@
                         <div class="price">₱{{ number_format($variant?->price ?? 0, 2) }}
                             @if($variant?->compare_at_price)<span class="compare">₱{{ number_format($variant->compare_at_price, 2) }}</span>@endif
                         </div>
-                        <span class="s3-chip">free shipping</span>
+                        <span class="s3-chip">₱{{ number_format(\App\Commerce\InventoryPolicy::shippingFee(), 0) }} shipping</span>
                         <p class="in-stock">{{ $variant && $variant->stock > 0 ? '● In stock' : 'Out of stock' }}</p>
                     </a>
                 @empty

@@ -25,11 +25,13 @@ class CheckoutTest extends TestCase
     public function test_buyer_checkout_places_cod_order_and_reserves_stock(): void
     {
         $this->seed(RoleSeeder::class);
-        [$buyer, $cart, $variant] = $this->makeCart(5);
+        [$buyer, $cart, $variant] = $this->makeCart();
         $this->actingAs($buyer)->get(route('checkout'))
             ->assertOk()
             ->assertSee('place order')
             ->assertSee('Cash on Delivery')
+            ->assertSee('Standard shipping')
+            ->assertDontSee('Worldwide Standard Shipping')
             ->assertDontSee('Direct Bank Transfer')
             ->assertDontSee('Paypal');
 
@@ -54,7 +56,9 @@ class CheckoutTest extends TestCase
         $this->assertDatabaseCount('orders', 1);
         $order = Order::query()->firstOrFail();
         $this->assertSame(OrderStatus::Placed, $order->status);
-        $this->assertSame('12.00', $order->total);
+        $this->assertSame('12.00', $order->subtotal);
+        $this->assertSame('50.00', $order->shipping_fee);
+        $this->assertSame('62.00', $order->total);
         $this->assertNotNull($order->shipping_address_id);
         $this->assertSame('1 Test Street', $order->shipping_address_snapshot['street_line']);
         $this->assertSame('1300000000', $order->shipping_address_snapshot['region_code']);
@@ -66,7 +70,7 @@ class CheckoutTest extends TestCase
             'addressable_id' => $buyer->id,
             'street_line' => '1 Test Street',
         ]);
-        $this->assertSame(3, $variant->fresh()->stock);
+        $this->assertSame(18, $variant->fresh()->stock);
         $this->assertDatabaseHas('payments', [
             'order_id' => $order->id,
             'method' => 'cod',
@@ -75,8 +79,8 @@ class CheckoutTest extends TestCase
         $this->assertDatabaseHas('commissions', [
             'order_id' => $order->id,
             'seller_id' => $order->seller_id,
-            'rate' => '10.00',
-            'amount' => '1.20',
+            'rate' => '20.00',
+            'amount' => '2.40',
         ]);
         $commissionId = $order->commission()->value('id');
         app(CommissionService::class)->record($order);
@@ -88,7 +92,7 @@ class CheckoutTest extends TestCase
     public function test_checkout_persists_selected_pin_in_saved_address_and_order_snapshot(): void
     {
         $this->seed(RoleSeeder::class);
-        [$buyer] = $this->makeCart(5);
+        [$buyer] = $this->makeCart();
         $address = $buyer->addresses()->create([
             'recipient_name' => 'Saved Buyer',
             'phone' => '09170000000',
@@ -113,7 +117,7 @@ class CheckoutTest extends TestCase
     public function test_checkout_rejects_an_address_owned_by_another_buyer(): void
     {
         $this->seed(RoleSeeder::class);
-        [$buyer] = $this->makeCart(5);
+        [$buyer] = $this->makeCart();
         $otherBuyer = User::factory()->create(['status' => UserStatus::Active]);
         $otherBuyer->assignRole('buyer');
         $address = $otherBuyer->addresses()->create([
@@ -135,7 +139,7 @@ class CheckoutTest extends TestCase
     public function test_checkout_rejects_out_of_range_pin_coordinates(): void
     {
         $this->seed(RoleSeeder::class);
-        [$buyer] = $this->makeCart(5);
+        [$buyer] = $this->makeCart();
 
         $this->actingAs($buyer)->from(route('checkout'))->post(route('checkout.place'), array_merge(
             $this->checkoutData(),
@@ -169,7 +173,7 @@ class CheckoutTest extends TestCase
     public function test_buyer_navigation_opens_the_live_catalog_cart_and_cod_checkout(): void
     {
         $this->seed(RoleSeeder::class);
-        [$buyer] = $this->makeCart(5);
+        [$buyer] = $this->makeCart();
 
         $this->actingAs($buyer)->get(route('search', ['q' => 'Test']))
             ->assertRedirect(route('products.index', ['q' => 'Test']));
@@ -187,7 +191,7 @@ class CheckoutTest extends TestCase
     public function test_buyer_dashboard_shows_only_the_signed_in_buyers_orders(): void
     {
         $this->seed(RoleSeeder::class);
-        [$buyer] = $this->makeCart(5);
+        [$buyer] = $this->makeCart();
         $otherBuyer = User::factory()->create(['status' => UserStatus::Active]);
         $otherBuyer->assignRole('buyer');
 
@@ -225,7 +229,7 @@ class CheckoutTest extends TestCase
         $this->actingAs($buyer)->get(route('cart.index'))
             ->assertOk()
             ->assertSee('Test Product')
-            ->assertSee('Only 1 available')
+            ->assertSee('at least 10 units in stock')
             ->assertSee('Update or remove unavailable items to continue.')
             ->assertSee('aria-label="Decrease quantity"', false)
             ->assertSee('aria-label="Increase quantity"', false)
@@ -238,7 +242,7 @@ class CheckoutTest extends TestCase
     public function test_profile_form_updates_account_fields_with_labeled_inputs(): void
     {
         $this->seed(RoleSeeder::class);
-        [$buyer] = $this->makeCart(5);
+        [$buyer] = $this->makeCart();
 
         $this->actingAs($buyer)->get(route('profile'))
             ->assertOk()
@@ -265,7 +269,7 @@ class CheckoutTest extends TestCase
     public function test_api_checkout_rejects_unsupported_payment_methods(): void
     {
         $this->seed(RoleSeeder::class);
-        [$buyer] = $this->makeCart(5);
+        [$buyer] = $this->makeCart();
         $address = $buyer->addresses()->create([
             'street_line' => '1 Test Street',
             'city_name' => 'Manila',
@@ -280,7 +284,7 @@ class CheckoutTest extends TestCase
     public function test_api_checkout_reserves_stock_and_creates_cod_payment(): void
     {
         $this->seed(RoleSeeder::class);
-        [$buyer, $cart, $variant] = $this->makeCart(5);
+        [$buyer, $cart, $variant] = $this->makeCart();
         $address = $buyer->addresses()->create([
             'street_line' => '1 Test Street',
             'city_name' => 'Manila',
@@ -293,7 +297,7 @@ class CheckoutTest extends TestCase
 
         $this->assertDatabaseCount('orders', 1);
         $order = Order::query()->firstOrFail();
-        $this->assertSame(3, $variant->fresh()->stock);
+        $this->assertSame(18, $variant->fresh()->stock);
         $this->assertDatabaseHas('payments', [
             'order_id' => $order->id,
             'method' => 'cod',
@@ -302,8 +306,8 @@ class CheckoutTest extends TestCase
         $this->assertDatabaseHas('commissions', [
             'order_id' => $order->id,
             'seller_id' => $order->seller_id,
-            'rate' => '10.00',
-            'amount' => '6.20',
+            'rate' => '20.00',
+            'amount' => '2.40',
         ]);
         $this->assertDatabaseMissing('cart_items', ['cart_id' => $cart->id]);
     }
@@ -311,7 +315,7 @@ class CheckoutTest extends TestCase
     public function test_buyer_can_rate_a_product_from_a_completed_order(): void
     {
         $this->seed(RoleSeeder::class);
-        [$buyer, , $variant] = $this->makeCart(5);
+        [$buyer, , $variant] = $this->makeCart();
         $sellerId = $variant->product->seller_id;
         $order = Order::query()->create([
             'checkout_group_id' => Str::uuid()->toString(),
@@ -353,10 +357,10 @@ class CheckoutTest extends TestCase
     public function test_buyer_can_cancel_an_unshipped_order_with_a_reason_and_stock_is_restored(): void
     {
         $this->seed(RoleSeeder::class);
-        [$buyer, , $variant] = $this->makeCart(5);
+        [$buyer, , $variant] = $this->makeCart();
         $this->actingAs($buyer)->post(route('checkout.place'), $this->checkoutData())->assertRedirect(route('buyer.home'));
         $order = Order::query()->firstOrFail();
-        $this->assertSame(3, $variant->fresh()->stock);
+        $this->assertSame(18, $variant->fresh()->stock);
 
         $this->actingAs($buyer)->from(route('buyer.home'))->post(route('buyer.orders.cancel', $order), ['reason' => 'Changed'])
             ->assertRedirect(route('buyer.home'))->assertSessionHasErrors('reason');
@@ -367,7 +371,7 @@ class CheckoutTest extends TestCase
 
         $this->assertSame(OrderStatus::Cancelled, $order->fresh()->status);
         $this->assertSame('Ordered by mistake', $order->fresh()->cancellation_reason);
-        $this->assertSame(5, $variant->fresh()->stock);
+        $this->assertSame(20, $variant->fresh()->stock);
         $this->assertDatabaseHas('payments', ['order_id' => $order->id, 'status' => 'cancelled']);
         $this->assertDatabaseHas('order_status_histories', [
             'order_id' => $order->id,
@@ -376,7 +380,7 @@ class CheckoutTest extends TestCase
         ]);
     }
 
-    private function makeCart(int $stock): array
+    private function makeCart(int $stock = 20): array
     {
         $buyer = User::factory()->create(['status' => UserStatus::Active]);
         $buyer->assignRole('buyer');

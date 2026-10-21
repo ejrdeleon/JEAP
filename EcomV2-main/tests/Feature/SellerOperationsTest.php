@@ -51,7 +51,7 @@ class SellerOperationsTest extends TestCase
         $this->assertSame('8', (string) $variant->stock);
         Storage::disk('public')->assertExists(Str::after($image->path, 'storage/'));
 
-        $this->actingAs($seller)->put(route('seller.catalog.update', $product), [
+        $this->actingAs($seller)->from(route('seller.catalog.edit', $product))->put(route('seller.catalog.update', $product), [
             'name' => 'Wireless Headphones Pro',
             'category_id' => $category->id,
             'description' => 'Updated listing.',
@@ -59,12 +59,22 @@ class SellerOperationsTest extends TestCase
             'compare_at_price' => '45.00',
             'stock' => 5,
             'status' => 'active',
+        ])->assertRedirect(route('seller.catalog.edit', $product))->assertSessionHasErrors('stock');
+
+        $this->actingAs($seller)->put(route('seller.catalog.update', $product), [
+            'name' => 'Wireless Headphones Pro',
+            'category_id' => $category->id,
+            'description' => 'Updated listing.',
+            'price' => '35.00',
+            'compare_at_price' => '45.00',
+            'stock' => 12,
+            'status' => 'active',
         ])->assertRedirect(route('seller.catalog'));
 
         $this->assertSame('active', $product->fresh()->status);
         $this->assertSame('wireless-headphones-pro', $product->fresh()->slug);
         $this->assertSame('35.00', $variant->fresh()->price);
-        $this->assertSame(5, $variant->fresh()->stock);
+        $this->assertSame(12, $variant->fresh()->stock);
 
         $this->actingAs($seller)->delete(route('seller.catalog.archive', $product))
             ->assertRedirect(route('seller.catalog'));

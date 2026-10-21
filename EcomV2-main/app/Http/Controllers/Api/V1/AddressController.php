@@ -17,34 +17,7 @@ class AddressController extends Controller
 
     public function store(Request $request): JsonResponse
     {
-        $data = $this->validatedAddress($request);
-
-        if (! empty($data['is_default'])) {
-            $request->user()->addresses()->update(['is_default' => false]);
-        }
-
-        $address = $request->user()->addresses()->create($data);
-
-        return response()->json(['address' => $address], 201);
-    }
-
-    public function update(Request $request, int $id): JsonResponse
-    {
-        $data = $this->validatedAddress($request);
-        $address = $request->user()->addresses()->findOrFail($id);
-
-        if (! empty($data['is_default'])) {
-            $request->user()->addresses()->whereKeyNot($address->id)->update(['is_default' => false]);
-        }
-
-        $address->update($data);
-
-        return response()->json(['address' => $address->fresh()]);
-    }
-
-    private function validatedAddress(Request $request): array
-    {
-        return $request->validate([
+        $data = $request->validate([
             'label' => ['required', 'string', 'max:80'],
             'recipient_name' => ['required', 'string', 'max:160'],
             'phone' => ['required', 'string', 'max:32'],
@@ -64,6 +37,14 @@ class AddressController extends Controller
             'latitude' => ['nullable', 'required_with:longitude', 'numeric', 'between:-90,90'],
             'longitude' => ['nullable', 'required_with:latitude', 'numeric', 'between:-180,180'],
         ]);
+
+        if (! empty($data['is_default'])) {
+            $request->user()->addresses()->update(['is_default' => false]);
+        }
+
+        $address = $request->user()->addresses()->create($data);
+
+        return response()->json(['address' => $address], 201);
     }
 
     public function destroy(Request $request, int $id): JsonResponse

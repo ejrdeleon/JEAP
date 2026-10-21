@@ -50,7 +50,7 @@ class PublicStorefrontTest extends TestCase
             'product_id' => $product->id,
             'sku' => $sku,
             'price' => 100,
-            'stock' => 3,
+            'stock' => 12,
             'is_active' => true,
         ]);
 

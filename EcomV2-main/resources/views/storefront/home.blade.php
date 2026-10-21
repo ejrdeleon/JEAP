@@ -1,9 +1,9 @@
 @extends('layouts.storefront')
 
-@section('title', 'Home 3')
+@section('title', 'Home')
 
 @section('content')
-<section class="storefront-pad" data-figma="Home 3">
+<section class="storefront-pad">
     @if ($announcements->isNotEmpty())
         <section class="store-announcements" aria-label="Marketplace announcements">
             @foreach ($announcements as $announcement)
@@ -31,14 +31,14 @@
     <div class="hero-grid">
         <div class="hero-slider" data-hero>
             <div class="hero-slide is-active">
-                <h2>EKO 40"</h2>
-                <p>Smart Full HD</p>
-                <a class="btn-dark" href="{{ route('products.index', ['category' => 'televisions']) }}">Shop Now</a>
+                <h2>Shop from local sellers</h2>
+                <p>Cash on Delivery · ₱{{ number_format(config('jeap.shipping_fee'), 0) }} shipping</p>
+                <a class="btn-dark" href="{{ route('products.index') }}">Shop now</a>
             </div>
             <div class="hero-slide" style="background:linear-gradient(90deg,#1b1b28,#4b3ec4);">
-                <h2>iPad mini</h2>
-                <p>Mega Power in mini size</p>
-                <a class="btn-dark" href="{{ route('products.index', ['category' => 'computers']) }}">Shop Now</a>
+                <h2>Delivered in-house</h2>
+                <p>JEAP logistics from pickup to your door</p>
+                <a class="btn-dark" href="{{ route('products.index') }}">Browse products</a>
             </div>
             <div class="hero-controls">
                 <button type="button" data-hero-prev>‹</button>
@@ -46,33 +46,33 @@
             </div>
         </div>
         <aside class="promo-side">
-            <h3>Humidifying Fan</h3>
-            <p>From ₱299</p>
-            <a class="btn-dark" href="{{ route('products.index') }}">Discover Now</a>
+            <h3>Sell on JEAP</h3>
+            <p>Apply as a seller</p>
+            <a class="btn-dark" href="{{ route('register.seller') }}">Get started</a>
         </aside>
     </div>
 
     <div class="mid-banners">
         <article class="banner blue">
-            <h3>iPad mini</h3>
-            <p>Mega Power in mini size</p>
-            <a class="btn-dark" href="{{ route('products.index') }}" style="height:34px;min-width:107px;">Shop Now</a>
+            <h3>Mobile & gadgets</h3>
+            <p>Phones and accessories from JEAP sellers</p>
+            <a class="btn-dark" href="{{ route('products.index', ['category' => 'mobile-gadgets']) }}" style="height:34px;min-width:107px;">Shop now</a>
         </article>
         <article class="banner peach">
-            <small>from</small>
-            <h3>Air</h3>
-            <strong>₱169</strong>
+            <small>Shipping</small>
+            <h3>₱{{ number_format(config('jeap.shipping_fee'), 0) }}</h3>
+            <strong>flat rate</strong>
         </article>
         <article class="banner lilac">
-            <small>washing machine</small>
-            <h3>Anatico</h3>
-            <a class="btn-dark" href="{{ route('products.index') }}" style="height:34px;min-width:107px;">Shop Now</a>
+            <small>Payment</small>
+            <h3>COD</h3>
+            <a class="btn-dark" href="{{ route('products.index') }}" style="height:34px;min-width:107px;">Shop now</a>
         </article>
     </div>
 
     <div class="section-head">
-        <h2>Best Weekly Deals</h2>
-        <span>Expires in: 02 d : 09 h : 35 m</span>
+        <h2>Best weekly deals</h2>
+        <span>Listed products with stock of 10 or more</span>
     </div>
     <div class="product-grid">
         @foreach($deals as $product)
@@ -106,7 +106,7 @@
         <h2>Trending Search</h2>
     </div>
     <div class="tags">
-        @foreach(['Vacuum Robot','Bluetooth Speaker','Oled TV','Security Camera','Macbook M1','Smart Washing Machine','iPad Mini 2023','PS5','Earbuds'] as $tag)
+        @foreach(['Smartphone','Laptop','Kitchen','Gaming','Cameras','Home appliances','Sports'] as $tag)
             <a class="tag" href="{{ route('products.index', ['q' => $tag]) }}">{{ $tag }}</a>
         @endforeach
     </div>

@@ -15,7 +15,7 @@
 @section('content')
     <section class="admin-page">
         <header class="admin-heading">
-            <div><span class="admin-eyebrow">JEAP OPERATIONS</span><h1>Admin dashboard</h1><p>Marketplace activity at a glance.</p></div>
+            <div><h1>Admin dashboard</h1><p>Registrations, orders, and the {{ number_format($commissionRate, 0) }}% logistics commission on merchandise.</p></div>
             <a class="admin-button" href="{{ route('admin.verifications') }}">Review registrations</a>
         </header>
         <div class="admin-stats">
@@ -23,6 +23,7 @@
             <article><span>Active marketplace users</span><strong>{{ number_format($activeUsers) }}</strong><a href="{{ route('admin.users') }}">Manage users</a></article>
             <article><span>Orders today</span><strong>{{ number_format($ordersToday) }}</strong><a href="{{ route('admin.reports') }}">View reports</a></article>
             <article><span>Sales this month</span><strong>₱{{ number_format($salesThisMonth, 2) }}</strong><a href="{{ route('admin.reports') }}">View analytics</a></article>
+            <article><span>Logistics commission</span><strong>₱{{ number_format($logisticsCommission, 2) }}</strong><a href="{{ route('admin.reports') }}">{{ number_format($commissionRate, 0) }}% of merchandise</a></article>
         </div>
         <section class="admin-panel">
             <div class="admin-panel-heading"><div><h2>Recent orders</h2><p>Latest marketplace transactions</p></div><a href="{{ route('admin.disputes') }}">{{ number_format($openDisputes) }} open disputes</a></div>

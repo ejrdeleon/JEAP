@@ -13,9 +13,8 @@
 <body class="storefront">
     @guest
         <div class="storefront-bleed topbar">
-            <span class="pill">Special</span>
-            <span>Get 10% <strong>DISCOUNT</strong> for first order</span>
-            <a href="{{ route('register') }}">Register Now</a>
+            <span>Cash on Delivery · ₱{{ number_format(config('jeap.shipping_fee'), 0) }} shipping</span>
+            <a href="{{ route('register') }}">Sign up</a>
         </div>
     @endguest
 
@@ -113,21 +112,25 @@
 
     <footer class="site-footer">
         <div class="storefront-pad">
-            <div class="footer-perks">
-                <div>Free Shipping over ₱99</div>
-                <div>30 Days money back</div>
-                <div>100% Secure Payment</div>
-                <div>24/7 Dedicated Support</div>
+            <div class="footer-perks" aria-hidden="true">
+                <div></div>
+                <div></div>
+                <div></div>
+                <div></div>
             </div>
             <div class="footer-grid">
                 <div>
-                    <strong>JEAP — Online Electronic Market</strong>
+                    <strong>JEAP — Philippine marketplace</strong>
                     <p>hotline 24/7<br><strong>{{ config('jeap.hotline') }}</strong></p>
                     <p>Shop smart. Delivered easy. Philippine marketplace with in-house logistics.</p>
                 </div>
                 <div>
                     <strong>Top Categories</strong>
-                    <p><a href="{{ route('products.index') }}">TV / Televisions</a><br>Computers<br>Mobiles<br>Kitchen</p>
+                    <p>
+                        @foreach(($navCategories ?? collect())->take(6) as $cat)
+                            <a href="{{ route('products.index', ['category' => $cat->slug]) }}">{{ $cat->name }}</a>@if(! $loop->last)<br>@endif
+                        @endforeach
+                    </p>
                 </div>
                 <div>
                     <strong>Company</strong>
@@ -145,7 +148,6 @@
         </div>
         <div class="footer-legal storefront-pad">
             <span>© {{ date('Y') }} JEAP. All Rights Reserved</span>
-            <span>COD only in v1 · PHP</span>
         </div>
     </footer>
 

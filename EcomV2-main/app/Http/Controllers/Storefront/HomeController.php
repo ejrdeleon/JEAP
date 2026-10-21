@@ -14,16 +14,15 @@ class HomeController extends Controller
     {
         $categories = Category::query()
             ->where('is_active', true)
+            ->parents()
             ->orderBy('sort_order')
             ->get();
 
         $products = Product::query()
-            ->notOnVacation()
-            ->where('status', 'active')
-            ->whereHas('variants', fn ($query) => $query->where('is_active', true))
+            ->listed()
             ->with([
                 'images',
-                'variants' => fn ($query) => $query->where('is_active', true),
+                'variants' => fn ($query) => $query->sellable(),
                 'category',
             ])
             ->latest()

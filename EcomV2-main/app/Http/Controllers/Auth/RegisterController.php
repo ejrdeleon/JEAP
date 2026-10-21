@@ -18,6 +18,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password;
@@ -98,6 +99,8 @@ class RegisterController extends Controller
             'sec_registration_number' => $secRegistration,
         ]);
 
+        $this->replaceUnverifiedAccount($email, is_string($phone) ? $phone : null);
+
         $data = $request->validate([
             'role' => ['required', Rule::in(['buyer', 'seller', 'courier', 'logistics'])],
             'first_name' => ['required', 'string', 'min:2', 'max:50', 'regex:/^[\pL\pM .\'-]+$/u'],
@@ -114,12 +117,12 @@ class RegisterController extends Controller
             'seller_type' => ['required_if:role,seller', 'nullable', Rule::in(['individual', 'sole_proprietorship', 'corporation'])],
             'tin' => ['required_if:role,seller,logistics', 'nullable', 'regex:/^\d{12}$/', Rule::unique('seller_profiles', 'tin'), Rule::unique('logistics_profiles', 'tin')],
             'sec_registration_number' => ['required_if:role,logistics', 'required_if:seller_type,corporation', 'nullable', 'regex:/^[A-Z]{2}\d{9}$/', Rule::unique('logistics_profiles', 'sec_registration_number'), Rule::unique('seller_profiles', 'sec_registration_number')],
-            'region_name' => ['required_if:role,seller,logistics', 'nullable', 'string', 'max:120'],
-            'province_name' => ['required_if:role,seller,logistics', 'nullable', 'string', 'max:120'],
-            'city_name' => ['required_if:role,seller,logistics', 'nullable', 'string', 'max:120'],
-            'barangay_name' => ['required_if:role,seller,logistics', 'nullable', 'string', 'max:120'],
-            'street_line' => ['required_if:role,seller,logistics', 'nullable', 'string', 'max:255'],
-            'postal_code' => ['required_if:role,seller,logistics', 'nullable', 'regex:/^\d{4}$/'],
+            'region_name' => ['required', 'string', 'max:120'],
+            'province_name' => ['nullable', 'string', 'max:120'],
+            'city_name' => ['required', 'string', 'max:120'],
+            'barangay_name' => ['nullable', 'string', 'max:120'],
+            'street_line' => ['required', 'string', 'max:255'],
+            'postal_code' => ['required', 'regex:/^\d{4}$/'],
             'region_code' => ['nullable', 'regex:/^\d{1,16}$/'],
             'province_code' => ['nullable', 'regex:/^\d{1,16}$/'],
             'city_code' => ['nullable', 'regex:/^\d{1,16}$/'],
@@ -156,6 +159,10 @@ class RegisterController extends Controller
 
             $user->assignRole($data['role']);
 
+            if ($data['role'] === 'buyer') {
+                $this->saveAddress($user, $user, $data, 'Home', true);
+            }
+
             if ($data['role'] === 'seller') {
                 $profile = SellerProfile::create([
                     'user_id' => $user->id,
@@ -165,7 +172,7 @@ class RegisterController extends Controller
                     'tin' => $data['tin'],
                     'sec_registration_number' => $data['sec_registration_number'] ?? null,
                 ]);
-                $this->saveBusinessAddress($profile, $user, $data);
+                $this->saveAddress($profile, $user, $data, 'Business');
             }
 
             if ($data['role'] === 'courier') {
@@ -185,7 +192,7 @@ class RegisterController extends Controller
                     'contact_position' => $data['contact_position'],
                     'service_areas' => $data['service_areas'],
                 ]);
-                $this->saveBusinessAddress($profile, $user, $data);
+                $this->saveAddress($profile, $user, $data, 'Business');
             }
 
             $documentTypes = [
@@ -218,6 +225,9 @@ class RegisterController extends Controller
             ['code_hash' => Hash::make($code), 'expires_at' => now()->addMinutes(5), 'attempts' => 0],
         );
         $request->session()->put('email_verification_user_id', $user->id);
+        if (config('mail.default') === 'log') {
+            $request->session()->put('email_verification_preview', $code);
+        }
         try {
             $user->notify(new EmailVerificationCodeNotification($code));
         } catch (Throwable $exception) {
@@ -227,6 +237,39 @@ class RegisterController extends Controller
         }
 
         return to_route('email.verify.show')->with('status', 'A 6-digit verification code was sent to '.$user->email.'.');
+    }
+
+    private function replaceUnverifiedAccount(string $email, ?string $phone): void
+    {
+        User::query()
+            ->where('status', UserStatus::Unverified)
+            ->where(function ($query) use ($email, $phone): void {
+                $query->where('email', $email);
+                if (is_string($phone) && $phone !== '') {
+                    $query->orWhere('phone', $phone);
+                }
+            })
+            ->get()
+            ->each(function (User $user): void {
+                $user->addresses()->delete();
+                $user->kycDocuments()->each(function (KycDocument $document): void {
+                    if ($document->file_path) {
+                        foreach (['local', 'public'] as $disk) {
+                            if (Storage::disk($disk)->exists($document->file_path)) {
+                                Storage::disk($disk)->delete($document->file_path);
+                            }
+                        }
+                    }
+                    $document->delete();
+                });
+                $user->sellerProfile?->addresses()->delete();
+                $user->sellerProfile()->delete();
+                $user->logisticsProfile?->addresses()->delete();
+                $user->logisticsProfile()->delete();
+                $user->courierProfile()->delete();
+                $user->syncRoles([]);
+                $user->delete();
+            });
     }
 
     private function splitName(?string $name, ?string $first, ?string $last): array
@@ -243,10 +286,10 @@ class RegisterController extends Controller
         ];
     }
 
-    private function saveBusinessAddress(SellerProfile|LogisticsProfile $profile, User $user, array $data): void
+    private function saveAddress(User|SellerProfile|LogisticsProfile $addressable, User $user, array $data, string $label, bool $default = false): void
     {
-        $profile->addresses()->create([
-            'label' => 'Business',
+        $addressable->addresses()->create([
+            'label' => $label,
             'country_code' => $data['country_code'] ?? 'PH',
             'country_name' => $data['country_name'] ?? 'Philippines',
             'recipient_name' => $user->name,
@@ -256,11 +299,12 @@ class RegisterController extends Controller
             'city_code' => $data['city_code'] ?? null,
             'barangay_code' => $data['barangay_code'] ?? null,
             'region_name' => $data['region_name'],
-            'province_name' => $data['province_name'],
+            'province_name' => $data['province_name'] ?? null,
             'city_name' => $data['city_name'],
-            'barangay_name' => $data['barangay_name'],
+            'barangay_name' => $data['barangay_name'] ?? null,
             'street_line' => $data['street_line'],
             'postal_code' => $data['postal_code'],
+            'is_default' => $default,
         ]);
     }
 }

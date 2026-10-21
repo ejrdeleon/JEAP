@@ -31,6 +31,13 @@ class Product extends Model
         return $query->whereDoesntHave('seller.sellerProfile', fn (Builder $profile) => $profile->where('vacation_mode', true));
     }
 
+    public function scopeListed(Builder $query): Builder
+    {
+        return $query->notOnVacation()
+            ->where('status', 'active')
+            ->whereHas('variants', fn (Builder $variants) => $variants->sellable());
+    }
+
     public function seller(): BelongsTo
     {
         return $this->belongsTo(User::class, 'seller_id');
@@ -58,6 +65,7 @@ class Product extends Model
 
     public function defaultVariant(): ?ProductVariant
     {
-        return $this->variants->first(fn (ProductVariant $variant) => $variant->is_active);
+        return $this->variants->first(fn (ProductVariant $variant) => $variant->isSellable())
+            ?? $this->variants->first(fn (ProductVariant $variant) => $variant->is_active);
     }
 }
