@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:jeap_mobile/core/theme/app_theme.dart';
+import '../../../../../../theme/app_theme.dart';
 import 'package:jeap_mobile/core/utils/category_icons.dart';
 import 'package:jeap_mobile/core/widgets/jeap_app_bar.dart';
 import 'package:jeap_mobile/core/data/mock_data.dart';

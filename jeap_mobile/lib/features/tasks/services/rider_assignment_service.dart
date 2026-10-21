@@ -38,8 +38,22 @@ class RiderAssignmentService {
   Future<void> completeDelivery(String id, String proofImagePath) async {
     await _api.postImage('/rider/assignments/$id/deliver', proofImagePath);
   }
+
   Future<void> failDelivery(String id, String reason) =>
       _action(id, 'fail', {'reason': reason});
+
+  Future<Map<String, dynamic>> fetchPendingRemittance() async {
+    try {
+      final response = await _api.get('/rider/remittances/pending');
+      if (response is Map) {
+        return {
+          'total': (response['total'] as num?)?.toDouble() ?? 0.0,
+          'orders': (response['orders'] as List? ?? []),
+        };
+      }
+    } catch (_) {}
+    return {'total': 0.0, 'orders': []};
+  }
 
   Future<void> _action(String id, String action,
       [Map<String, dynamic>? body]) async {

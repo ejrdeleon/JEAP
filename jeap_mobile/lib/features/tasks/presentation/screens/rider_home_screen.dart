@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:jeap_mobile/core/network/api_exception.dart';
-import 'package:jeap_mobile/core/theme/app_theme.dart';
+import '../../../../../../theme/app_theme.dart';
 import 'package:jeap_mobile/features/account/presentation/screens/change_password_screen.dart';
 import 'package:jeap_mobile/features/account/presentation/screens/edit_profile_screen.dart';
 import 'package:jeap_mobile/features/auth/presentation/screens/login_screen.dart';
@@ -442,7 +442,8 @@ class _RiderDeliveryDetailScreenState extends State<RiderDeliveryDetailScreen> {
     } on ApiException catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(error.message), backgroundColor: Colors.redAccent),
+        SnackBar(
+            content: Text(error.message), backgroundColor: Colors.redAccent),
       );
     } finally {
       if (mounted) setState(() => _working = false);
@@ -450,8 +451,10 @@ class _RiderDeliveryDetailScreenState extends State<RiderDeliveryDetailScreen> {
   }
 
   String? get _action => switch (widget.task.status) {
-        TaskStatus.pending => widget.task.isPickup ? 'Accept pickup' : 'Accept delivery',
-        TaskStatus.accepted => widget.task.isPickup ? 'Confirm pickup' : 'Start delivery',
+        TaskStatus.pending =>
+          widget.task.isPickup ? 'Accept pickup' : 'Accept delivery',
+        TaskStatus.accepted =>
+          widget.task.isPickup ? 'Confirm pickup' : 'Start delivery',
         TaskStatus.pickedUp => widget.task.isPickup ? null : 'Start delivery',
         TaskStatus.outForDelivery => 'Capture proof & complete delivery',
         _ => null,
@@ -496,7 +499,8 @@ class _RiderDeliveryDetailScreenState extends State<RiderDeliveryDetailScreen> {
                     text: task.deliveryAddress),
                 if (task.contactPhone.isNotEmpty) ...[
                   const Divider(height: 24),
-                  _IconText(icon: Icons.phone_outlined, text: task.contactPhone),
+                  _IconText(
+                      icon: Icons.phone_outlined, text: task.contactPhone),
                 ],
               ],
             ),
@@ -530,7 +534,9 @@ class _RiderDeliveryDetailScreenState extends State<RiderDeliveryDetailScreen> {
                   }
                 },
                 icon: const Icon(Icons.map_outlined),
-                label: Text(task.isPickup ? 'Navigate to seller' : 'Navigate to customer'),
+                label: Text(task.isPickup
+                    ? 'Navigate to seller'
+                    : 'Navigate to customer'),
               ),
             if (task.contactPhone.isNotEmpty)
               OutlinedButton.icon(

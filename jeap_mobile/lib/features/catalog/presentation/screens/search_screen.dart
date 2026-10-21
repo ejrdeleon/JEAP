@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:jeap_mobile/core/theme/app_theme.dart';
 import 'package:jeap_mobile/core/widgets/product_card.dart';
-import 'package:jeap_mobile/core/data/mock_data.dart';
 import 'package:jeap_mobile/core/models/product.dart';
+import 'package:jeap_mobile/features/catalog/services/catalog_service.dart';
 import 'package:jeap_mobile/features/catalog/presentation/screens/product_detail_screen.dart';
 
 class SearchScreen extends StatefulWidget {
@@ -14,6 +14,9 @@ class SearchScreen extends StatefulWidget {
 
 class _SearchScreenState extends State<SearchScreen> {
   final _ctrl = TextEditingController();
+  final _catalogService = CatalogService();
+  List<Product> _results = [];
+  bool _isLoading = false;
   String _query = '';
 
   @override
@@ -22,16 +25,41 @@ class _SearchScreenState extends State<SearchScreen> {
     super.dispose();
   }
 
+  Future<void> _performSearch(String query) async {
+    final trimmed = query.trim();
+    if (trimmed.isEmpty) {
+      setState(() {
+        _query = '';
+        _results = [];
+        _isLoading = false;
+      });
+      return;
+    }
+
+    setState(() {
+      _query = trimmed;
+      _isLoading = true;
+    });
+
+    try {
+      final items = await _catalogService.fetchProducts(query: trimmed);
+      if (mounted && _query == trimmed) {
+        setState(() {
+          _results = items;
+          _isLoading = false;
+        });
+      }
+    } catch (_) {
+      if (mounted && _query == trimmed) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final results = _query.isEmpty
-        ? <Product>[]
-        : MockData.products
-            .where((p) =>
-                p.name.toLowerCase().contains(_query.toLowerCase()) ||
-                (p.category ?? '').toLowerCase().contains(_query.toLowerCase()))
-            .toList();
-
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
       appBar: AppBar(
@@ -42,9 +70,9 @@ class _SearchScreenState extends State<SearchScreen> {
         title: TextField(
           controller: _ctrl,
           autofocus: true,
-          onChanged: (v) => setState(() => _query = v),
+          onChanged: _performSearch,
           decoration: InputDecoration(
-            hintText: 'Search products...',
+            hintText: 'Search products in database...',
             border: InputBorder.none,
             filled: false,
             suffixIcon: _query.isNotEmpty
@@ -52,40 +80,51 @@ class _SearchScreenState extends State<SearchScreen> {
                     icon: const Icon(Icons.clear, size: 18),
                     onPressed: () {
                       _ctrl.clear();
-                      setState(() => _query = '');
+                      _performSearch('');
                     },
                   )
                 : null,
           ),
         ),
       ),
-      body: _query.isEmpty
-          ? const Center(
-              child: Text('Start typing to search products.',
-                  style: TextStyle(color: AppTheme.textSecondary)))
-          : results.isEmpty
-              ? Center(
-                  child: Text('No results for "$_query".',
-                      style: const TextStyle(color: AppTheme.textSecondary)))
-              : GridView.builder(
-                  padding: const EdgeInsets.all(12),
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 2,
-                    childAspectRatio: 0.72,
-                    crossAxisSpacing: 8,
-                    mainAxisSpacing: 8,
-                  ),
-                  itemCount: results.length,
-                  itemBuilder: (_, i) => ProductCard(
-                    product: results[i],
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                          builder: (_) =>
-                              ProductDetailScreen(product: results[i])),
-                    ),
-                  ),
-                ),
+      body: SafeArea(
+        child: _isLoading
+            ? const Center(
+                child: CircularProgressIndicator(color: AppTheme.jeapPurple),
+              )
+            : _query.isEmpty
+                ? const Center(
+                    child: Text('Type a product name to search.',
+                        style: TextStyle(color: AppTheme.textSecondary)),
+                  )
+                : _results.isEmpty
+                    ? Center(
+                        child: Text('No products found for "$_query".',
+                            style:
+                                const TextStyle(color: AppTheme.textSecondary)),
+                      )
+                    : GridView.builder(
+                        padding: const EdgeInsets.all(16),
+                        gridDelegate:
+                            const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 2,
+                          childAspectRatio: 0.72,
+                          crossAxisSpacing: 10,
+                          mainAxisSpacing: 10,
+                        ),
+                        itemCount: _results.length,
+                        itemBuilder: (_, i) => ProductCard(
+                          product: _results[i],
+                          onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) =>
+                                  ProductDetailScreen(product: _results[i]),
+                            ),
+                          ),
+                        ),
+                      ),
+      ),
     );
   }
 }

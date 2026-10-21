@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:jeap_mobile/core/network/api_client.dart';
 import 'package:jeap_mobile/core/network/api_exception.dart';
+import 'package:jeap_mobile/core/storage/auth_session.dart';
 import 'package:jeap_mobile/core/storage/token_storage.dart';
 import 'package:jeap_mobile/features/auth/models/registration_data.dart';
 
@@ -21,41 +22,58 @@ class AuthService {
   final ApiClient _api;
 
   Future<AuthResult> signInWithGoogle() async {
-    if (!_api.baseUrl.startsWith('https://')) {
-      return const AuthResult(
-        success: false,
-        message: 'Google sign-in requires a configured HTTPS JEAP API URL.',
-      );
-    }
-    UserCredential? credential;
     var exchanged = false;
+    GoogleSignInAccount? googleUser;
     try {
-      final googleUser = await GoogleSignIn(
-        serverClientId: const String.fromEnvironment('GOOGLE_SERVER_CLIENT_ID'),
-      ).signIn();
+      final googleSignIn = GoogleSignIn(
+        scopes: const ['email', 'profile'],
+        serverClientId:
+            const String.fromEnvironment('GOOGLE_SERVER_CLIENT_ID').isNotEmpty
+                ? const String.fromEnvironment('GOOGLE_SERVER_CLIENT_ID')
+                : null,
+      );
+      googleUser = await googleSignIn.signIn();
       if (googleUser == null) {
         return const AuthResult(success: false, message: 'Sign-in cancelled.');
       }
       final googleTokens = await googleUser.authentication;
       final idToken = googleTokens.idToken;
-      if (idToken == null || idToken.isEmpty) {
+      final accessToken = googleTokens.accessToken;
+
+      if ((idToken == null || idToken.isEmpty) &&
+          (accessToken == null || accessToken.isEmpty)) {
         return const AuthResult(
           success: false,
-          message:
-              'Google did not return an ID token. Check the OAuth client setup.',
+          message: 'Google authentication tokens could not be retrieved.',
         );
       }
-      credential = await FirebaseAuth.instance.signInWithCredential(
-        GoogleAuthProvider.credential(idToken: idToken),
-      );
-      final firebaseIdToken = await credential.user?.getIdToken();
-      if (firebaseIdToken == null || firebaseIdToken.isEmpty) {
-        throw const AuthException('Firebase did not return an ID token.');
+
+      // If Firebase is configured, link credential
+      if (Firebase.apps.isNotEmpty && idToken != null && idToken.isNotEmpty) {
+        try {
+          await FirebaseAuth.instance.signInWithCredential(
+            GoogleAuthProvider.credential(
+              idToken: idToken,
+              accessToken: accessToken,
+            ),
+          );
+        } catch (_) {}
       }
 
+      final nameParts = (googleUser.displayName ?? '').trim().split(' ');
+      final firstName = nameParts.isNotEmpty ? nameParts.first : 'Google';
+      final lastName =
+          nameParts.length > 1 ? nameParts.sublist(1).join(' ') : 'User';
+
       final response = await _api.post('/auth/google', {
-        'id_token': firebaseIdToken,
+        if (idToken != null && idToken.isNotEmpty) 'id_token': idToken,
+        if (accessToken != null && accessToken.isNotEmpty)
+          'access_token': accessToken,
+        'email': googleUser.email,
+        'first_name': firstName,
+        'last_name': lastName,
       });
+
       final data = _asMap(response);
       final user = _asMap(data?['user']);
       final token = data?['token'];
@@ -67,15 +85,11 @@ class AuthService {
         throw AuthException(_accountStatusMessage(user['status']));
       }
       await TokenStorage.save(token);
+      await AuthSession.instance.setUser(user);
       exchanged = true;
       return AuthResult(success: true, message: 'Logged in.', user: user);
     } on ApiException catch (error) {
       return AuthResult(success: false, message: error.firstError);
-    } on FirebaseAuthException catch (error) {
-      return AuthResult(
-        success: false,
-        message: error.message ?? 'Google authentication failed.',
-      );
     } on PlatformException catch (error) {
       return AuthResult(
         success: false,
@@ -83,17 +97,21 @@ class AuthService {
       );
     } on AuthException catch (error) {
       return AuthResult(success: false, message: error.message);
-    } catch (_) {
-      return const AuthResult(
+    } catch (e) {
+      return AuthResult(
         success: false,
-        message: 'Google sign-in is not configured. Contact JEAP support.',
+        message: 'Google sign-in error: ${e.toString()}',
       );
     } finally {
       if (!exchanged) {
         if (Firebase.apps.isNotEmpty) {
-          await FirebaseAuth.instance.signOut().catchError((_) {});
+          try {
+            await FirebaseAuth.instance.signOut();
+          } catch (_) {}
         }
-        await GoogleSignIn().signOut().catchError((_) => null);
+        try {
+          await GoogleSignIn().signOut();
+        } catch (_) {}
       }
     }
   }
@@ -135,6 +153,7 @@ class AuthService {
         );
       }
       await TokenStorage.save(token, persist: rememberMe);
+      await AuthSession.instance.setUser(user);
       return AuthResult(success: true, message: 'Logged in.', user: user);
     } on ApiException catch (error) {
       return AuthResult(success: false, message: error.firstError);
@@ -148,6 +167,7 @@ class AuthService {
       // Clear local credentials even if the server is unreachable.
     } finally {
       await TokenStorage.clear();
+      await AuthSession.instance.clear();
       if (Firebase.apps.isNotEmpty) {
         await FirebaseAuth.instance.signOut().catchError((_) {});
       }
@@ -156,14 +176,20 @@ class AuthService {
   }
 
   Future<Map<String, dynamic>?> me() async {
-    if (await TokenStorage.get() == null) return null;
+    if (await TokenStorage.get() == null) {
+      await AuthSession.instance.clear();
+      return null;
+    }
     try {
       final response = await _api.get('/me');
       final data = _asMap(response);
-      return _asMap(data?['user']);
+      final user = _asMap(data?['user']);
+      await AuthSession.instance.setUser(user);
+      return user;
     } on ApiException catch (error) {
       if (error.statusCode == 401 || error.statusCode == 403) {
         await TokenStorage.clear();
+        await AuthSession.instance.clear();
         return null;
       }
       rethrow;

@@ -7,12 +7,17 @@ class CatalogService {
 
   CatalogService({ApiClient? client}) : _api = client ?? const ApiClient();
 
-  Future<List<Product>> fetchProducts({String? category, String? brand}) async {
-    final query = [
-      if (category != null) 'category=$category',
-      if (brand != null) 'brand=$brand',
+  Future<List<Product>> fetchProducts({
+    String? category,
+    String? brand,
+    String? query,
+  }) async {
+    final params = [
+      if (category != null && category.isNotEmpty) 'category=$category',
+      if (brand != null && brand.isNotEmpty) 'brand=$brand',
+      if (query != null && query.isNotEmpty) 'q=$query',
     ].join('&');
-    final path = query.isEmpty ? '/products' : '/products?$query';
+    final path = params.isEmpty ? '/products' : '/products?$params';
     final res = await _api.get(path);
     final list = (res is Map && res.containsKey('data'))
         ? res['data'] as List

@@ -103,13 +103,16 @@ class _ConfirmDetailsScreenState extends State<ConfirmDetailsScreen> {
               const _SectionLabel('ADDRESS'),
               const SizedBox(height: 10),
               _ReviewCard(items: [
-                _Item('Province', d.province),
+                if (d.regionName != null && d.regionName!.isNotEmpty)
+                  _Item('Region', d.regionName!),
+                if (d.province.isNotEmpty) _Item('Province', d.province),
                 _Item('City / Municipality', d.city),
                 _Item('Barangay', d.barangay),
                 _Item('House No.', d.houseNumber),
                 _Item('Street', d.street),
-                if (d.subdivision != null) _Item('Subdivision', d.subdivision!),
-                if (d.buildingUnit != null)
+                if (d.subdivision != null && d.subdivision!.isNotEmpty)
+                  _Item('Subdivision', d.subdivision!),
+                if (d.buildingUnit != null && d.buildingUnit!.isNotEmpty)
                   _Item('Building / Unit', d.buildingUnit!),
                 _Item('ZIP Code', d.zipCode),
               ]),

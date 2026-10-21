@@ -52,10 +52,10 @@ class _AccountScreenState extends State<AccountScreen> {
                           : 'Juan Dela Cruz');
                   final String email =
                       (user?['email'] as String?) ?? 'juan@example.com';
-                  final String role = (user?['role'] as String?) ?? 'buyer';
-                  final String status = role.isNotEmpty
-                      ? role[0].toUpperCase() + role.substring(1)
-                      : 'Active';
+                  final roles = user?['roles'] as List?;
+                  final bool isSeller = user?['is_seller'] == true ||
+                      (roles != null && roles.contains('seller')) ||
+                      user?['role'] == 'seller';
 
                   final initials = name.trim().isNotEmpty
                       ? name
@@ -107,21 +107,38 @@ class _AccountScreenState extends State<AccountScreen> {
                                   style: const TextStyle(
                                       fontSize: 13,
                                       color: AppTheme.textSecondary)),
-                              const SizedBox(height: 4),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 8, vertical: 2),
-                                decoration: BoxDecoration(
-                                  color: AppTheme.statusGreen
-                                      .withValues(alpha: 0.1),
-                                  borderRadius: BorderRadius.circular(6),
+                              if (isSeller) ...[
+                                const SizedBox(height: 5),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 8, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.jeapPurple
+                                        .withValues(alpha: 0.1),
+                                    border: Border.all(
+                                      color: AppTheme.jeapPurple
+                                          .withValues(alpha: 0.3),
+                                    ),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: const Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(Icons.store_outlined,
+                                          size: 12, color: AppTheme.jeapPurple),
+                                      SizedBox(width: 4),
+                                      Text(
+                                        'Seller',
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          color: AppTheme.jeapPurple,
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                                 ),
-                                child: Text(status,
-                                    style: const TextStyle(
-                                        fontSize: 11,
-                                        color: AppTheme.statusGreen,
-                                        fontWeight: FontWeight.w600)),
-                              ),
+                              ],
                             ],
                           ),
                         ),
