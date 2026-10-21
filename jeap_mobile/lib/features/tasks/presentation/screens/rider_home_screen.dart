@@ -3,10 +3,12 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:jeap_mobile/core/network/api_exception.dart';
 import 'package:jeap_mobile/core/theme/app_theme.dart';
+import 'package:jeap_mobile/core/widgets/jeap_logo.dart';
 import 'package:jeap_mobile/features/account/presentation/screens/change_password_screen.dart';
 import 'package:jeap_mobile/features/account/presentation/screens/edit_profile_screen.dart';
 import 'package:jeap_mobile/features/auth/presentation/screens/login_screen.dart';
 import 'package:jeap_mobile/features/auth/services/auth_service.dart';
+import 'package:jeap_mobile/features/messaging/presentation/screens/buyer_conversations_screen.dart';
 import 'package:jeap_mobile/features/tasks/models/delivery_task.dart';
 import 'package:jeap_mobile/features/tasks/services/rider_assignment_service.dart';
 
@@ -25,8 +27,11 @@ class _RiderHomeScreenState extends State<RiderHomeScreen> {
   @override
   Widget build(BuildContext context) {
     final pages = [
-      _RiderDashboard(onSelectPage: _open),
-      const _RiderChatInbox(),
+      _RiderDashboard(
+        onSelectPage: _open,
+        onSelectTab: (idx) => setState(() => _tab = idx),
+      ),
+      const BuyerConversationsScreen(),
       const _RiderProfile(),
       _RiderMore(onSelectPage: _open),
     ];
@@ -57,8 +62,12 @@ class _RiderHomeScreenState extends State<RiderHomeScreen> {
 }
 
 class _RiderDashboard extends StatefulWidget {
-  const _RiderDashboard({required this.onSelectPage});
+  const _RiderDashboard({
+    required this.onSelectPage,
+    required this.onSelectTab,
+  });
   final ValueChanged<_AssignmentPage> onSelectPage;
+  final ValueChanged<int> onSelectTab;
 
   @override
   State<_RiderDashboard> createState() => _RiderDashboardState();
@@ -67,29 +76,51 @@ class _RiderDashboard extends StatefulWidget {
 class _RiderDashboardState extends State<_RiderDashboard> {
   final _service = RiderAssignmentService();
   late Future<RiderAssignmentsResult> _assignments;
+  late Future<Map<String, dynamic>> _remittances;
 
   @override
   void initState() {
     super.initState();
-    _assignments = _service.list();
+    _loadAll();
   }
 
-  void _refresh() => setState(() => _assignments = _service.list());
+  void _loadAll() {
+    _assignments = _service.list();
+    _remittances = _service.fetchPendingRemittance();
+  }
+
+  void _refresh() => setState(() => _loadAll());
 
   @override
   Widget build(BuildContext context) => Scaffold(
         backgroundColor: AppTheme.backgroundColor,
         appBar: AppBar(
-          title: const Text('JEAP Courier'),
+          title: Row(
+            children: [
+              const JeapLogo(height: 26),
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                decoration: BoxDecoration(
+                  color: AppTheme.jeapPurple.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: const Text(
+                  'Courier',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    color: AppTheme.jeapPurple,
+                  ),
+                ),
+              ),
+            ],
+          ),
           actions: [
             IconButton(
               tooltip: 'Refresh',
               onPressed: _refresh,
               icon: const Icon(Icons.refresh),
-            ),
-            const Padding(
-              padding: EdgeInsets.only(right: 16),
-              child: Icon(Icons.account_circle_outlined),
             ),
           ],
         ),
@@ -115,39 +146,65 @@ class _RiderDashboardState extends State<_RiderDashboard> {
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(16, 14, 16, 24),
                 children: [
-                  const Text('Today’s Earnings',
-                      style: TextStyle(
-                          color: AppTheme.textSecondary, fontSize: 13)),
-                  const SizedBox(height: 4),
-                  _DashboardCard(
-                    child: Row(
-                      children: [
-                        const Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text('Earnings summary',
-                                  style: TextStyle(
+                  FutureBuilder<Map<String, dynamic>>(
+                    future: _remittances,
+                    builder: (context, remSnap) {
+                      final total =
+                          (remSnap.data?['total'] as num?)?.toDouble() ?? 0.0;
+                      final orders = remSnap.data?['orders'] as List? ?? [];
+                      return _DashboardCard(
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    'Pending COD Collections',
+                                    style: TextStyle(
                                       color: AppTheme.textSecondary,
-                                      fontSize: 12)),
-                              SizedBox(height: 5),
-                              Text('Not available',
-                                  style: TextStyle(
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 5),
+                                  Text(
+                                    '₱${total.toStringAsFixed(2)}',
+                                    style: const TextStyle(
                                       color: AppTheme.textPrimary,
                                       fontWeight: FontWeight.w700,
-                                      fontSize: 20)),
-                              SizedBox(height: 3),
-                              Text('Earnings data is not provided by the API',
-                                  style: TextStyle(
-                                      color: AppTheme.textSecondary,
-                                      fontSize: 10)),
-                            ],
-                          ),
+                                      fontSize: 22,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 3),
+                                  Text(
+                                    orders.isEmpty
+                                        ? 'All collections remitted to logistics'
+                                        : '${orders.length} order(s) pending remittance',
+                                    style: TextStyle(
+                                      color: orders.isEmpty
+                                          ? AppTheme.statusGreen
+                                          : AppTheme.jeapPurple,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Container(
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                color:
+                                    AppTheme.jeapPurple.withValues(alpha: 0.1),
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(Icons.payments_outlined,
+                                  color: AppTheme.jeapPurple),
+                            ),
+                          ],
                         ),
-                        Icon(Icons.trending_up,
-                            color: AppTheme.jeapPurple.withValues(alpha: .8)),
-                      ],
-                    ),
+                      );
+                    },
                   ),
                   const SizedBox(height: 14),
                   Row(children: [
@@ -227,11 +284,7 @@ class _RiderDashboardState extends State<_RiderDashboard> {
                       child: _QuickAction(
                         icon: Icons.chat_bubble_outline,
                         label: 'Chat',
-                        onTap: () => ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                              content: Text(
-                                  'Rider chat is not connected to the API yet.')),
-                        ),
+                        onTap: () => widget.onSelectTab(1),
                       ),
                     ),
                   ]),
@@ -442,7 +495,8 @@ class _RiderDeliveryDetailScreenState extends State<RiderDeliveryDetailScreen> {
     } on ApiException catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(error.message), backgroundColor: Colors.redAccent),
+        SnackBar(
+            content: Text(error.message), backgroundColor: Colors.redAccent),
       );
     } finally {
       if (mounted) setState(() => _working = false);
@@ -450,8 +504,10 @@ class _RiderDeliveryDetailScreenState extends State<RiderDeliveryDetailScreen> {
   }
 
   String? get _action => switch (widget.task.status) {
-        TaskStatus.pending => widget.task.isPickup ? 'Accept pickup' : 'Accept delivery',
-        TaskStatus.accepted => widget.task.isPickup ? 'Confirm pickup' : 'Start delivery',
+        TaskStatus.pending =>
+          widget.task.isPickup ? 'Accept pickup' : 'Accept delivery',
+        TaskStatus.accepted =>
+          widget.task.isPickup ? 'Confirm pickup' : 'Start delivery',
         TaskStatus.pickedUp => widget.task.isPickup ? null : 'Start delivery',
         TaskStatus.outForDelivery => 'Capture proof & complete delivery',
         _ => null,
@@ -496,7 +552,8 @@ class _RiderDeliveryDetailScreenState extends State<RiderDeliveryDetailScreen> {
                     text: task.deliveryAddress),
                 if (task.contactPhone.isNotEmpty) ...[
                   const Divider(height: 24),
-                  _IconText(icon: Icons.phone_outlined, text: task.contactPhone),
+                  _IconText(
+                      icon: Icons.phone_outlined, text: task.contactPhone),
                 ],
               ],
             ),
@@ -530,7 +587,9 @@ class _RiderDeliveryDetailScreenState extends State<RiderDeliveryDetailScreen> {
                   }
                 },
                 icon: const Icon(Icons.map_outlined),
-                label: Text(task.isPickup ? 'Navigate to seller' : 'Navigate to customer'),
+                label: Text(task.isPickup
+                    ? 'Navigate to seller'
+                    : 'Navigate to customer'),
               ),
             if (task.contactPhone.isNotEmpty)
               OutlinedButton.icon(
@@ -552,18 +611,6 @@ class _RiderDeliveryDetailScreenState extends State<RiderDeliveryDetailScreen> {
       ),
     );
   }
-}
-
-class _RiderChatInbox extends StatelessWidget {
-  const _RiderChatInbox();
-  @override
-  Widget build(BuildContext context) => Scaffold(
-        appBar: AppBar(title: const Text('Chat')),
-        body: const _EmptyPanel(
-          message:
-              'Rider conversations will appear here when chat is enabled for the rider API.',
-        ),
-      );
 }
 
 class _RiderProfile extends StatefulWidget {

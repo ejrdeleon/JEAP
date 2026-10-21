@@ -9,7 +9,7 @@ class ApiClient {
   const ApiClient({
     this.baseUrl = const String.fromEnvironment(
       'API_BASE_URL',
-      defaultValue: 'https://jeap.store/api/v1',
+      defaultValue: 'http://127.0.0.1:8080/api/v1',
     ),
   });
 
@@ -78,6 +78,7 @@ class ApiClient {
       client.close();
     }
   }
+
   Future<dynamic> put(String path, Map<String, dynamic> body) =>
       _send('PUT', path, body: body);
   Future<dynamic> delete(String path) => _send('DELETE', path);

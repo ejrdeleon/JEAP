@@ -108,8 +108,19 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                       height: 260,
                       color: AppTheme.inputFill,
                       alignment: Alignment.center,
-                      child: const Icon(Icons.image_outlined,
-                          size: 64, color: AppTheme.textSecondary),
+                      child: (p.imageUrl != null && p.imageUrl!.isNotEmpty)
+                          ? Image.network(
+                              p.imageUrl!,
+                              fit: BoxFit.contain,
+                              width: double.infinity,
+                              height: 260,
+                              errorBuilder: (_, __, ___) => const Icon(
+                                  Icons.image_outlined,
+                                  size: 64,
+                                  color: AppTheme.textSecondary),
+                            )
+                          : const Icon(Icons.image_outlined,
+                              size: 64, color: AppTheme.textSecondary),
                     ),
                     Padding(
                       padding: const EdgeInsets.all(16),

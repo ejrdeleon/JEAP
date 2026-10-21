@@ -1,19 +1,23 @@
 class ProductCategory {
   final String id;
   final String name;
-  final String icon; // Material icon name key, mapped in the UI layer
+  final String? slug;
+  final String icon;
 
   const ProductCategory({
     required this.id,
     required this.name,
+    this.slug,
     required this.icon,
   });
 
   factory ProductCategory.fromJson(Map<String, dynamic> json) {
+    final slug = json['slug'] as String?;
     return ProductCategory(
       id: json['id'].toString(),
       name: json['name'] as String,
-      icon: json['icon'] as String? ?? 'category',
+      slug: slug,
+      icon: (json['icon'] as String?) ?? slug ?? 'category',
     );
   }
 }

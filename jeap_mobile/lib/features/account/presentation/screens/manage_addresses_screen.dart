@@ -3,6 +3,7 @@ import 'package:jeap_mobile/core/theme/app_theme.dart';
 import 'package:jeap_mobile/core/widgets/jeap_app_bar.dart';
 import 'package:jeap_mobile/core/widgets/primary_button.dart';
 import 'package:jeap_mobile/features/account/models/address.dart';
+import 'package:jeap_mobile/features/account/presentation/screens/address_form_screen.dart';
 import 'package:jeap_mobile/features/account/services/address_service.dart';
 
 class ManageAddressesScreen extends StatefulWidget {
@@ -79,6 +80,17 @@ class _ManageAddressesScreenState extends State<ManageAddressesScreen> {
                               itemCount: _addresses.length,
                               itemBuilder: (_, i) => _AddressCard(
                                 address: _addresses[i],
+                                onEdit: () async {
+                                  final updated =
+                                      await Navigator.of(context).push<bool>(
+                                    MaterialPageRoute(
+                                      builder: (_) => AddressFormScreen(
+                                        initialAddress: _addresses[i],
+                                      ),
+                                    ),
+                                  );
+                                  if (updated == true) _loadAddresses();
+                                },
                                 onDelete: () =>
                                     _deleteAddress(_addresses[i].id!),
                               ),
@@ -90,7 +102,14 @@ class _ManageAddressesScreenState extends State<ManageAddressesScreen> {
               child: PrimaryButton(
                 label: '+ ADD NEW ADDRESS',
                 outlined: true,
-                onPressed: () {},
+                onPressed: () async {
+                  final created = await Navigator.of(context).push<bool>(
+                    MaterialPageRoute(
+                      builder: (_) => const AddressFormScreen(),
+                    ),
+                  );
+                  if (created == true) _loadAddresses();
+                },
               ),
             ),
           ],
@@ -102,9 +121,14 @@ class _ManageAddressesScreenState extends State<ManageAddressesScreen> {
 
 class _AddressCard extends StatelessWidget {
   final Address address;
+  final VoidCallback onEdit;
   final VoidCallback onDelete;
 
-  const _AddressCard({required this.address, required this.onDelete});
+  const _AddressCard({
+    required this.address,
+    required this.onEdit,
+    required this.onDelete,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -146,7 +170,7 @@ class _AddressCard extends StatelessWidget {
               IconButton(
                 icon: const Icon(Icons.edit_outlined,
                     size: 18, color: AppTheme.textSecondary),
-                onPressed: () {},
+                onPressed: onEdit,
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(),
               ),

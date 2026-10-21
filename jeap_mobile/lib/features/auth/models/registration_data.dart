@@ -7,10 +7,15 @@ class RegistrationData {
   final String? dateOfBirth;
   final int? age;
   final String gender;
-  // Address — dropdown
+  // Address — PSGC
+  final String? regionName;
+  final String? regionCode;
   final String province;
+  final String? provinceCode;
   final String city;
+  final String? cityCode;
   final String barangay;
+  final String? barangayCode;
   // Address — manual
   final String houseNumber;
   final String street;
@@ -31,9 +36,14 @@ class RegistrationData {
     this.dateOfBirth,
     this.age,
     required this.gender,
+    this.regionName,
+    this.regionCode,
     required this.province,
+    this.provinceCode,
     required this.city,
+    this.cityCode,
     required this.barangay,
+    this.barangayCode,
     required this.houseNumber,
     required this.street,
     this.subdivision,
@@ -54,13 +64,22 @@ class RegistrationData {
   String get formattedAddress {
     final parts = [
       if (buildingUnit != null && buildingUnit!.isNotEmpty) buildingUnit,
-      houseNumber,
-      street,
+      if (houseNumber.isNotEmpty) houseNumber,
+      if (street.isNotEmpty) street,
       if (subdivision != null && subdivision!.isNotEmpty) subdivision,
-      barangay,
-      city,
-      province,
-      zipCode,
+      if (barangay.isNotEmpty)
+        (barangay.toLowerCase().startsWith('brgy')
+            ? barangay
+            : 'Brgy. $barangay'),
+      if (city.isNotEmpty) city,
+      if (province.isNotEmpty && province.toLowerCase() != city.toLowerCase())
+        province,
+      if (regionName != null &&
+          regionName!.isNotEmpty &&
+          regionName != province &&
+          regionName != city)
+        regionName,
+      if (zipCode.isNotEmpty) zipCode,
     ];
     return parts.join(', ');
   }
@@ -75,9 +94,14 @@ class RegistrationData {
         'phone': mobileNumber,
         if (dateOfBirth != null) 'date_of_birth': dateOfBirth,
         'gender': gender,
+        if (regionName != null) 'region_name': regionName,
+        if (regionCode != null) 'region_code': regionCode,
         'province': province,
+        if (provinceCode != null) 'province_code': provinceCode,
         'city': city,
+        if (cityCode != null) 'city_code': cityCode,
         'barangay': barangay,
+        if (barangayCode != null) 'barangay_code': barangayCode,
         'house_number': houseNumber,
         'street': street,
         if (subdivision != null) 'subdivision': subdivision,

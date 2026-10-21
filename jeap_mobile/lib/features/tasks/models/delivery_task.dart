@@ -1,4 +1,11 @@
-enum TaskStatus { pending, accepted, pickedUp, outForDelivery, delivered, failed }
+enum TaskStatus {
+  pending,
+  accepted,
+  pickedUp,
+  outForDelivery,
+  delivered,
+  failed
+}
 
 class DeliveryTask {
   final String id;
@@ -49,10 +56,9 @@ class DeliveryTask {
       'out_for_delivery' || 'in_transit' => TaskStatus.outForDelivery,
       _ => TaskStatus.pending,
     };
-    final kind =
-        (delivery['type'] ?? json['type'] ?? json['task_type'] ?? '')
-            .toString()
-            .toLowerCase();
+    final kind = (delivery['type'] ?? json['type'] ?? json['task_type'] ?? '')
+        .toString()
+        .toLowerCase();
 
     return DeliveryTask(
       id: (json['id'] ?? delivery['id'] ?? '').toString(),
@@ -75,7 +81,8 @@ class DeliveryTask {
               'Address unavailable')
           .toString(),
       codAmount: double.tryParse(
-              (order['cod_amount'] ?? delivery['cod_amount'] ?? 0).toString()) ??
+              (order['cod_amount'] ?? delivery['cod_amount'] ?? 0)
+                  .toString()) ??
           0,
       latitude: double.tryParse((address['latitude'] ?? '').toString()),
       longitude: double.tryParse((address['longitude'] ?? '').toString()),
