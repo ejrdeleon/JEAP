@@ -56,8 +56,6 @@
                 <a class="s3-link" href="{{ route('register') }}">Shopper registration</a>
                 &nbsp;·&nbsp;
                 <a class="s3-link" href="{{ route('register.seller') }}">Sell on JEAP</a>
-                &nbsp;·&nbsp;
-                <a class="s3-link" href="{{ route('register.logistics') }}">Sorting center</a>
             </p>
         </form>
     </div>

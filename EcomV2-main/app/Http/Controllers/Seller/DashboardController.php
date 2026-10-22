@@ -13,6 +13,7 @@ use App\Models\Parcel;
 use App\Models\PickupAssignment;
 use App\Models\Product;
 use App\Models\ProductVariant;
+use App\Models\Voucher;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -187,7 +188,46 @@ class DashboardController extends Controller
 
     public function promos(): View
     {
-        return view('seller.stub', ['figma' => 'seller_center / Store Promos', 'title' => 'Store Promos']);
+        return view('seller.promos', [
+            'vouchers' => Voucher::query()->where('seller_id', auth()->id())->latest()->get(),
+        ]);
+    }
+
+    public function storePromo(Request $request): RedirectResponse
+    {
+        $request->merge(['code' => strtoupper(trim((string) $request->input('code')))]);
+        $data = $request->validate([
+            'code' => ['required', 'string', 'min:3', 'max:20', 'regex:/^[A-Z0-9_-]+$/', 'unique:vouchers,code'],
+            'type' => ['required', Rule::in(['percent', 'fixed'])],
+            'value' => ['required', 'numeric', 'min:1', $request->input('type') === 'percent' ? 'max:80' : 'max:999999'],
+            'min_order' => ['nullable', 'numeric', 'min:0'],
+            'max_discount' => ['nullable', 'numeric', 'min:0'],
+            'usage_limit' => ['nullable', 'integer', 'min:1', 'max:100000'],
+            'starts_at' => ['nullable', 'date'],
+            'expires_at' => ['nullable', 'date', 'after:starts_at'],
+        ]);
+        $data['code'] = strtoupper($data['code']);
+        $data['seller_id'] = auth()->id();
+        $data['is_active'] = true;
+        Voucher::query()->create($data);
+
+        return back()->with('status', 'Shop voucher '.$data['code'].' is ready.');
+    }
+
+    public function togglePromo(Voucher $voucher): RedirectResponse
+    {
+        abort_unless($voucher->seller_id === auth()->id(), 403);
+        $voucher->update(['is_active' => ! $voucher->is_active]);
+
+        return back()->with('status', $voucher->is_active ? 'Voucher is on.' : 'Voucher is paused.');
+    }
+
+    public function destroyPromo(Voucher $voucher): RedirectResponse
+    {
+        abort_unless($voucher->seller_id === auth()->id(), 403);
+        $voucher->delete();
+
+        return back()->with('status', 'Voucher removed.');
     }
 
     public function shipments(): View

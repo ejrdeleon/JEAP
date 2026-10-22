@@ -44,7 +44,7 @@ class DashboardController extends Controller
     public function users(): View
     {
         $users = User::query()
-            ->with('roles')
+            ->with(['roles', 'statusChangedBy'])
             ->whereDoesntHave('roles', fn ($query) => $query->whereIn('name', ['admin', 'super-admin']))
             ->whereIn('status', [UserStatus::Active, UserStatus::Suspended, UserStatus::Deactivated])
             ->when(request('status'), fn ($query, $status) => $query->where('status', $status))

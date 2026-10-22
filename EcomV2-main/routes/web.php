@@ -7,11 +7,15 @@ use App\Http\Controllers\Admin\DisputeController;
 use App\Http\Controllers\Admin\KycDocumentController;
 use App\Http\Controllers\Admin\RegistrationReviewController;
 use App\Http\Controllers\Admin\UserManagementController;
+use App\Http\Controllers\Account\SettingsController;
 use App\Http\Controllers\Auth\EmailVerificationController;
 use App\Http\Controllers\Auth\GoogleAuthController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\RegisterController;
 use App\Http\Controllers\Buyer\DashboardController as BuyerDashboard;
+use App\Http\Controllers\ChatController;
+use App\Http\Controllers\MediaController;
+use App\Http\Controllers\NotificationInboxController;
 use App\Http\Controllers\Buyer\WishlistController;
 use App\Http\Controllers\Courier\DashboardController as CourierDashboard;
 use App\Http\Controllers\Logistics\CourierReviewController;
@@ -33,8 +37,9 @@ Route::get('/', HomeController::class)->name('home');
 
 Route::get('/login', [LoginController::class, 'create'])->name('login');
 Route::post('/login', [LoginController::class, 'store'])->middleware('throttle:login');
-Route::get('/auth/google/redirect', [GoogleAuthController::class, 'redirect'])->middleware('throttle:login')->name('google.redirect');
-Route::get('/auth/google/callback', [GoogleAuthController::class, 'callback'])->middleware('throttle:login')->name('google.callback');
+Route::get('/auth/google/redirect', [GoogleAuthController::class, 'redirect'])->middleware('throttle:google')->name('google.redirect');
+Route::get('/auth/google/callback', [GoogleAuthController::class, 'callback'])->middleware('throttle:google')->name('google.callback');
+Route::get('/media/avatars/{user}', [MediaController::class, 'avatar'])->name('media.avatar');
 Route::post('/logout', [LoginController::class, 'destroy'])->name('logout');
 Route::get('/email/verify', [EmailVerificationController::class, 'show'])->name('email.verify.show');
 Route::post('/email/verify', [EmailVerificationController::class, 'verify'])->middleware('throttle:10,1')->name('email.verify');
@@ -80,6 +85,17 @@ Route::middleware(['auth', 'approved'])->group(function () {
     Route::get('/search', [BuyerDashboard::class, 'search'])->name('search');
     Route::get('/profile', [PageController::class, 'profile'])->name('profile');
     Route::post('/profile', [PageController::class, 'updateProfile'])->name('profile.update')->middleware('throttle:20,1');
+    Route::get('/account/password', [SettingsController::class, 'password'])->name('account.password');
+    Route::post('/account/password', [SettingsController::class, 'updatePassword'])->name('account.password.update')->middleware('throttle:10,1');
+    Route::get('/account/notifications', [SettingsController::class, 'notifications'])->name('account.notification-settings');
+    Route::post('/account/notifications', [SettingsController::class, 'updateNotifications'])->name('account.notification-settings.update');
+    Route::get('/inbox', [ChatController::class, 'index'])->name('chat.index');
+    Route::post('/inbox/start', [ChatController::class, 'start'])->middleware('throttle:chat')->name('chat.start');
+    Route::get('/inbox/{conversation}', [ChatController::class, 'show'])->name('chat.show');
+    Route::post('/inbox/{conversation}', [ChatController::class, 'send'])->middleware('throttle:chat')->name('chat.send');
+    Route::get('/inbox/{conversation}/messages', [ChatController::class, 'messages'])->name('chat.messages');
+    Route::get('/notifications', [NotificationInboxController::class, 'index'])->name('notifications.index');
+    Route::post('/notifications/read', [NotificationInboxController::class, 'read'])->name('notifications.read');
 
     Route::prefix('buyer')->name('buyer.')->group(function () {
         Route::get('/', [BuyerDashboard::class, 'home'])->name('home');
@@ -111,6 +127,9 @@ Route::middleware(['auth', 'approved'])->group(function () {
         Route::get('/orders', [SellerDashboard::class, 'orders'])->name('orders');
         Route::patch('/orders/{order}/status', [SellerDashboard::class, 'updateOrderStatus'])->middleware('throttle:30,1')->name('orders.status');
         Route::get('/promos', [SellerDashboard::class, 'promos'])->name('promos');
+        Route::post('/promos', [SellerDashboard::class, 'storePromo'])->middleware('throttle:20,1')->name('promos.store');
+        Route::patch('/promos/{voucher}', [SellerDashboard::class, 'togglePromo'])->name('promos.toggle');
+        Route::delete('/promos/{voucher}', [SellerDashboard::class, 'destroyPromo'])->name('promos.destroy');
         Route::get('/shipments', [SellerDashboard::class, 'shipments'])->name('shipments');
     });
 

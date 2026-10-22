@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>@yield('title', 'JEAP') — Shop smart. Delivered easy.</title>
+    <link rel="icon" href="{{ asset('images/storefront/logo.png') }}" type="image/png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
@@ -21,7 +22,7 @@
     <header class="site-header">
         <div class="storefront-pad header-row">
             <a class="logo" href="{{ route('home') }}">
-                <img src="{{ asset('images/storefront/logo.svg') }}" alt="JEAP" width="88" height="40">
+                <img src="{{ asset('images/storefront/logo.png') }}" alt="JEAP" width="160" height="40">
             </a>
             <form class="search-cat" action="{{ route('products.index') }}" method="get">
                 @php
@@ -50,23 +51,12 @@
                     </ul>
                     <input type="hidden" name="category" value="{{ $activeCatSlug }}" data-cat-input>
                 </div>
-                <input type="search" name="q" placeholder="Search anything..." value="{{ request('q') }}">
-                <button type="submit" aria-label="Search">⌕</button>
+                <input type="search" name="q" placeholder="Search products" value="{{ request('q') }}">
+                <button type="submit" aria-label="Search">
+                    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="11" cy="11" r="6.25" stroke="currentColor" stroke-width="1.8"/><path d="M16 16.5 20 20.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+                </button>
             </form>
-            <div class="hotline">
-                <div>
-                    <small>Hotline 24/7</small>
-                    <strong>{{ config('jeap.hotline') }}</strong>
-                </div>
-            </div>
-            <div class="header-icons">
-                <a href="{{ auth()->check() ? route('profile') : route('login') }}" aria-label="Account">👤</a>
-                <a href="{{ route('cart.index') }}" aria-label="Cart">
-                    🛒
-                    <span class="cart-count">{{ $cartCount ?? 0 }}</span>
-                </a>
-                <button type="button" class="nav-toggle" data-nav-toggle aria-expanded="false" aria-controls="site-nav">Menu</button>
-            </div>
+            @include('partials.header-tools')
         </div>
         <nav id="site-nav" class="storefront-pad subnav">
             <div class="subnav-bar">
@@ -90,9 +80,11 @@
                     @endauth
                 </div>
                 <div class="subnav-right">
-                    <a class="nav-chip nav-chip--accent {{ request()->routeIs('register.seller') ? 'is-active' : '' }}" href="{{ route('register.seller') }}">Sell on JEAP</a>
+                    @unless (auth()->user()?->hasRole('seller'))
+                        <a class="nav-chip nav-chip--accent {{ request()->routeIs('register.seller') ? 'is-active' : '' }}" href="{{ route('register.seller') }}">Sell on JEAP</a>
+                    @endunless
                     <a class="nav-chip {{ request()->routeIs('shipping.home') ? 'is-active' : '' }}" href="{{ route('shipping.home') }}" @if(request()->routeIs('shipping.home')) aria-current="page" @endif>Shipping</a>
-                    <a class="nav-chip {{ request()->routeIs('shipping.track') ? 'is-active' : '' }}" href="{{ route('shipping.track') }}" @if(request()->routeIs('shipping.track')) aria-current="page" @endif>Order Tracking</a>
+                    <a class="nav-chip {{ request()->routeIs('shipping.track') ? 'is-active' : '' }}" href="{{ route('shipping.track') }}" @if(request()->routeIs('shipping.track')) aria-current="page" @endif>Track order</a>
                 </div>
             </div>
         </nav>
@@ -121,7 +113,6 @@
             <div class="footer-grid">
                 <div>
                     <strong>JEAP — Philippine marketplace</strong>
-                    <p>hotline 24/7<br><strong>{{ config('jeap.hotline') }}</strong></p>
                     <p>Shop smart. Delivered easy. Philippine marketplace with in-house logistics.</p>
                 </div>
                 <div>
@@ -142,7 +133,7 @@
                 </div>
                 <div>
                     <strong>Partner</strong>
-                    <p><a href="{{ route('register.seller') }}">Become Seller</a><br><a href="{{ route('register.logistics') }}">Sorting Center</a></p>
+                    <p><a href="{{ route('register.seller') }}">Become a seller</a></p>
                 </div>
             </div>
         </div>

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Storefront;
 
 use App\Commerce\CommissionService;
 use App\Commerce\InventoryPolicy;
+use App\Commerce\VoucherService;
 use App\Enums\OrderStatus;
 use App\Http\Controllers\Controller;
 use App\Models\Cart;
@@ -12,6 +13,7 @@ use App\Models\OrderItem;
 use App\Models\OrderStatusHistory;
 use App\Models\Payment;
 use App\Models\ProductVariant;
+use App\Notifications\OrderPlacedNotification;
 use App\Payments\PaymentGateway;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -78,10 +80,13 @@ class PageController extends Controller
             'latitude' => ['nullable', 'required_with:longitude', 'numeric', 'between:-90,90'],
             'longitude' => ['nullable', 'required_with:latitude', 'numeric', 'between:-180,180'],
             'gateway' => ['required', 'in:cod'],
+            'voucher_code' => ['nullable', 'string', 'max:64'],
         ]);
 
         $buyer = $request->user();
         $orders = DB::transaction(function () use ($buyer, $data) {
+            $voucherService = app(VoucherService::class);
+            $voucherRedeemed = false;
             $cart = Cart::query()->where('user_id', $buyer->id)->lockForUpdate()->first();
             $items = $cart?->items()->lockForUpdate()->get() ?? collect();
 
@@ -170,6 +175,12 @@ class PageController extends Controller
                 }
 
                 $shippingFee = InventoryPolicy::shippingFee();
+                $discount = 0;
+                $voucher = null;
+                if (! $voucherRedeemed && ! empty($data['voucher_code'])) {
+                    $voucher = $voucherService->findUsable($data['voucher_code'], $buyer, (int) $sellerId, $subtotal);
+                    $discount = $voucher?->computeDiscount($subtotal) ?? 0;
+                }
                 $order = Order::create([
                     'checkout_group_id' => $groupId,
                     'order_number' => 'JEAP-'.strtoupper(Str::random(8)),
@@ -178,8 +189,8 @@ class PageController extends Controller
                     'status' => OrderStatus::Placed,
                     'subtotal' => $subtotal,
                     'shipping_fee' => $shippingFee,
-                    'discount' => 0,
-                    'total' => $subtotal + $shippingFee,
+                    'discount' => $discount,
+                    'total' => $subtotal - $discount + $shippingFee,
                     'shipping_address_id' => $savedAddress->id,
                     'shipping_address_snapshot' => $address,
                     'notes' => $data['notes'] ?? null,
@@ -187,6 +198,10 @@ class PageController extends Controller
                 ]);
 
                 app(CommissionService::class)->record($order);
+                if ($voucher && $discount > 0) {
+                    $voucherService->redeem($voucher, $order, $buyer, $discount);
+                    $voucherRedeemed = true;
+                }
 
                 foreach ($lines as [$item, $variant, $lineTotal]) {
                     OrderItem::create([
@@ -219,6 +234,10 @@ class PageController extends Controller
                     'payload' => $intent->payload,
                 ]);
 
+                if ($order->seller?->wantsNotification('order_updates')) {
+                    $order->seller->notify(new OrderPlacedNotification($order));
+                }
+
                 $orders[] = $order;
             }
 
@@ -242,7 +261,9 @@ class PageController extends Controller
             'last_name' => ['required', 'string', 'max:80'],
             'email' => ['required', 'email', 'max:255', 'unique:users,email,'.$request->user()->id],
             'phone' => ['nullable', 'string', 'max:32'],
-            'avatar' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
+            'sex' => ['nullable', Rule::in(['male', 'female', 'other', 'prefer_not_to_say'])],
+            'birthday' => ['nullable', 'date', 'before_or_equal:'.now()->subYears(18)->toDateString()],
+            'avatar' => ['nullable', 'file', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
         ]);
 
         $user = $request->user();
@@ -255,7 +276,7 @@ class PageController extends Controller
         }
         $user->update($data);
 
-        return back()->with('toast', 'Account info saved');
+        return redirect()->route('profile')->with('toast', 'Account info saved');
     }
 
     public function help(): View

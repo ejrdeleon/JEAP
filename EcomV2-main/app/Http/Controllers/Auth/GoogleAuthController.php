@@ -23,14 +23,14 @@ class GoogleAuthController extends Controller
 {
     public function redirect(Request $request): RedirectResponse
     {
-        if (! config('services.google.client_id') || ! config('services.google.client_secret')) {
-            return $this->returnToAuthPage($request, 'Google sign-in is not configured yet.');
+        if (! $this->googleIsConfigured()) {
+            return $this->returnToAuthPage($request, 'Google sign-in is not available right now.');
         }
 
         $source = $request->query('from') === 'register' ? 'register' : 'login';
         $request->session()->put('auth.google.source', $source);
+        $this->bindRedirectUri($request);
 
-        // Keep Socialite's state validation enabled; never use stateless() here.
         return Socialite::driver('google')->scopes(['openid', 'email', 'profile'])->redirect();
     }
 
@@ -39,6 +39,8 @@ class GoogleAuthController extends Controller
         if ($request->filled('error')) {
             return $this->returnToAuthPage($request, 'Google sign-in was cancelled. You can try again or use your email and password.');
         }
+
+        $this->bindRedirectUri($request);
 
         try {
             /** @var SocialiteUser $google */
@@ -100,7 +102,6 @@ class GoogleAuthController extends Controller
         } catch (GoogleAccountConflict $exception) {
             return $this->returnToAuthPage($request, $exception->getMessage());
         } catch (QueryException) {
-            // A concurrent callback can win the unique provider-ID constraint. Re-read safely.
             $user = User::query()->where('google_id', $googleId)->first();
             if (! $user || strcasecmp($user->email, $email) !== 0) {
                 return $this->returnToAuthPage($request, 'This Google account could not be linked safely. Please contact support.');
@@ -108,11 +109,7 @@ class GoogleAuthController extends Controller
         }
 
         if ($user->status !== UserStatus::Active) {
-            $message = $user->status === UserStatus::PendingApproval
-                ? 'Your account is pending approval. You cannot sign in yet.'
-                : 'Your account is not active.';
-
-            return $this->returnToAuthPage($request, $message);
+            return $this->returnToAuthPage($request, $user->signInBlockMessage());
         }
 
         $request->session()->forget('auth.google.source');
@@ -120,6 +117,28 @@ class GoogleAuthController extends Controller
         Auth::login($user);
 
         return $login->completeSuccessfulLogin($request, $user, $cartSessionId);
+    }
+
+    private function googleIsConfigured(): bool
+    {
+        $id = trim((string) config('services.google.client_id'));
+        $secret = trim((string) config('services.google.client_secret'));
+        if ($id === '' || $secret === '') {
+            return false;
+        }
+
+        return ! in_array(strtolower($secret), [
+            'your-google-oauth-client-secret',
+            'your-google-client-secret',
+            'changeme',
+        ], true);
+    }
+
+    private function bindRedirectUri(Request $request): void
+    {
+        config([
+            'services.google.redirect' => rtrim($request->root(), '/').'/auth/google/callback',
+        ]);
     }
 
     private function storeGoogleAvatar(User $user, ?string $avatarUrl): void

@@ -39,7 +39,11 @@ class AdminPagesTest extends TestCase
         $this->actingAs($superAdmin)->get('/super-admin/admins')->assertOk();
         $this->actingAs($superAdmin)->get('/super-admin/settings')->assertOk();
         $this->actingAs($superAdmin)->get('/admin')->assertOk();
-        $this->actingAs($superAdmin)->get('/admin/users')->assertOk();
+        $this->actingAs($superAdmin)
+            ->get('/admin/users')
+            ->assertOk()
+            ->assertSee('Match profile photos', false)
+            ->assertSee('Give a reason whenever you suspend', false);
         $this->actingAs($superAdmin)->get('/logistics')->assertOk();
         LogisticsProfile::query()->create(['user_id' => $admin->id, 'hub_business_name' => 'Test Hub']);
         $this->actingAs($superAdmin)->get('/logistics/riders')->assertOk();
@@ -65,15 +69,57 @@ class AdminPagesTest extends TestCase
     public function test_admin_can_manage_marketplace_accounts_but_not_staff(): void
     {
         $admin = $this->createUserWithRole('admin');
-        $buyer = $this->createUserWithRole('buyer');
+        $buyer = User::factory()->create([
+            'first_name' => 'Lina',
+            'last_name' => 'Reyes',
+            'status' => UserStatus::Active,
+            'avatar_path' => 'avatars/lina.png',
+        ]);
+        $buyer->assignRole('buyer');
+
+        $this->actingAs($admin)
+            ->get('/admin/users')
+            ->assertOk()
+            ->assertSee('LR', false)
+            ->assertSee('Profile photo of Lina Reyes', false)
+            ->assertSee(route('media.avatar', $buyer), false);
+
+        $this->actingAs($admin)->from(route('admin.users'))->patch(route('admin.users.status', $buyer), [
+            'status' => UserStatus::Suspended->value,
+        ])->assertRedirect(route('admin.users'))->assertSessionHasErrors('reason');
+        $this->assertSame(UserStatus::Active, $buyer->fresh()->status);
 
         $this->actingAs($admin)->patch(route('admin.users.status', $buyer), [
             'status' => UserStatus::Suspended->value,
+            'reason' => 'Fake ID used at checkout.',
         ])->assertRedirect();
-        $this->assertSame(UserStatus::Suspended, $buyer->fresh()->status);
+        $buyer = $buyer->fresh();
+        $this->assertSame(UserStatus::Suspended, $buyer->status);
+        $this->assertSame('Fake ID used at checkout.', $buyer->status_reason);
+        $this->assertSame($admin->id, $buyer->status_changed_by);
+
+        $this->actingAs($admin)
+            ->get('/admin/users')
+            ->assertSee('Fake ID used at checkout.', false)
+            ->assertSee('Last changed by', false);
+
+        $this->post('/logout');
+        $this->from('/login')->post('/login', [
+            'email' => $buyer->email,
+            'password' => 'password',
+        ])->assertRedirect('/login')->assertSessionHasErrors([
+            'email' => 'Your account is suspended. Fake ID used at checkout.',
+        ]);
+
+        $this->actingAs($admin)->patch(route('admin.users.status', $buyer), [
+            'status' => UserStatus::Active->value,
+        ])->assertRedirect();
+        $this->assertSame(UserStatus::Active, $buyer->fresh()->status);
+        $this->assertNull($buyer->fresh()->status_reason);
 
         $this->actingAs($admin)->patch(route('admin.users.status', $admin), [
             'status' => UserStatus::Suspended->value,
+            'reason' => 'Attempted self-suspension.',
         ])->assertForbidden();
 
         $pending = User::factory()->create(['status' => UserStatus::PendingApproval]);
@@ -108,6 +154,18 @@ class AdminPagesTest extends TestCase
         $createdAdmin = User::query()->where('email', 'operator@jeap.test')->firstOrFail();
         $this->assertTrue($createdAdmin->hasRole('admin'));
         $this->assertSame(UserStatus::Active, $createdAdmin->status);
+
+        $this->actingAs($superAdmin)->from(route('super-admin.admins'))->patch(route('super-admin.admins.status', $createdAdmin), [
+            'status' => UserStatus::Deactivated->value,
+        ])->assertRedirect(route('super-admin.admins'))->assertSessionHasErrors('reason');
+
+        $this->actingAs($superAdmin)->patch(route('super-admin.admins.status', $createdAdmin), [
+            'status' => UserStatus::Deactivated->value,
+            'reason' => 'Left the operations team.',
+        ])->assertRedirect();
+        $createdAdmin = $createdAdmin->fresh();
+        $this->assertSame(UserStatus::Deactivated, $createdAdmin->status);
+        $this->assertSame('Left the operations team.', $createdAdmin->status_reason);
 
         $this->actingAs($superAdmin)->post(route('super-admin.settings.policies.store'), [
             'key' => 'returns-policy',

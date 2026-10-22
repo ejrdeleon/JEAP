@@ -13,24 +13,35 @@
         $address['barangay_name'] ?? null,
         $address['city_name'] ?? null,
         $address['province_name'] ?? null,
-        $address['region_name'] ?? null,
-        $address['country_name'] ?? null,
         $address['postal_code'] ?? null,
     ]));
+    $pickup = $order->seller?->sellerProfile?->addresses?->first();
+    $origin = $pickup ? implode(', ', array_filter([$pickup->street_line, $pickup->barangay_name, $pickup->city_name, $pickup->province_name])) : ($order->seller?->sellerProfile?->business_name ?: 'Seller warehouse');
     $latitude = $address['latitude'] ?? null;
     $longitude = $address['longitude'] ?? null;
-    $hasCoordinates = is_numeric($latitude) && is_numeric($longitude)
-        && (float) $latitude >= -90 && (float) $latitude <= 90
-        && (float) $longitude >= -180 && (float) $longitude <= 180;
+    $hasCoordinates = is_numeric($latitude) && is_numeric($longitude);
     $finalStatuses = [\App\Enums\OrderStatus::Completed, \App\Enums\OrderStatus::Cancelled, \App\Enums\OrderStatus::Returned];
+    $steps = \App\Enums\OrderStatus::shopperSteps();
+    $currentStep = 0;
+    foreach ($steps as $index => $step) {
+        if (in_array($order->status, $step['match'], true)) {
+            $currentStep = $index;
+        } elseif (in_array($order->status, [\App\Enums\OrderStatus::Delivered, \App\Enums\OrderStatus::Completed], true)) {
+            $currentStep = count($steps) - 1;
+        }
+    }
+    if (in_array($order->status, [\App\Enums\OrderStatus::Delivered, \App\Enums\OrderStatus::Completed], true)) {
+        $currentStep = count($steps) - 1;
+    }
+    $rider = $order->parcel?->deliveryAssignment?->courier;
 @endphp
 <main class="buyer-track-page">
     <header class="buyer-track-heading">
         <div>
-            <a class="buyer-track-back" href="{{ route('buyer.home') }}">← My account</a>
+            <a class="buyer-track-back" href="{{ route('buyer.home') }}">← My orders</a>
             <p class="buyer-track-eyebrow">ORDER TRACKING</p>
             <h1>{{ $order->order_number }}</h1>
-            <p>Placed {{ $order->placed_at?->format('M j, Y · g:i A') ?? 'Date unavailable' }}</p>
+            <p>Placed {{ $order->placed_at?->format('M j, Y · g:i A') ?? 'Date unavailable' }} · COD</p>
         </div>
         <span class="buyer-track-status status-{{ strtolower($order->status->value) }}">{{ str($order->status->value)->replace('_', ' ')->title() }}</span>
     </header>
@@ -38,48 +49,40 @@
     @if(session('status'))<div class="buyer-track-flash">{{ session('status') }}</div>@endif
     @if($errors->any())<div class="buyer-track-error">{{ $errors->first() }}</div>@endif
 
+    <section class="track-stepper" aria-label="Delivery progress">
+        @foreach($steps as $index => $step)
+            <div class="track-step {{ $index < $currentStep ? 'is-complete' : '' }} {{ $index === $currentStep ? 'is-current' : '' }}">
+                <span class="track-step-dot" aria-hidden="true"></span>
+                <strong>{{ $step['label'] }}</strong>
+            </div>
+        @endforeach
+    </section>
+
     <div class="buyer-track-layout">
         <section class="buyer-track-main">
-            @if($order->status === \App\Enums\OrderStatus::DeliveryFailed)
-                <div class="buyer-track-callout is-error"><strong>Delivery attempt unsuccessful</strong><p>Our logistics team is reviewing the shipment and may arrange another attempt.</p></div>
-            @elseif($order->status === \App\Enums\OrderStatus::Cancelled)
-                <div class="buyer-track-callout is-muted"><strong>This order was cancelled</strong><p>There are no further delivery updates for this order.</p></div>
-            @elseif($order->status === \App\Enums\OrderStatus::Returned)
-                <div class="buyer-track-callout is-muted"><strong>This order is being returned</strong><p>Contact JEAP support if you need help with this shipment.</p></div>
-            @elseif($order->status === \App\Enums\OrderStatus::Completed)
-                <div class="buyer-track-callout is-success"><strong>Order complete</strong><p>Your receipt has been confirmed. Thank you for shopping with JEAP.</p></div>
-            @endif
-
             <section class="buyer-track-card">
-                <div class="buyer-track-card-heading"><div><p class="buyer-track-eyebrow">SHIPMENT</p><h2>Delivery progress</h2></div>
-                    @if($order->parcel)<span class="buyer-track-number">{{ $order->parcel->tracking_number }}</span>@endif
+                <div class="buyer-track-card-heading">
+                    <div><p class="buyer-track-eyebrow">SHIPMENT</p><h2>{{ $order->parcel?->tracking_number ?? 'Waiting for pickup' }}</h2></div>
+                    @if($order->parcel)
+                        <button type="button" class="track-copy" data-copy="{{ $order->parcel->tracking_number }}">Copy</button>
+                    @endif
                 </div>
-                @if($order->parcel)
-                    @php($progressStatuses = \App\Enums\OrderStatus::pipeline())
-                    @php($currentIndex = array_search($order->status, $progressStatuses, true))
-                    @if($currentIndex !== false && !in_array($order->status, $finalStatuses, true))
-                        <div class="buyer-track-progress" aria-label="Shipment progress">
-                            @foreach([\App\Enums\OrderStatus::ReadyForPickup, \App\Enums\OrderStatus::PickedUp, \App\Enums\OrderStatus::AtSortingCenter, \App\Enums\OrderStatus::Sorted, \App\Enums\OrderStatus::AssignedToRider, \App\Enums\OrderStatus::OutForDelivery, \App\Enums\OrderStatus::Delivered] as $step)
-                                @php($stepIndex = array_search($step, $progressStatuses, true))
-                                <span class="{{ $currentIndex >= $stepIndex ? 'is-complete' : '' }}">{{ str($step->value)->replace('_', ' ')->title() }}</span>
-                            @endforeach
-                        </div>
-                    @endif
-                    @if(in_array($order->status, [\App\Enums\OrderStatus::Placed, \App\Enums\OrderStatus::Confirmed, \App\Enums\OrderStatus::Preparing], true))
-                        <p class="buyer-track-note">Your seller is preparing this order. Tracking will begin when it is ready for pickup.</p>
-                    @endif
-                @else
-                    <p class="buyer-track-note">The seller is preparing your order. Shipment tracking will appear when it is ready for pickup.</p>
+                <div class="track-route">
+                    <div><span>From</span><strong>{{ $order->seller?->sellerProfile?->business_name ?: ($order->seller?->name ?? 'Seller') }}</strong><p>{{ $origin }}</p></div>
+                    <div><span>To</span><strong>{{ $address['recipient_name'] ?? auth()->user()->name }}</strong><p>{{ $destination !== '' ? $destination : 'Delivery address unavailable' }}</p></div>
+                </div>
+                @if($hasCoordinates)
+                    <a class="buyer-track-map" href="https://www.google.com/maps/search/?api=1&amp;query={{ urlencode($latitude.','.$longitude) }}" target="_blank" rel="noopener noreferrer">Open destination in Google Maps</a>
                 @endif
             </section>
 
             <section class="buyer-track-card">
                 <div class="buyer-track-card-heading"><div><p class="buyer-track-eyebrow">UPDATES</p><h2>Tracking history</h2></div></div>
                 @if($events->isEmpty())
-                    <p class="buyer-track-note">Your order updates will appear here.</p>
+                    <p class="buyer-track-note">Your seller is preparing this order. Updates will appear here.</p>
                 @else
                     <ol class="buyer-track-timeline">
-                        @foreach($events as $event)
+                        @foreach($events->reverse() as $event)
                             <li>
                                 <span class="buyer-track-dot" aria-hidden="true"></span>
                                 <div><strong>{{ $event['label'] }}</strong>
@@ -95,19 +98,16 @@
 
         <aside class="buyer-track-side">
             <section class="buyer-track-card">
-                <p class="buyer-track-eyebrow">DELIVERY DETAILS</p>
-                <h2>Destination</h2>
-                <p class="buyer-track-address">{{ $destination !== '' ? $destination : 'Delivery address unavailable' }}</p>
-                @if($hasCoordinates)
-                    <a class="buyer-track-map" href="https://www.google.com/maps/search/?api=1&amp;query={{ urlencode($latitude.','.$longitude) }}" target="_blank" rel="noopener noreferrer">Open destination in Google Maps</a>
-                @endif
-                @if($order->parcel?->deliveryAssignment?->courier)
-                    <div class="buyer-track-rider"><span>DELIVERY RIDER</span><strong>{{ $order->parcel->deliveryAssignment->courier->name }}</strong>
-                        @if($order->parcel->deliveryAssignment->courier->phone)<a href="tel:{{ $order->parcel->deliveryAssignment->courier->phone }}">{{ $order->parcel->deliveryAssignment->courier->phone }}</a>@endif
+                <p class="buyer-track-eyebrow">PEOPLE ON THIS ORDER</p>
+                <h2>Chat</h2>
+                <form method="post" action="{{ route('chat.start') }}">@csrf<input type="hidden" name="order_id" value="{{ $order->id }}"><button class="s3-btn" type="submit">Chat about this order</button></form>
+                @if($rider)
+                    <div class="buyer-track-rider"><span>DELIVERY RIDER</span><strong>{{ $rider->name }}</strong>
+                        @if($rider->phone)<a href="tel:{{ $rider->phone }}">{{ $rider->phone }}</a>@endif
                     </div>
                 @endif
                 @if($order->status === \App\Enums\OrderStatus::Delivered)
-                    <form method="post" action="{{ route('buyer.orders.confirm-received', $order) }}" class="buyer-track-confirm">@csrf<button type="submit">Confirm receipt</button></form>
+                    <form method="post" action="{{ route('buyer.orders.confirm-received', $order) }}" class="buyer-track-confirm">@csrf<button type="submit">Order received</button></form>
                 @endif
             </section>
 
@@ -116,10 +116,21 @@
                 @foreach($order->items as $item)
                     <div><span>{{ $item->name }} × {{ $item->quantity }}</span><strong>₱{{ number_format((float) $item->subtotal, 2) }}</strong></div>
                 @endforeach
+                @if((float) $order->discount > 0)
+                    <div><span>Voucher</span><strong>−₱{{ number_format((float) $order->discount, 2) }}</strong></div>
+                @endif
+                <div><span>Shipping</span><strong>₱{{ number_format((float) $order->shipping_fee, 2) }}</strong></div>
                 <div class="buyer-track-total"><span>Total</span><strong>₱{{ number_format((float) $order->total, 2) }}</strong></div>
-                <p class="buyer-track-seller">Sold by {{ $order->seller?->name ?? 'JEAP seller' }}</p>
+                <p class="buyer-track-seller">Sold by {{ $order->seller?->sellerProfile?->business_name ?? $order->seller?->name ?? 'JEAP seller' }}</p>
             </section>
         </aside>
     </div>
 </main>
+<script>
+    document.querySelectorAll('[data-copy]').forEach((button) => button.addEventListener('click', async () => {
+        await navigator.clipboard.writeText(button.dataset.copy);
+        button.textContent = 'Copied';
+        setTimeout(() => { button.textContent = 'Copy'; }, 1500);
+    }));
+</script>
 @endsection

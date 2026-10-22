@@ -19,7 +19,7 @@ class AccountRegistrationTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_buyer_registration_normalizes_contact_data_and_verifies_email_with_a_five_minute_code(): void
+    public function test_buyer_registration_normalizes_contact_data_and_verifies_email_with_a_timed_code(): void
     {
         $this->seed(RoleSeeder::class);
         Notification::fake();
@@ -54,7 +54,8 @@ class AccountRegistrationTest extends TestCase
 
         $notification = Notification::sent($user, EmailVerificationCodeNotification::class)->first();
         $this->assertMatchesRegularExpression('/^\d{6}$/', $notification->code);
-        $this->assertTrue(EmailVerificationCode::query()->where('user_id', $user->id)->firstOrFail()->expires_at->between(now()->addMinutes(4), now()->addMinutes(5)->addSecond()));
+        $minutes = (int) config('jeap.email_verification_minutes');
+        $this->assertTrue(EmailVerificationCode::query()->where('user_id', $user->id)->firstOrFail()->expires_at->between(now()->addMinutes($minutes - 1), now()->addMinutes($minutes)->addSecond()));
 
         $this->post(route('email.verify'), ['code' => $notification->code])
             ->assertRedirect(route('login'));

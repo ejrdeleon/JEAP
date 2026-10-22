@@ -66,12 +66,8 @@ class AuthController extends Controller
             return response()->json(['message' => 'Invalid email or password.'], 401);
         }
 
-        if ($user->status === UserStatus::PendingApproval) {
-            return response()->json(['message' => 'Your account is pending admin approval.'], 403);
-        }
-
         if ($user->status !== UserStatus::Active) {
-            return response()->json(['message' => 'Your account is not active.'], 403);
+            return response()->json(['message' => $user->signInBlockMessage()], 403);
         }
 
         $token = $user->createToken('mobile')->plainTextToken;

@@ -46,13 +46,7 @@ class LoginController extends Controller
                 return to_route('email.verify.show')->with('status', 'Verify your email before signing in.');
             }
 
-            $message = $user->status === UserStatus::PendingApproval
-                ? 'Your account is pending approval. You cannot sign in yet.'
-                : ($user->status === UserStatus::PendingActivation
-                    ? 'Activate your rider account using the link sent to your email before signing in.'
-                    : 'Your account is not active.');
-
-            return back()->withErrors(['email' => $message])->onlyInput('email');
+            return back()->withErrors(['email' => $user->signInBlockMessage()])->onlyInput('email');
         }
 
         return $this->completeSuccessfulLogin($request, $user, $cartSessionId);

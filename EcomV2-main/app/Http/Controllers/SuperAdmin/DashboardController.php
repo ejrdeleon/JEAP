@@ -4,13 +4,13 @@ namespace App\Http\Controllers\SuperAdmin;
 
 use App\Enums\UserStatus;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\UpdateAccountAccessRequest;
 use App\Models\Announcement;
 use App\Models\PlatformPolicy;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
 class DashboardController extends Controller
@@ -29,7 +29,7 @@ class DashboardController extends Controller
     public function admins(): View
     {
         return view('super-admin.admins', [
-            'admins' => User::query()->role('admin')->with('roles')->latest()->paginate(15),
+            'admins' => User::query()->role('admin')->with(['roles', 'statusChangedBy'])->latest()->paginate(15),
         ]);
     }
 
@@ -59,20 +59,12 @@ class DashboardController extends Controller
         return back()->with('status', 'Administrator account created.');
     }
 
-    public function updateAdminStatus(Request $request, User $user): RedirectResponse
+    public function updateAdminStatus(UpdateAccountAccessRequest $request, User $user): RedirectResponse
     {
         abort_unless($user->hasRole('admin'), 404);
         abort_if($user->id === $request->user()->id || $user->hasRole('super-admin'), 403);
 
-        $data = $request->validate([
-            'status' => ['required', Rule::in([
-                UserStatus::Active->value,
-                UserStatus::Suspended->value,
-                UserStatus::Deactivated->value,
-            ])],
-        ]);
-
-        $user->forceFill(['status' => $data['status']])->save();
+        $user->applyAccessStatus($request->accessStatus(), $request->accessReason(), $request->user());
 
         return back()->with('status', 'Administrator status updated.');
     }

@@ -5,7 +5,7 @@
 @endsection
 @section('content')
     <section class="admin-page">
-        <header class="admin-heading"><div><span class="admin-eyebrow">ACCESS CONTROL</span><h1>Administrator accounts</h1><p>Create admin access and suspend or reactivate existing administrators.</p></div></header>
+        <header class="admin-heading"><div><span class="admin-eyebrow">ACCESS CONTROL</span><h1>Administrator accounts</h1><p>Create admin access. Give a reason whenever you suspend or deactivate an administrator.</p></div></header>
         @if (session('status')) <p class="admin-notice">{{ session('status') }}</p> @endif
         @if ($errors->any()) <p class="admin-error">{{ $errors->first() }}</p> @endif
         <section class="admin-panel"><h2>Create administrator</h2>
@@ -24,19 +24,15 @@
             </form>
         </section>
         <section class="admin-panel"><h2>Current administrators</h2>
-            <div class="admin-table-wrap"><table class="admin-table"><thead><tr><th>Administrator</th><th>Email</th><th>Role</th><th>Status</th><th>Access control</th></tr></thead>
+            <div class="admin-table-wrap"><table class="admin-table"><thead><tr><th>Administrator</th><th>Role</th><th>Status</th><th>Access control</th></tr></thead>
                 <tbody>@forelse ($admins as $admin)<tr>
-                    <td><strong>{{ $admin->name }}</strong><small>Joined {{ $admin->created_at->format('M j, Y') }}</small></td>
-                    <td>{{ $admin->email }}</td><td>{{ $admin->roles->pluck('name')->join(', ') }}</td>
+                    <td>@include('partials.admin-user-photo', ['user' => $admin])</td>
+                    <td>{{ $admin->roles->pluck('name')->join(', ') }}</td>
                     <td><span class="admin-pill">{{ $admin->status->label() }}</span></td>
                     <td>@if ($admin->id === auth()->id())<span class="admin-help">Your account</span>@else
-                        <form method="post" action="{{ route('super-admin.admins.status', $admin) }}" class="admin-inline-form">
-                            @csrf @method('PATCH')
-                            <select name="status" aria-label="New status for {{ $admin->name }}"><option value="active">Active</option><option value="suspended">Suspended</option><option value="deactivated">Deactivated</option></select>
-                            <button class="admin-button admin-button-small">Save</button>
-                        </form>
+                        @include('partials.account-access-form', ['account' => $admin, 'action' => route('super-admin.admins.status', $admin)])
                     @endif</td>
-                </tr>@empty<tr><td colspan="5" class="admin-empty">No admin accounts found.</td></tr>@endforelse</tbody>
+                </tr>@empty<tr><td colspan="4" class="admin-empty">No admin accounts found.</td></tr>@endforelse</tbody>
             </table></div>
             <div class="admin-pagination">{{ $admins->links() }}</div>
         </section>

@@ -10,10 +10,13 @@
 <body class="dash">
     <aside class="dash-side">
         <a class="dash-brand" href="{{ route('home') }}">
-            <img src="{{ asset('images/storefront/logo.svg') }}" alt="JEAP" width="88" height="32">
+            <img src="{{ asset('images/storefront/logo.png') }}" alt="JEAP" width="140" height="32">
         </a>
         <nav>
             @yield('nav')
+            <a href="{{ route('chat.index') }}">Chat</a>
+            <a href="{{ route('notifications.index') }}">Notifications</a>
+            <a href="{{ route('profile') }}">Account</a>
             <a href="{{ route('home') }}">Storefront</a>
             <x-logout-form style="margin-top:16px;" />
         </nav>

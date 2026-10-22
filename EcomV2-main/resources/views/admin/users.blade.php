@@ -11,7 +11,7 @@
 @endsection
 @section('content')
     <section class="admin-page">
-        <header class="admin-heading"><div><span class="admin-eyebrow">MARKETPLACE ACCOUNTS</span><h1>Users</h1><p>Search accounts and update access status.</p></div></header>
+        <header class="admin-heading"><div><span class="admin-eyebrow">MARKETPLACE ACCOUNTS</span><h1>Users</h1><p>Match profile photos when reviewing accounts. Give a reason whenever you suspend or deactivate someone.</p></div></header>
         @if (session('status')) <p class="admin-notice">{{ session('status') }}</p> @endif
         @if ($errors->any()) <p class="admin-error">{{ $errors->first() }}</p> @endif
         <section class="admin-panel">
@@ -24,15 +24,11 @@
                 <thead><tr><th>User</th><th>Role</th><th>Status</th><th>Joined</th><th>Update access</th></tr></thead>
                 <tbody>@forelse ($users as $user)
                     <tr>
-                        <td><strong>{{ $user->name }}</strong><small>{{ $user->email }}</small></td>
+                        <td>@include('partials.admin-user-photo', ['user' => $user])</td>
                         <td>{{ $user->roles->pluck('name')->join(', ') ?: '—' }}</td>
                         <td><span class="admin-pill">{{ $user->status->label() }}</span></td>
                         <td>{{ $user->created_at->format('M j, Y') }}</td>
-                        <td><form method="post" action="{{ route('admin.users.status', $user) }}" class="admin-inline-form">
-                            @csrf @method('PATCH')
-                            <select name="status" aria-label="New status for {{ $user->name }}"><option value="active">Active</option><option value="suspended">Suspended</option><option value="deactivated">Deactivated</option></select>
-                            <button class="admin-button admin-button-small">Save</button>
-                        </form></td>
+                        <td>@include('partials.account-access-form', ['account' => $user, 'action' => route('admin.users.status', $user)])</td>
                     </tr>
                 @empty<tr><td colspan="5" class="admin-empty">No marketplace users match these filters.</td></tr>@endforelse</tbody>
             </table></div>

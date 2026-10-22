@@ -11,10 +11,10 @@
         <div>
             <span class="contact-eyebrow">WE’RE HERE TO HELP</span>
             <h1>Talk to JEAP.</h1>
-            <p>Questions about JEAP or an order? Send our team a message, call the hotline, or use your account and shipment tools.</p>
+            <p>Questions about JEAP or an order? Send our team a message, or use your account and shipment tools.</p>
             <div class="contact-hero-actions">
                 <a class="contact-call-button" href="#contact-form">Send a message</a>
-                <a class="contact-track-link" href="tel:{{ preg_replace('/\D+/', '', config('jeap.hotline')) }}">Call {{ config('jeap.hotline') }}</a>
+                <a class="contact-track-link" href="{{ route('shipping.track') }}">Track a shipment</a>
             </div>
         </div>
         <div class="contact-illustration"><img src="{{ asset('images/storefront/contact-side.svg') }}" alt="" width="401" height="327"></div>
@@ -23,8 +23,8 @@
     <section class="contact-options" aria-label="Contact options">
         <article class="contact-option-card">
             <span class="contact-option-icon" aria-hidden="true">01</span>
-            <div><h2>Call our hotline</h2><p>For help with JEAP, call the hotline shown here.</p><a href="tel:{{ preg_replace('/\D+/', '', config('jeap.hotline')) }}">{{ config('jeap.hotline') }} <span aria-hidden="true">→</span></a></div>
-            <small>Hotline 24/7</small>
+            <div><h2>Message support</h2><p>Send a note from this page and JEAP will review it in the support inbox.</p><a href="#contact-form">Open the form <span aria-hidden="true">→</span></a></div>
+            <small>Support</small>
         </article>
         <article class="contact-option-card">
             <span class="contact-option-icon" aria-hidden="true">02</span>

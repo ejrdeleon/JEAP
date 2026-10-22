@@ -2,11 +2,13 @@
 
 namespace App\Commerce;
 
+use App\Commerce\ChatService;
 use App\Enums\OrderStatus;
 use App\Models\Order;
 use App\Models\OrderStatusHistory;
 use App\Models\Parcel;
 use App\Models\User;
+use App\Notifications\OrderStatusNotification;
 use Symfony\Component\HttpKernel\Exception\ConflictHttpException;
 
 class ShipmentWorkflow
@@ -40,5 +42,20 @@ class ShipmentWorkflow
             'notes' => $notes,
             'created_at' => now(),
         ]);
+
+        $order->loadMissing(['buyer', 'seller', 'parcel.deliveryAssignment.courier', 'parcel.pickupAssignment.courier']);
+        if ($order->buyer?->wantsNotification('order_updates')) {
+            $order->buyer->notify(new OrderStatusNotification(
+                $order,
+                'Order '.$order->order_number,
+                $notes !== '' ? $notes : 'Status updated to '.str($next->value)->replace('_', ' ')->lower().'.',
+            ));
+        }
+
+        $courier = $order->parcel?->deliveryAssignment?->courier
+            ?? $order->parcel?->pickupAssignment?->courier;
+        if ($courier && in_array($next, [OrderStatus::AssignedToRider, OrderStatus::OutForDelivery, OrderStatus::PickedUp], true)) {
+            app(ChatService::class)->forOrder($order, $courier);
+        }
     }
 }

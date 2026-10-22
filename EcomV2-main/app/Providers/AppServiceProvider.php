@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Commerce\ChatService;
 use App\Models\Cart;
 use App\Models\Category;
 use App\Payments\CodGateway;
@@ -47,7 +48,15 @@ class AppServiceProvider extends ServiceProvider
             return Limit::perMinute(60)->by((string) ($request->user()?->id ?: $request->ip()));
         });
 
-        View::composer(['layouts.storefront', 'layouts.storefront-inner'], function ($view) {
+        RateLimiter::for('google', function (Request $request) {
+            return Limit::perMinute(20)->by($request->ip());
+        });
+
+        RateLimiter::for('chat', function (Request $request) {
+            return Limit::perMinute(30)->by((string) ($request->user()?->id ?: $request->ip()));
+        });
+
+        View::composer(['layouts.storefront', 'layouts.storefront-inner', 'layouts.dashboard'], function ($view) {
             $view->with('navCategories', Category::query()->where('is_active', true)->parents()->orderBy('sort_order')->get());
 
             $cart = null;
@@ -60,6 +69,8 @@ class AppServiceProvider extends ServiceProvider
             $items = $cart?->items ?? collect();
             $view->with('cartCount', $items->sum('quantity'));
             $view->with('cartTotal', $items->sum(fn ($i) => $i->unit_price * $i->quantity));
+            $view->with('unreadNotificationCount', Auth::check() ? Auth::user()->unreadNotifications()->count() : 0);
+            $view->with('unreadChatCount', Auth::check() ? app(ChatService::class)->unreadCount(Auth::user()) : 0);
         });
     }
 }

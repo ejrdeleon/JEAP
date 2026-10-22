@@ -24,6 +24,26 @@
                 <div><span class="shipping-eyebrow">TRACKING NUMBER</span><h2>{{ $parcel->tracking_number }}</h2></div>
                 <span class="shipping-status">{{ str($parcel->status->value)->replace('_', ' ')->title() }}</span>
             </div>
+            @php
+                $steps = \App\Enums\OrderStatus::shopperSteps();
+                $currentStep = 0;
+                foreach ($steps as $index => $step) {
+                    if (in_array($parcel->status, $step['match'], true)) {
+                        $currentStep = $index;
+                    }
+                }
+                if (in_array($parcel->status, [\App\Enums\OrderStatus::Delivered, \App\Enums\OrderStatus::Completed], true)) {
+                    $currentStep = count($steps) - 1;
+                }
+            @endphp
+            <section class="track-stepper" aria-label="Delivery progress">
+                @foreach($steps as $index => $step)
+                    <div class="track-step {{ $index < $currentStep ? 'is-complete' : '' }} {{ $index === $currentStep ? 'is-current' : '' }}">
+                        <span class="track-step-dot" aria-hidden="true"></span>
+                        <strong>{{ $step['label'] }}</strong>
+                    </div>
+                @endforeach
+            </section>
             @if($events->isEmpty())
                 <p class="shipping-empty-note">No shipment events have been recorded yet. Check again after the next order update.</p>
             @else

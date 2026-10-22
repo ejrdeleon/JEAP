@@ -32,5 +32,8 @@
         <env name="PULSE_ENABLED" value="false"/>
         <env name="TELESCOPE_ENABLED" value="false"/>
         <env name="NIGHTWATCH_ENABLED" value="false"/>
+        <env name="GOOGLE_CLIENT_ID" value="test-google-client.apps.googleusercontent.com"/>
+        <env name="GOOGLE_CLIENT_SECRET" value="test-google-client-secret"/>
+        <env name="GOOGLE_REDIRECT_URI" value="https://jeap.store/auth/google/callback"/>
     </php>
 </phpunit>

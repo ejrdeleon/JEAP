@@ -24,7 +24,7 @@
             </div>
             <div class="s3-field">
                 <label>Email Address</label>
-                <input type="email" name="email" value="{{ old('email') }}" placeholder="Example@gmail.com" required>
+                <input type="email" name="email" value="{{ old('email') }}" placeholder="you@email.com" autocomplete="email" required>
             </div>
             <div class="s3-field">
                 <label>Phone</label>
@@ -46,11 +46,11 @@
             ])
             <div class="s3-field">
                 <label>Password</label>
-                <input type="password" name="password" placeholder="...." required>
+                <input type="password" name="password" placeholder="Password" autocomplete="new-password" required>
             </div>
             <div class="s3-field">
                 <label>Confirm Password</label>
-                <input type="password" name="password_confirmation" placeholder="...." required>
+                <input type="password" name="password_confirmation" placeholder="Confirm password" autocomplete="new-password" required>
             </div>
             <label class="register-terms"><input type="checkbox" name="terms" value="1" @checked(old('terms')) required> I agree to the JEAP Terms and Privacy Policy.</label>
             <p><button class="s3-btn" type="submit" style="min-width:163px;">Sign up</button></p>
@@ -62,8 +62,6 @@
             <p><a class="s3-link" href="{{ route('login') }}">Already have an account? Log in</a></p>
             <p class="s3-extra" style="border:0;padding-top:8px;">
                 <a class="s3-link" href="{{ route('register.seller') }}">Sell on JEAP</a>
-                &nbsp;·&nbsp;
-                <a class="s3-link" href="{{ route('register.logistics') }}">Sorting center</a>
             </p>
         </form>
     </div>

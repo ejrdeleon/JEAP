@@ -35,12 +35,24 @@ class GoogleAuthenticationTest extends TestCase
 
     public function test_google_redirect_uses_authorization_state_and_remembers_safe_source(): void
     {
-        $response = $this->get(route('google.redirect', ['from' => 'register']));
+        $response = $this->get('http://127.0.0.1/auth/google/redirect?from=register');
         $response->assertRedirect();
-        $this->assertStringStartsWith('https://accounts.google.com/o/oauth2/auth?', $response->headers->get('Location'));
+        $location = (string) $response->headers->get('Location');
+        $this->assertStringStartsWith('https://accounts.google.com/o/oauth2/auth?', $location);
+        $this->assertStringContainsString('redirect_uri='.rawurlencode('http://127.0.0.1/auth/google/callback'), $location);
+        $this->assertStringNotContainsString('client_secret', $location);
 
         $this->assertNotEmpty(session('state'));
         $this->assertSame('register', session('auth.google.source'));
+    }
+
+    public function test_google_redirect_is_blocked_without_a_real_secret(): void
+    {
+        config(['services.google.client_secret' => 'your-google-oauth-client-secret']);
+
+        $this->get(route('google.redirect'))
+            ->assertRedirect(route('login'))
+            ->assertSessionHasErrors('google');
     }
 
     public function test_verified_google_buyer_is_created_and_signed_in(): void

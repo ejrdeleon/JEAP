@@ -5,6 +5,8 @@ namespace App\Http\Controllers\Api\V1;
 use App\Commerce\CommissionService;
 use App\Commerce\InventoryPolicy;
 use App\Commerce\ShipmentWorkflow;
+use App\Commerce\VoucherService;
+use App\Notifications\OrderPlacedNotification;
 use App\Enums\OrderStatus;
 use App\Http\Controllers\Controller;
 use App\Models\Cart;
@@ -91,6 +93,8 @@ class OrderController extends Controller
             $grouped = $items->groupBy('seller_id');
             $orders = [];
             $groupId = Str::uuid()->toString();
+            $voucherService = app(VoucherService::class);
+            $voucherRedeemed = false;
 
             foreach ($grouped as $sellerId => $sellerItems) {
                 foreach ($sellerItems as $item) {
@@ -114,6 +118,11 @@ class OrderController extends Controller
                 $subtotal = $sellerItems->sum(fn ($i) => $i->unit_price * $i->quantity);
                 $fee = InventoryPolicy::shippingFee();
                 $discount = 0.00;
+                $voucher = null;
+                if (! $voucherRedeemed && ! empty($data['voucher_code'])) {
+                    $voucher = $voucherService->findUsable($data['voucher_code'], $request->user(), (int) $sellerId, $subtotal);
+                    $discount = $voucher?->computeDiscount($subtotal) ?? 0;
+                }
 
                 $order = Order::create([
                     'checkout_group_id' => $groupId,
@@ -132,6 +141,13 @@ class OrderController extends Controller
                 ]);
 
                 app(CommissionService::class)->record($order);
+                if ($voucher && $discount > 0) {
+                    $voucherService->redeem($voucher, $order, $request->user(), $discount);
+                    $voucherRedeemed = true;
+                }
+                if ($order->seller?->wantsNotification('order_updates')) {
+                    $order->seller->notify(new OrderPlacedNotification($order));
+                }
 
                 foreach ($sellerItems as $item) {
                     OrderItem::create([

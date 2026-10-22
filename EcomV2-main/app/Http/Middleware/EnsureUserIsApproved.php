@@ -22,15 +22,13 @@ class EnsureUserIsApproved
             }
 
             if ($request->expectsJson()) {
-                abort(403, 'Your account is not active.');
+                abort(403, $user->signInBlockMessage());
             }
 
             return redirect()
                 ->route('login')
                 ->withErrors([
-                    'email' => $user->status === UserStatus::PendingApproval
-                        ? 'Your account is pending approval. You cannot sign in yet.'
-                        : 'Your account is not active.',
+                    'email' => $user->signInBlockMessage(),
                 ]);
         }
 

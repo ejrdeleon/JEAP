@@ -6,6 +6,7 @@ use App\Enums\UserStatus;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
@@ -31,6 +32,8 @@ class User extends Authenticatable
         'terms_accepted_at',
         'password',
         'avatar_path',
+        'notification_preferences',
+        'google_id',
     ];
 
     protected $hidden = [
@@ -46,6 +49,8 @@ class User extends Authenticatable
             'terms_accepted_at' => 'datetime',
             'password' => 'hashed',
             'status' => UserStatus::class,
+            'status_changed_at' => 'datetime',
+            'notification_preferences' => 'array',
         ];
     }
 
@@ -70,6 +75,49 @@ class User extends Authenticatable
         return $this->status === UserStatus::Active;
     }
 
+    public function initials(): string
+    {
+        $first = mb_substr(trim((string) $this->first_name), 0, 1);
+        $last = mb_substr(trim((string) $this->last_name), 0, 1);
+
+        return mb_strtoupper($first.$last) ?: '?';
+    }
+
+    public function applyAccessStatus(UserStatus $status, ?string $reason, self $actor): void
+    {
+        $restricted = in_array($status, [UserStatus::Suspended, UserStatus::Deactivated], true);
+
+        $this->forceFill([
+            'status' => $status,
+            'status_reason' => $restricted ? trim((string) $reason) : null,
+            'status_changed_by' => $actor->id,
+            'status_changed_at' => now(),
+        ])->save();
+    }
+
+    public function signInBlockMessage(): string
+    {
+        $reason = trim((string) $this->status_reason);
+
+        return match ($this->status) {
+            UserStatus::Unverified => 'Verify your email before signing in.',
+            UserStatus::PendingApproval => 'Your account is pending approval. You cannot sign in yet.',
+            UserStatus::PendingActivation => 'Activate your rider account using the link sent to your email before signing in.',
+            UserStatus::Suspended => $reason !== ''
+                ? 'Your account is suspended. '.$reason
+                : 'Your account is suspended.',
+            UserStatus::Deactivated => $reason !== ''
+                ? 'Your account is deactivated. '.$reason
+                : 'Your account is deactivated.',
+            default => 'Your account is not active.',
+        };
+    }
+
+    public function statusChangedBy(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'status_changed_by');
+    }
+
     public function avatarUrl(): ?string
     {
         if (! $this->avatar_path) {
@@ -80,7 +128,26 @@ class User extends Authenticatable
             return $this->avatar_path;
         }
 
-        return asset('storage/'.$this->avatar_path);
+        return route('media.avatar', $this).'?v='.($this->updated_at?->timestamp ?? time());
+    }
+
+    public function notificationPreferenceMap(): array
+    {
+        return array_merge([
+            'order_updates' => true,
+            'chat' => true,
+            'promos' => true,
+        ], $this->notification_preferences ?? []);
+    }
+
+    public function wantsNotification(string $channel): bool
+    {
+        return (bool) ($this->notificationPreferenceMap()[$channel] ?? true);
+    }
+
+    public function conversations(): BelongsToMany
+    {
+        return $this->belongsToMany(Conversation::class, 'conversation_participants')->withTimestamps();
     }
 
     public function sellerProfile(): HasOne

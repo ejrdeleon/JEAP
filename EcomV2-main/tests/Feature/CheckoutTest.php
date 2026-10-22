@@ -246,10 +246,10 @@ class CheckoutTest extends TestCase
 
         $this->actingAs($buyer)->get(route('profile'))
             ->assertOk()
-            ->assertSee('Account information')
+            ->assertSee('Your profile')
             ->assertSee('for="profile-first-name"', false)
             ->assertSee('for="profile-email"', false)
-            ->assertDontSee('Change password');
+            ->assertSee('Change password');
 
         $this->actingAs($buyer)->from(route('profile'))->post(route('profile.update'), [
             'first_name' => 'Updated',

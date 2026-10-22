@@ -15,18 +15,15 @@
         <div class="s3-shell">
             <div class="s3-wh">
                 <div class="s3-topmini">
-                    <span class="s3-hotline-pill">☎ Hotline 24/7</span>
-                    <a href="tel:{{ config('jeap.hotline') }}">{{ config('jeap.hotline') }}</a>
+                    <a href="{{ route('register.seller') }}">Sell on JEAP</a>
                     <div class="s3-topmini-right">
-                        <a href="{{ route('register') }}">Sell on JEAP</a>
                         <a href="{{ route('shipping.track') }}">Order Tracking</a>
                         <span>PHP</span>
-                        <span>Eng ▾</span>
                     </div>
                 </div>
                 <nav class="s3-nav">
                     <a class="s3-logo" href="{{ route('home') }}">
-                        <img src="{{ asset('images/storefront/logo.svg') }}" alt="JEAP" width="161" height="40">
+                        <img src="{{ asset('images/storefront/logo.png') }}" alt="JEAP" width="180" height="40">
                     </a>
                     <ul class="s3-menu">
                         <li class="s3-has">
@@ -113,10 +110,7 @@
             <div class="s3-fg">
                 <div>
                     <strong>JEAP — Philippine marketplace</strong>
-                    <p class="s3-hot">hotline 24/7</p>
-                    <p class="s3-phone">{{ config('jeap.hotline') }}</p>
-                    <p>Laguna, Philippines · in-house sorting center logistics</p>
-                    <p>hello@jeap.test</p>
+                    <p>Laguna, Philippines · in-house logistics</p>
                     <div class="s3-soc">
                         <span></span><span></span><span></span><span></span><span></span>
                     </div>
@@ -144,7 +138,6 @@
                 <div>
                     <strong>partner</strong>
                     <p><a href="{{ route('register.seller') }}">Become a seller</a></p>
-                    <p><a href="{{ route('register.logistics') }}">Sorting center</a></p>
                 </div>
             </div>
             <div class="s3-legal">

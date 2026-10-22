@@ -2,9 +2,7 @@
 
 @section('title', 'Login')
 @section('crumb')
-    <a href="{{ route('about') }}">pages</a>
-    <span>/</span>
-    <span>login</span>
+    <span>Login</span>
 @endsection
 
 @section('content')
@@ -14,7 +12,7 @@
     </div>
     <div class="s3-auth-form">
         <h2>Welcome Back</h2>
-        <p class="lede">login to continue</p>
+        <p class="lede">Log in to continue</p>
         @if (session('status'))<p class="s3-alert" role="status">{{ session('status') }}</p>@endif
         @if ($errors->any())
             <p class="err">{{ $errors->first() }}</p>
@@ -23,12 +21,12 @@
             @csrf
             <div class="s3-field">
                 <label>Email Address</label>
-                <input type="email" name="email" value="{{ old('email') }}" placeholder="Example@gmail.com" required>
+                <input type="email" name="email" value="{{ old('email') }}" placeholder="you@email.com" autocomplete="email" required>
             </div>
             <div class="s3-field">
                 <label>Password</label>
                 <div class="s3-pass">
-                    <input type="password" name="password" placeholder="...." required>
+                    <input type="password" name="password" placeholder="Password" autocomplete="current-password" required>
                 </div>
             </div>
             <p style="margin: 24px 0 12px;"><button class="s3-btn" type="submit">Log in</button></p>
@@ -38,7 +36,7 @@
                 <span>Continue with Google</span>
             </a>
             <p><a class="s3-link" href="{{ route('register') }}">New here? Sign up</a></p>
-            <p><a class="s3-link" href="{{ route('register.seller') }}">Sell on JEAP</a> · <a class="s3-link" href="{{ route('register.logistics') }}">Sorting center</a></p>
+            <p><a class="s3-link" href="{{ route('register.seller') }}">Sell on JEAP</a></p>
         </form>
     </div>
 </section>

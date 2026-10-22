@@ -35,4 +35,15 @@ enum OrderStatus: string
             self::Completed,
         ];
     }
+
+    public static function shopperSteps(): array
+    {
+        return [
+            ['key' => 'placed', 'label' => 'Order placed', 'match' => [self::Placed, self::Confirmed]],
+            ['key' => 'packed', 'label' => 'Packed', 'match' => [self::Preparing, self::ReadyForPickup]],
+            ['key' => 'shipped', 'label' => 'Shipped', 'match' => [self::PickedUp, self::AtSortingCenter, self::Sorted]],
+            ['key' => 'out', 'label' => 'Out for delivery', 'match' => [self::AssignedToRider, self::OutForDelivery]],
+            ['key' => 'delivered', 'label' => 'Delivered', 'match' => [self::Delivered, self::Completed]],
+        ];
+    }
 }

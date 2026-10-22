@@ -79,7 +79,7 @@ class EmailVerificationController extends Controller
         $code = (string) random_int(100000, 999999);
         EmailVerificationCode::query()->updateOrCreate(
             ['user_id' => $user->id],
-            ['code_hash' => Hash::make($code), 'expires_at' => now()->addMinutes(5), 'attempts' => 0],
+            ['code_hash' => Hash::make($code), 'expires_at' => now()->addMinutes((int) config('jeap.email_verification_minutes')), 'attempts' => 0],
         );
         if (config('mail.default') === 'log') {
             $request->session()->put('email_verification_preview', $code);

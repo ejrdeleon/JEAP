@@ -96,10 +96,15 @@
                 <small>Guaranteed Safe Checkout</small>
                 <img src="{{ asset('images/storefront/pay.svg') }}" alt="" style="display:block;margin-top:8px;">
             </div>
-            <div class="s3-paycard" style="margin-top:10px;">
-                <small>Quick Order 24/7</small>
-                <h5>{{ config('jeap.hotline') }}</h5>
-            </div>
+            @auth
+                @if($product->seller)
+                    <form method="post" action="{{ route('chat.start') }}" class="pdp-chat-form">
+                        @csrf
+                        <input type="hidden" name="seller_id" value="{{ $product->seller->id }}">
+                        <button class="s3-btn" type="submit">Chat with seller</button>
+                    </form>
+                @endif
+            @endauth
             <p style="margin-top:12px;">🚚 Ships from Philippines</p>
         </aside>
     </div>

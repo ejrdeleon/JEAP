@@ -17,7 +17,7 @@
         </a>
     </div>
     <div class="s3-popcats">
-        <h3>popular categories</h3>
+            <h3>Popular categories</h3>
         <div class="s3-popgrid">
             @foreach($categories->take(10) as $category)
                 <a class="s3-pop" href="{{ route('products.index', ['category' => $category->slug]) }}">
@@ -35,14 +35,14 @@
     <div class="s3-cat">
         <aside>
             <div class="s3-sidebox">
-                <h3>categories</h3>
+                <h3>Categories</h3>
                 <a class="{{ !request('category') ? 'is-on' : '' }}" href="{{ route('products.index') }}">All Categories</a>
                 @foreach($categories as $category)
                     <a class="{{ request('category') === $category->slug ? 'is-on' : '' }}" href="{{ route('products.index', ['category' => $category->slug]) }}">{{ $category->name }}</a>
                 @endforeach
             </div>
             <div class="s3-sidebox">
-                <h3>filters <a href="{{ route('products.index') }}" style="float:right;font-size:13px;">Reset All</a></h3>
+                <h3>Filters <a class="s3-reset" href="{{ route('products.index') }}">Reset</a></h3>
                 <form method="get" class="catalog-filter-form">
                     @if(request('q'))<input type="hidden" name="q" value="{{ request('q') }}">@endif
                     @if(request('category'))<input type="hidden" name="category" value="{{ request('category') }}">@endif
@@ -62,12 +62,12 @@
             </div>
         </aside>
         <div>
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+            <div class="catalog-toolbar">
                 <strong>{{ $products->total() }} items</strong>
                 <form method="get" class="catalog-search-form">
                     @if(request('category'))<input type="hidden" name="category" value="{{ request('category') }}">@endif
                     @foreach(['min_price', 'max_price', 'sort', 'in_stock'] as $filter)<input type="hidden" name="{{ $filter }}" value="{{ request($filter) }}">@endforeach
-                    <input name="q" value="{{ request('q') }}" placeholder="Search products" style="height:43px;border:1px solid #e5e5ee;padding:0 12px;">
+                    <input name="q" value="{{ request('q') }}" placeholder="Search products">
                     <button type="submit">Search</button>
                 </form>
             </div>

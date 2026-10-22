@@ -56,7 +56,7 @@
         <article class="banner blue">
             <h3>Mobile & gadgets</h3>
             <p>Phones and accessories from JEAP sellers</p>
-            <a class="btn-dark" href="{{ route('products.index', ['category' => 'mobile-gadgets']) }}" style="height:34px;min-width:107px;">Shop now</a>
+            <a class="btn-dark btn-dark--compact" href="{{ route('products.index', ['category' => 'mobile-gadgets']) }}">Shop now</a>
         </article>
         <article class="banner peach">
             <small>Shipping</small>
@@ -66,7 +66,7 @@
         <article class="banner lilac">
             <small>Payment</small>
             <h3>COD</h3>
-            <a class="btn-dark" href="{{ route('products.index') }}" style="height:34px;min-width:107px;">Shop now</a>
+            <a class="btn-dark btn-dark--compact" href="{{ route('products.index') }}">Shop now</a>
         </article>
     </div>
 
@@ -98,12 +98,12 @@
             </a>
         @endforeach
     </div>
-    <p style="text-align:center;margin:28px 0;">
-        <a class="btn-dark" href="{{ route('products.index') }}" style="height:53px;">See All Products</a>
+    <p class="home-more">
+        <a class="btn-dark" href="{{ route('products.index') }}">See all products</a>
     </p>
 
     <div class="section-head">
-        <h2>Trending Search</h2>
+        <h2>Trending searches</h2>
     </div>
     <div class="tags">
         @foreach(['Smartphone','Laptop','Kitchen','Gaming','Cameras','Home appliances','Sports'] as $tag)

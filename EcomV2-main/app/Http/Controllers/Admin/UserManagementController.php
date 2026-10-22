@@ -4,14 +4,13 @@ namespace App\Http\Controllers\Admin;
 
 use App\Enums\UserStatus;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\UpdateAccountAccessRequest;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
-use Illuminate\Http\Request;
-use Illuminate\Validation\Rule;
 
 class UserManagementController extends Controller
 {
-    public function updateStatus(Request $request, User $user): RedirectResponse
+    public function updateStatus(UpdateAccountAccessRequest $request, User $user): RedirectResponse
     {
         abort_if(
             $user->id === $request->user()->id || $user->hasAnyRole(['admin', 'super-admin']),
@@ -22,15 +21,7 @@ class UserManagementController extends Controller
             403
         );
 
-        $data = $request->validate([
-            'status' => ['required', Rule::in([
-                UserStatus::Active->value,
-                UserStatus::Suspended->value,
-                UserStatus::Deactivated->value,
-            ])],
-        ]);
-
-        $user->forceFill(['status' => $data['status']])->save();
+        $user->applyAccessStatus($request->accessStatus(), $request->accessReason(), $request->user());
 
         return back()->with('status', 'Account status updated for '.$user->email.'.');
     }

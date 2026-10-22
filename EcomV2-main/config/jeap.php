@@ -8,8 +8,9 @@ return [
     'max_qty_per_product' => 10,
     'brand' => 'JEAP',
     'tagline' => 'Shop smart. Delivered easy.',
-    'hotline' => '(025) 3686 25 16',
     'currency' => 'PHP',
+    'email_verification_minutes' => (int) env('EMAIL_VERIFICATION_MINUTES', 15),
+    'chat_message_max' => 2000,
     'queue' => [
         'driver' => env('QUEUE_CONNECTION', 'database'),
         'redis_available' => (bool) env('REDIS_AVAILABLE', false),

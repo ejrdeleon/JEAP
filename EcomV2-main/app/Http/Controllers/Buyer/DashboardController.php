@@ -92,7 +92,7 @@ class DashboardController extends Controller
 
         $order->load([
             'items',
-            'seller',
+            'seller.sellerProfile.addresses',
             'statusHistories.actor',
             'parcel.pickupAssignment.courier',
             'parcel.deliveryAssignment.courier',

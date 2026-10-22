@@ -32,10 +32,17 @@ class RegisterController extends Controller
         return view('auth.register');
     }
 
-    public function createSeller(): View
+    public function createSeller(): View|RedirectResponse
     {
+        $user = auth()->user();
+        if ($user?->hasRole('seller')) {
+            return to_route('seller.dashboard');
+        }
+
         return view('auth.register-seller', [
             'categories' => Category::query()->where('is_active', true)->where('is_line_of_business', true)->orderBy('sort_order')->get(),
+            'existingBuyer' => $user?->hasRole('buyer') ? $user : null,
+            'buyerAddress' => $user?->addresses()->orderByDesc('is_default')->latest()->first(),
         ]);
     }
 
@@ -44,9 +51,9 @@ class RegisterController extends Controller
         return to_route('login')->with('status', 'Rider accounts are created by an approved logistics company.');
     }
 
-    public function createLogistics(): View
+    public function createLogistics(): RedirectResponse
     {
-        return view('auth.register-logistics');
+        return to_route('home')->with('toast', 'Sorting centers are set up by JEAP. Public hub registration is closed.');
     }
 
     public function store(Request $request): RedirectResponse
@@ -56,6 +63,11 @@ class RegisterController extends Controller
 
     public function storeSeller(Request $request): RedirectResponse
     {
+        $user = $request->user();
+        if ($user && $user->hasRole('buyer') && ! $user->hasRole('seller')) {
+            return $this->applySellerFromBuyer($request, $user);
+        }
+
         return $this->registerRole($request, 'seller');
     }
 
@@ -66,7 +78,7 @@ class RegisterController extends Controller
 
     public function storeLogistics(Request $request): RedirectResponse
     {
-        return $this->registerRole($request, 'logistics');
+        return to_route('home')->with('toast', 'Sorting centers are set up by JEAP. Public hub registration is closed.');
     }
 
     public function pending(): View
@@ -222,7 +234,7 @@ class RegisterController extends Controller
         $code = (string) random_int(100000, 999999);
         EmailVerificationCode::query()->updateOrCreate(
             ['user_id' => $user->id],
-            ['code_hash' => Hash::make($code), 'expires_at' => now()->addMinutes(5), 'attempts' => 0],
+            ['code_hash' => Hash::make($code), 'expires_at' => now()->addMinutes((int) config('jeap.email_verification_minutes')), 'attempts' => 0],
         );
         $request->session()->put('email_verification_user_id', $user->id);
         if (config('mail.default') === 'log') {
@@ -284,6 +296,115 @@ class RegisterController extends Controller
             'first_name' => $parts[0] ?? 'Buyer',
             'last_name' => $parts[1] ?? ($parts[0] ?? 'Buyer'),
         ];
+    }
+
+    private function applySellerFromBuyer(Request $request, User $user): RedirectResponse
+    {
+        abort_if($user->sellerProfile, 409, 'This account already has a seller shop.');
+
+        $useSameAddress = $request->boolean('use_same_address', true);
+        $buyerAddress = $user->addresses()->orderByDesc('is_default')->latest()->first();
+        if ($useSameAddress && ! $buyerAddress) {
+            $useSameAddress = false;
+        }
+
+        $tin = preg_replace('/\D+/', '', (string) $request->input('tin'));
+        $secRegistration = Str::upper(trim((string) $request->input('sec_registration_number')));
+        $request->merge([
+            'tin' => $tin,
+            'sec_registration_number' => $secRegistration,
+        ]);
+
+        $rules = [
+            'business_name' => ['required', 'string', 'min:3', 'max:30', Rule::unique('seller_profiles', 'business_name')],
+            'shop_category_id' => ['required', 'integer', 'exists:categories,id'],
+            'seller_type' => ['required', Rule::in(['individual', 'sole_proprietorship', 'corporation'])],
+            'tin' => ['required', 'regex:/^\d{12}$/', Rule::unique('seller_profiles', 'tin'), Rule::unique('logistics_profiles', 'tin')],
+            'sec_registration_number' => ['required_if:seller_type,corporation', 'nullable', 'regex:/^[A-Z]{2}\d{9}$/', Rule::unique('seller_profiles', 'sec_registration_number')],
+            'terms' => ['accepted'],
+            'documents' => ['required', 'array'],
+            'documents.government_id' => ['required', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:5120'],
+            'documents.dti_certificate' => [$request->input('seller_type') === 'sole_proprietorship' ? 'required' : 'nullable', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:5120'],
+            'documents.sec_certificate' => [$request->input('seller_type') === 'corporation' ? 'required' : 'nullable', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:5120'],
+            'documents.bir_2303' => [in_array($request->input('seller_type'), ['sole_proprietorship', 'corporation'], true) ? 'required' : 'nullable', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:5120'],
+        ];
+
+        if (! $useSameAddress) {
+            $rules = array_merge($rules, [
+                'region_name' => ['required', 'string', 'max:120'],
+                'province_name' => ['nullable', 'string', 'max:120'],
+                'city_name' => ['required', 'string', 'max:120'],
+                'barangay_name' => ['nullable', 'string', 'max:120'],
+                'street_line' => ['required', 'string', 'max:255'],
+                'postal_code' => ['required', 'regex:/^\d{4}$/'],
+                'region_code' => ['nullable', 'regex:/^\d{1,16}$/'],
+                'province_code' => ['nullable', 'regex:/^\d{1,16}$/'],
+                'city_code' => ['nullable', 'regex:/^\d{1,16}$/'],
+                'barangay_code' => ['nullable', 'regex:/^\d{1,16}$/'],
+                'country_code' => ['nullable', 'string', 'size:2', 'alpha'],
+                'country_name' => ['nullable', 'string', 'max:120'],
+            ]);
+        }
+
+        $data = $request->validate($rules);
+
+        DB::transaction(function () use ($data, $request, $user, $useSameAddress, $buyerAddress): void {
+            $profile = SellerProfile::create([
+                'user_id' => $user->id,
+                'business_name' => $data['business_name'],
+                'line_of_business_category_id' => $data['shop_category_id'],
+                'seller_type' => $data['seller_type'],
+                'tin' => $data['tin'],
+                'sec_registration_number' => $data['sec_registration_number'] ?? null,
+            ]);
+
+            if ($useSameAddress && $buyerAddress) {
+                $profile->addresses()->create([
+                    'label' => 'Business',
+                    'country_code' => $buyerAddress->country_code ?: 'PH',
+                    'country_name' => $buyerAddress->country_name ?: 'Philippines',
+                    'recipient_name' => $buyerAddress->recipient_name ?: $user->name,
+                    'phone' => $buyerAddress->phone ?: $user->phone,
+                    'region_code' => $buyerAddress->region_code,
+                    'province_code' => $buyerAddress->province_code,
+                    'city_code' => $buyerAddress->city_code,
+                    'barangay_code' => $buyerAddress->barangay_code,
+                    'region_name' => $buyerAddress->region_name,
+                    'province_name' => $buyerAddress->province_name,
+                    'city_name' => $buyerAddress->city_name,
+                    'barangay_name' => $buyerAddress->barangay_name,
+                    'street_line' => $buyerAddress->street_line,
+                    'postal_code' => $buyerAddress->postal_code,
+                    'latitude' => $buyerAddress->latitude,
+                    'longitude' => $buyerAddress->longitude,
+                    'is_default' => false,
+                ]);
+            } else {
+                $this->saveAddress($profile, $user, $data, 'Business');
+            }
+
+            $user->assignRole('seller');
+
+            $documentTypes = [
+                'government_id' => KycDocumentType::Id,
+                'dti_certificate' => KycDocumentType::DtiCertificate,
+                'sec_certificate' => KycDocumentType::SecCertificate,
+                'bir_2303' => KycDocumentType::Bir2303,
+            ];
+            foreach ($request->file('documents', []) as $key => $file) {
+                if (! isset($documentTypes[$key])) {
+                    continue;
+                }
+                KycDocument::create([
+                    'user_id' => $user->id,
+                    'type' => $documentTypes[$key],
+                    'file_path' => $file->store('kyc/'.$user->id, 'local'),
+                    'review_status' => ReviewStatus::Pending,
+                ]);
+            }
+        });
+
+        return to_route('seller.dashboard')->with('toast', 'Your shop was submitted. You can keep shopping while JEAP reviews your documents.');
     }
 
     private function saveAddress(User|SellerProfile|LogisticsProfile $addressable, User $user, array $data, string $label, bool $default = false): void

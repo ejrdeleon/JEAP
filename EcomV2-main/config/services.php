@@ -29,7 +29,7 @@ return [
     ],
 
     'google' => [
-        'client_id' => env('GOOGLE_CLIENT_ID'),
+        'client_id' => env('GOOGLE_CLIENT_ID', '623116039331-8jf84vtpvq2rdjof4ir14n7n27opj94m.apps.googleusercontent.com'),
         'client_secret' => env('GOOGLE_CLIENT_SECRET'),
         'redirect' => env('GOOGLE_REDIRECT_URI', rtrim(env('APP_URL', 'http://localhost'), '/').'/auth/google/callback'),
         'maps_browser_key' => env('GOOGLE_MAPS_BROWSER_KEY'),

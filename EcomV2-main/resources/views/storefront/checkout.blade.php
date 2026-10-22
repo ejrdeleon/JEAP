@@ -13,6 +13,7 @@
     $merchandise = $items->sum(fn ($i) => $i->unit_price * $i->quantity);
     $shippingFee = $shippingFee ?? \App\Commerce\InventoryPolicy::shippingFee();
     $total = $merchandise + $shippingFee;
+    $voucherCode = old('voucher_code');
     $defaultAddress = $addresses->firstWhere('is_default', true) ?? $addresses->first();
     $selectedAddressId = (string) old('address_id', $defaultAddress?->id ?? '');
     $selectedAddress = $addresses->firstWhere('id', (int) $selectedAddressId);
@@ -130,6 +131,11 @@
                 @empty
                     <p>Cart is empty.</p>
                 @endforelse
+                <div class="s3-field" style="margin:12px 0;">
+                    <label for="voucher_code">Shop voucher</label>
+                    <input id="voucher_code" form="checkout-form" name="voucher_code" value="{{ $voucherCode }}" maxlength="20" placeholder="SHOP10" autocomplete="off" style="text-transform:uppercase;">
+                    @error('voucher_code')<small>{{ $message }}</small>@enderror
+                </div>
                 <p>Merchandise <span style="float:right;">₱{{ number_format($merchandise, 2) }}</span></p>
                 <p>Standard shipping <span style="float:right;">₱{{ number_format($shippingFee, 2) }}</span></p>
                 <div class="s3-line" style="border:0;"><strong>Order Total</strong><strong>₱{{ number_format($total, 2) }}</strong></div>

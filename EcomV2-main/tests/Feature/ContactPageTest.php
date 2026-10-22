@@ -13,22 +13,20 @@ class ContactPageTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_contact_page_uses_available_support_routes_and_real_hotline(): void
+    public function test_contact_page_uses_available_support_routes_without_a_hotline(): void
     {
         $this->seed(RoleSeeder::class);
         $this->seed(CatalogSeeder::class);
-        $hotline = config('jeap.hotline');
-        $telephone = preg_replace('/\D+/', '', $hotline);
 
         $this->get(route('contact'))
             ->assertOk()
             ->assertSee('Talk to JEAP.')
-            ->assertSee($hotline)
-            ->assertSee('tel:'.$telephone, false)
             ->assertSee(route('shipping.track'))
             ->assertSee(route('login'))
             ->assertSee(route('contact.submit'))
             ->assertSee('Which payment method can I use?')
+            ->assertDontSee('Hotline 24/7')
+            ->assertDontSee('(025) 3686 25 16')
             ->assertDontSee('hello@jeap.test')
             ->assertDontSee('data-sent');
     }
