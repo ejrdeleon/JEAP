@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../../../../../theme/app_theme.dart';
+import 'package:jeap_mobile/core/theme/app_theme.dart';
 import 'package:jeap_mobile/features/messaging/models/conversation.dart';
 
 class BuyerChatScreen extends StatefulWidget {

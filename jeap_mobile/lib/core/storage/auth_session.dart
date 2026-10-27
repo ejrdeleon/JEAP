@@ -56,6 +56,12 @@ class AuthSession {
 
   String get email => currentUser?['email']?.toString() ?? '';
 
+  String? get avatarUrl {
+    final url = currentUser?['avatar_url']?.toString();
+    if (url != null && url.trim().isNotEmpty) return url.trim();
+    return null;
+  }
+
   Future<void> init() async {
     try {
       final raw = await _storage.read(key: _userKey);

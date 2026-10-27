@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import '../../theme/app_theme.dart';
+import 'package:jeap_mobile/core/theme/app_theme.dart';
 import 'package:jeap_mobile/features/auth/models/registration_data.dart';
 import 'package:jeap_mobile/features/auth/presentation/screens/confirm_details_screen.dart';
 import 'package:jeap_mobile/features/auth/presentation/screens/signup_screen.dart';

@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:jeap_mobile/core/theme/app_theme.dart';
-import 'package:jeap_mobile/core/widgets/jeap_logo.dart';
+import '../../../../theme/app_theme.dart';
 
 /// The JEAP wordmark + back chevron + wishlist heart bar that appears
-/// at the top of buyer screens.
+/// identically at the top of every buyer screen.
+/// Home has no back chevron (it's the root tab), so [showBack] defaults
+/// to true and Home passes false.
 class JeapAppBar extends StatelessWidget implements PreferredSizeWidget {
   final bool showBack;
   final bool showWishlist;
@@ -26,24 +27,29 @@ class JeapAppBar extends StatelessWidget implements PreferredSizeWidget {
             if (showBack)
               InkWell(
                 onTap: () => Navigator.of(context).maybePop(),
-                borderRadius: BorderRadius.circular(20),
                 child: const Padding(
-                  padding: EdgeInsets.only(right: 6),
+                  padding: EdgeInsets.only(right: 4),
                   child: Icon(Icons.chevron_left,
                       color: AppTheme.textPrimary, size: 26),
                 ),
+              )
+            else
+              const Icon(Icons.menu, color: AppTheme.textPrimary, size: 22),
+            const SizedBox(width: 4),
+            const Text(
+              'JEAP',
+              style: TextStyle(
+                color: AppTheme.jeapPurple,
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
               ),
-            const JeapLogo(height: 26),
+            ),
             const Spacer(),
             if (showWishlist)
               InkWell(
                 onTap: onWishlistTap,
-                borderRadius: BorderRadius.circular(20),
-                child: const Padding(
-                  padding: EdgeInsets.all(4),
-                  child: Icon(Icons.favorite_border,
-                      color: AppTheme.jeapPurple, size: 22),
-                ),
+                child: const Icon(Icons.favorite_border,
+                    color: AppTheme.jeapPurple, size: 22),
               ),
           ],
         ),

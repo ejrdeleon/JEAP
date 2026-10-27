@@ -1,6 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:jeap_mobile/core/theme/app_theme.dart';
+import '../../../../../../theme/app_theme.dart';
 import 'package:jeap_mobile/core/widgets/jeap_app_bar.dart';
 import 'package:jeap_mobile/core/widgets/primary_button.dart';
 import 'package:jeap_mobile/features/auth/models/registration_data.dart';
@@ -103,16 +103,13 @@ class _ConfirmDetailsScreenState extends State<ConfirmDetailsScreen> {
               const _SectionLabel('ADDRESS'),
               const SizedBox(height: 10),
               _ReviewCard(items: [
-                if (d.regionName != null && d.regionName!.isNotEmpty)
-                  _Item('Region', d.regionName!),
-                if (d.province.isNotEmpty) _Item('Province', d.province),
+                _Item('Province', d.province),
                 _Item('City / Municipality', d.city),
                 _Item('Barangay', d.barangay),
                 _Item('House No.', d.houseNumber),
                 _Item('Street', d.street),
-                if (d.subdivision != null && d.subdivision!.isNotEmpty)
-                  _Item('Subdivision', d.subdivision!),
-                if (d.buildingUnit != null && d.buildingUnit!.isNotEmpty)
+                if (d.subdivision != null) _Item('Subdivision', d.subdivision!),
+                if (d.buildingUnit != null)
                   _Item('Building / Unit', d.buildingUnit!),
                 _Item('ZIP Code', d.zipCode),
               ]),

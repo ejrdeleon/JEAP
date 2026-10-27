@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:jeap_mobile/core/theme/app_theme.dart';
+import '../../../../../../theme/app_theme.dart';
 import 'package:jeap_mobile/core/widgets/jeap_app_bar.dart';
 import 'package:jeap_mobile/core/widgets/primary_button.dart';
 import 'package:jeap_mobile/core/network/api_exception.dart';
 import 'package:jeap_mobile/features/cart/services/cart_service.dart';
 import 'package:jeap_mobile/features/account/models/address.dart';
-import 'package:jeap_mobile/features/account/presentation/screens/address_form_screen.dart';
 import 'package:jeap_mobile/features/account/services/address_service.dart';
 import 'package:jeap_mobile/features/orders/services/order_service.dart';
 import 'package:jeap_mobile/features/checkout/presentation/screens/order_success_screen.dart';
@@ -236,68 +235,20 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                     const SizedBox(height: 16),
 
                     // ── Delivery Address ─────────────────────────────────
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        _sectionTitle('Delivery Address'),
-                        TextButton.icon(
-                          onPressed: () async {
-                            final res = await Navigator.of(context).push<bool>(
-                              MaterialPageRoute(
-                                builder: (_) => const AddressFormScreen(),
-                              ),
-                            );
-                            if (res == true) {
-                              _loadAddresses();
-                            }
-                          },
-                          icon: const Icon(Icons.add_location_alt_outlined,
-                              size: 16, color: AppTheme.jeapPurple),
-                          label: const Text('+ Add New',
-                              style: TextStyle(
-                                  fontSize: 12,
-                                  color: AppTheme.jeapPurple,
-                                  fontWeight: FontWeight.bold)),
-                        ),
-                      ],
-                    ),
+                    _sectionTitle('Delivery Address'),
                     if (_loadingAddresses)
                       const Center(child: CircularProgressIndicator())
                     else if (_addresses.isEmpty)
                       _InfoCard(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              _addressError ??
-                                  'No saved delivery addresses were found. Add an address before checkout.',
-                              style: const TextStyle(fontSize: 13),
-                            ),
-                            const SizedBox(height: 8),
-                            ElevatedButton.icon(
-                              onPressed: () async {
-                                final res =
-                                    await Navigator.of(context).push<bool>(
-                                  MaterialPageRoute(
-                                    builder: (_) => const AddressFormScreen(),
-                                  ),
-                                );
-                                if (res == true) _loadAddresses();
-                              },
-                              icon: const Icon(Icons.add, size: 16),
-                              label: const Text('Add Address Now'),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: AppTheme.jeapPurple,
-                                foregroundColor: Colors.white,
-                              ),
-                            ),
-                          ],
+                        child: Text(
+                          _addressError ??
+                              'No saved delivery addresses were found. Add an address before checkout.',
+                          style: const TextStyle(fontSize: 13),
                         ),
                       )
                     else
                       DropdownButtonFormField<int>(
                         initialValue: _selectedAddressId,
-                        isExpanded: true,
                         decoration: const InputDecoration(
                           border: OutlineInputBorder(),
                           labelText: 'Choose a saved address',
@@ -311,7 +262,6 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                   '${address.label}: ${address.fullAddress}',
                                   maxLines: 2,
                                   overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(fontSize: 13),
                                 ),
                               ),
                             )

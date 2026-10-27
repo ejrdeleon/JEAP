@@ -1,9 +1,7 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:jeap_mobile/core/storage/token_storage.dart';
-import 'package:jeap_mobile/core/theme/app_theme.dart';
-import 'package:jeap_mobile/core/widgets/google_sign_in_button.dart';
-import 'package:jeap_mobile/core/widgets/jeap_logo.dart';
+import '../../../../../../theme/app_theme.dart';
 import 'package:jeap_mobile/features/auth/presentation/screens/signup_screen.dart';
 import 'package:jeap_mobile/features/auth/services/auth_service.dart';
 import 'package:jeap_mobile/features/buyer/presentation/screens/buyer_home_screen.dart';
@@ -26,25 +24,6 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _loading = false;
 
   @override
-  void initState() {
-    super.initState();
-    _loadRememberedData();
-  }
-
-  Future<void> _loadRememberedData() async {
-    final remember = await TokenStorage.isRememberMeEnabled();
-    final savedEmail = await TokenStorage.getRememberedEmail();
-    if (mounted) {
-      setState(() {
-        _rememberMe = remember;
-        if (savedEmail != null && savedEmail.isNotEmpty) {
-          _emailCtrl.text = savedEmail;
-        }
-      });
-    }
-  }
-
-  @override
   void dispose() {
     _emailCtrl.dispose();
     _passwordCtrl.dispose();
@@ -54,10 +33,8 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> _handleLogin() async {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _loading = true);
-    final email = _emailCtrl.text.trim();
-    await TokenStorage.saveRememberedEmail(email, _rememberMe);
     final result = await _authService.login(
-      email,
+      _emailCtrl.text.trim(),
       _passwordCtrl.text,
       rememberMe: _rememberMe,
     );
@@ -73,18 +50,13 @@ class _LoginScreenState extends State<LoginScreen> {
     if (!mounted) return;
     setState(() => _loading = false);
     if (result.success) {
-      final user = result.user;
-      String role = 'buyer';
-      if (user != null) {
-        final r = user['role']?.toString().toLowerCase();
-        final roles = user['roles'] as List?;
-        final isRider = r == 'rider' ||
-            r == 'courier' ||
-            (roles != null &&
-                (roles.contains('rider') || roles.contains('courier')));
-        role = isRider ? 'rider' : 'buyer';
+      final role = result.user?['role'] as String?;
+      if (role != 'buyer' && role != 'rider') {
+        await TokenStorage.clear();
+        if (!mounted) return;
+        _showMessage('This account does not have access to the mobile app.');
+        return;
       }
-
       Navigator.pushAndRemoveUntil(
         context,
         MaterialPageRoute(
@@ -138,18 +110,15 @@ class _LoginScreenState extends State<LoginScreen> {
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 430),
             child: SingleChildScrollView(
-              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
               child: Form(
                 key: _formKey,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const SizedBox(height: 20),
-                    const Center(
-                      child: JeapLogo(height: 68),
-                    ),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 34),
+                    const Center(child: _JeapMark()),
+                    const SizedBox(height: 30),
                     const Center(
                       child: Text(
                         'Welcome Back',
@@ -170,7 +139,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                       ),
                     ),
-                    const SizedBox(height: 32),
+                    const SizedBox(height: 38),
                     const _FieldLabel('E-mail or Contact No.'),
                     const SizedBox(height: 7),
                     TextFormField(
@@ -213,48 +182,33 @@ class _LoginScreenState extends State<LoginScreen> {
                           ? 'Enter your password'
                           : null,
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 4),
                     Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Flexible(
-                          child: InkWell(
-                            onTap: () =>
-                                setState(() => _rememberMe = !_rememberMe),
-                            borderRadius: BorderRadius.circular(4),
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 4),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  SizedBox(
-                                    width: 24,
-                                    height: 24,
-                                    child: Checkbox(
-                                      value: _rememberMe,
-                                      onChanged: (value) => setState(
-                                        () => _rememberMe = value ?? false,
-                                      ),
-                                      visualDensity: VisualDensity.compact,
-                                      activeColor: AppTheme.jeapPurple,
-                                    ),
+                        SizedBox(
+                          height: 36,
+                          child: Row(
+                            children: [
+                              SizedBox(
+                                width: 24,
+                                child: Checkbox(
+                                  value: _rememberMe,
+                                  onChanged: (value) => setState(
+                                    () => _rememberMe = value ?? false,
                                   ),
-                                  const SizedBox(width: 6),
-                                  const Flexible(
-                                    child: Text(
-                                      'Remember me',
-                                      overflow: TextOverflow.ellipsis,
-                                      style: TextStyle(
-                                        fontSize: 13,
-                                        color: AppTheme.textPrimary,
-                                      ),
-                                    ),
-                                  ),
-                                ],
+                                  visualDensity: VisualDensity.compact,
+                                  activeColor: AppTheme.jeapPurple,
+                                ),
                               ),
-                            ),
+                              const SizedBox(width: 4),
+                              const Text(
+                                'Remember me',
+                                style: TextStyle(fontSize: 12),
+                              ),
+                            ],
                           ),
                         ),
+                        const Spacer(),
                         TextButton(
                           onPressed: _showForgotPassword,
                           style: TextButton.styleFrom(
@@ -273,7 +227,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 22),
+                    const SizedBox(height: 20),
                     SizedBox(
                       width: double.infinity,
                       height: 50,
@@ -296,19 +250,35 @@ class _LoginScreenState extends State<LoginScreen> {
                               )
                             : const Text(
                                 'Login',
-                                style: TextStyle(
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w700,
-                                ),
+                                style: TextStyle(fontWeight: FontWeight.w700),
                               ),
                       ),
                     ),
-                    const SizedBox(height: 14),
-                    GoogleSignInButton(
-                      isLoading: _loading,
-                      onPressed: _handleGoogleLogin,
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 46,
+                      child: OutlinedButton.icon(
+                        onPressed: _loading ? null : _handleGoogleLogin,
+                        icon: const Text(
+                          'G',
+                          style: TextStyle(
+                            color: Color(0xFF4285F4),
+                            fontWeight: FontWeight.bold,
+                            fontSize: 18,
+                          ),
+                        ),
+                        label: const Text('Continue with Google'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppTheme.textPrimary,
+                          side: const BorderSide(color: AppTheme.borderColor),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(9),
+                          ),
+                        ),
+                      ),
                     ),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 21),
                     Center(
                       child: RichText(
                         text: TextSpan(
@@ -336,7 +306,6 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                       ),
                     ),
-                    const SizedBox(height: 16),
                   ],
                 ),
               ),
@@ -348,6 +317,40 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 }
 
+class _JeapMark extends StatelessWidget {
+  const _JeapMark();
+
+  @override
+  Widget build(BuildContext context) => Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            height: 26,
+            width: 22,
+            decoration: BoxDecoration(
+              border: Border.all(color: AppTheme.jeapPurple, width: 1.6),
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: const Icon(
+              Icons.shopping_bag_outlined,
+              color: AppTheme.jeapPurple,
+              size: 16,
+            ),
+          ),
+          const SizedBox(width: 6),
+          const Text(
+            'JEAP',
+            style: TextStyle(
+              color: AppTheme.jeapPurple,
+              fontSize: 19,
+              fontWeight: FontWeight.w800,
+              letterSpacing: -.5,
+            ),
+          ),
+        ],
+      );
+}
+
 class _FieldLabel extends StatelessWidget {
   const _FieldLabel(this.label);
   final String label;
@@ -357,7 +360,7 @@ class _FieldLabel extends StatelessWidget {
         label,
         style: const TextStyle(
           color: Color(0xFF81879A),
-          fontSize: 12,
+          fontSize: 11,
           fontWeight: FontWeight.w600,
         ),
       );

@@ -23,7 +23,7 @@ class AddressController extends Controller
             'phone' => ['required', 'string', 'max:32'],
             'country_code' => ['nullable', 'string', 'size:2', 'alpha'],
             'country_name' => ['nullable', 'string', 'max:100'],
-            'province_name' => ['required', 'string', 'max:100'],
+            'province_name' => ['nullable', 'string', 'max:100'],
             'city_name' => ['required', 'string', 'max:100'],
             'barangay_name' => ['required', 'string', 'max:100'],
             'region_name' => ['nullable', 'string', 'max:100'],
@@ -38,6 +38,10 @@ class AddressController extends Controller
             'longitude' => ['nullable', 'required_with:latitude', 'numeric', 'between:-180,180'],
         ]);
 
+        if (empty($data['province_name'])) {
+            $data['province_name'] = $data['region_name'] ?? 'Metro Manila';
+        }
+
         if (! empty($data['is_default'])) {
             $request->user()->addresses()->update(['is_default' => false]);
         }
@@ -45,6 +49,44 @@ class AddressController extends Controller
         $address = $request->user()->addresses()->create($data);
 
         return response()->json(['address' => $address], 201);
+    }
+
+    public function update(Request $request, int $id): JsonResponse
+    {
+        $address = $request->user()->addresses()->findOrFail($id);
+
+        $data = $request->validate([
+            'label' => ['sometimes', 'string', 'max:80'],
+            'recipient_name' => ['sometimes', 'string', 'max:160'],
+            'phone' => ['sometimes', 'string', 'max:32'],
+            'country_code' => ['nullable', 'string', 'size:2', 'alpha'],
+            'country_name' => ['nullable', 'string', 'max:100'],
+            'province_name' => ['nullable', 'string', 'max:100'],
+            'city_name' => ['sometimes', 'string', 'max:100'],
+            'barangay_name' => ['sometimes', 'string', 'max:100'],
+            'region_name' => ['nullable', 'string', 'max:100'],
+            'region_code' => ['nullable', 'string', 'regex:/^\d{1,16}$/'],
+            'province_code' => ['nullable', 'string', 'regex:/^\d{1,16}$/'],
+            'city_code' => ['nullable', 'string', 'regex:/^\d{1,16}$/'],
+            'barangay_code' => ['nullable', 'string', 'regex:/^\d{1,16}$/'],
+            'street_line' => ['sometimes', 'string', 'max:255'],
+            'postal_code' => ['sometimes', 'string', 'max:10'],
+            'is_default' => ['boolean'],
+            'latitude' => ['nullable', 'required_with:longitude', 'numeric', 'between:-90,90'],
+            'longitude' => ['nullable', 'required_with:latitude', 'numeric', 'between:-180,180'],
+        ]);
+
+        if (array_key_exists('province_name', $data) && empty($data['province_name'])) {
+            $data['province_name'] = $data['region_name'] ?? $address->region_name ?? 'Metro Manila';
+        }
+
+        if (! empty($data['is_default'])) {
+            $request->user()->addresses()->where('id', '!=', $id)->update(['is_default' => false]);
+        }
+
+        $address->update($data);
+
+        return response()->json(['address' => $address->fresh()]);
     }
 
     public function destroy(Request $request, int $id): JsonResponse

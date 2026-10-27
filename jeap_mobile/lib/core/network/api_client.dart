@@ -23,7 +23,11 @@ class ApiClient {
   Future<dynamic> get(String path) => _send('GET', path);
   Future<dynamic> post(String path, Map<String, dynamic> body) =>
       _send('POST', path, body: body);
-  Future<dynamic> postImage(String path, String filePath) async {
+  Future<dynamic> postImage(
+    String path,
+    String filePath, {
+    String fieldName = 'proof',
+  }) async {
     final client = HttpClient()
       ..connectionTimeout = const Duration(seconds: 10);
     try {
@@ -49,7 +53,7 @@ class ApiClient {
       );
       request.add(utf8.encode(
         '--$boundary\r\n'
-        'Content-Disposition: form-data; name="proof"; filename="$filename"\r\n'
+        'Content-Disposition: form-data; name="$fieldName"; filename="$filename"\r\n'
         'Content-Type: $contentType\r\n\r\n',
       ));
       request.add(await file.readAsBytes());

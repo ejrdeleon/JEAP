@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:jeap_mobile/core/theme/app_theme.dart';
+import '../../../../../../theme/app_theme.dart';
 import 'package:jeap_mobile/core/widgets/jeap_app_bar.dart';
 import 'package:jeap_mobile/core/widgets/primary_button.dart';
 import 'package:jeap_mobile/core/models/product.dart';
@@ -108,19 +108,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                       height: 260,
                       color: AppTheme.inputFill,
                       alignment: Alignment.center,
-                      child: (p.imageUrl != null && p.imageUrl!.isNotEmpty)
-                          ? Image.network(
-                              p.imageUrl!,
-                              fit: BoxFit.contain,
-                              width: double.infinity,
-                              height: 260,
-                              errorBuilder: (_, __, ___) => const Icon(
-                                  Icons.image_outlined,
-                                  size: 64,
-                                  color: AppTheme.textSecondary),
-                            )
-                          : const Icon(Icons.image_outlined,
-                              size: 64, color: AppTheme.textSecondary),
+                      child: const Icon(Icons.image_outlined,
+                          size: 64, color: AppTheme.textSecondary),
                     ),
                     Padding(
                       padding: const EdgeInsets.all(16),

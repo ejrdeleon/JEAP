@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:jeap_mobile/core/models/product.dart';
-import 'package:jeap_mobile/core/theme/app_theme.dart';
+import '../../../../theme/app_theme.dart';
 
+/// The vertical product card seen in "Best Sellers" on Home — image
+/// placeholder, NEW badge, name, rating, price, wishlist heart.
 class ProductCard extends StatelessWidget {
   final Product product;
   final VoidCallback? onTap;
@@ -32,22 +34,9 @@ class ProductCard extends StatelessWidget {
                       color: AppTheme.inputFill,
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    clipBehavior: Clip.antiAlias,
                     alignment: Alignment.center,
-                    child: (product.imageUrl != null &&
-                            product.imageUrl!.isNotEmpty)
-                        ? Image.network(
-                            product.imageUrl!,
-                            fit: BoxFit.cover,
-                            width: double.infinity,
-                            height: double.infinity,
-                            errorBuilder: (_, __, ___) => const Icon(
-                                Icons.image_outlined,
-                                color: AppTheme.textSecondary,
-                                size: 28),
-                          )
-                        : const Icon(Icons.image_outlined,
-                            color: AppTheme.textSecondary, size: 28),
+                    child: const Icon(Icons.image_outlined,
+                        color: AppTheme.textSecondary, size: 28),
                   ),
                 ),
                 if (product.isNew)
@@ -82,11 +71,9 @@ class ProductCard extends StatelessWidget {
               children: [
                 const Icon(Icons.star, color: Colors.amber, size: 13),
                 const SizedBox(width: 2),
-                Text(
-                  '${product.rating > 0 ? product.rating.toStringAsFixed(1) : "New"} (${product.reviewCount})',
-                  style: const TextStyle(
-                      fontSize: 11, color: AppTheme.textSecondary),
-                ),
+                Text('${product.rating} (${product.reviewCount})',
+                    style: const TextStyle(
+                        fontSize: 11, color: AppTheme.textSecondary)),
               ],
             ),
             const SizedBox(height: 4),
@@ -94,7 +81,7 @@ class ProductCard extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  '₱${product.price.toStringAsFixed(2)}',
+                  '\$${product.price.toStringAsFixed(2)}',
                   style: const TextStyle(
                       fontWeight: FontWeight.bold,
                       color: AppTheme.priceRed,

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../../../theme/app_theme.dart';
+import 'package:jeap_mobile/core/theme/app_theme.dart';
 
 /// Full-width purple pill button used across buyer screens
 /// (Login, Sign Up, Add to Cart, Proceed to Checkout, etc.)

@@ -22,6 +22,7 @@ Route::prefix('v1')->middleware('throttle:api')->group(function () {
         Route::get('/me', [AuthController::class, 'me']);
         Route::post('/logout', [AuthController::class, 'logout']);
         Route::put('/profile', [AuthController::class, 'updateProfile']);
+        Route::post('/profile/avatar', [AuthController::class, 'updateAvatar']);
         Route::put('/password', [AuthController::class, 'changePassword']);
 
         // Buyer only
@@ -40,6 +41,7 @@ Route::prefix('v1')->middleware('throttle:api')->group(function () {
             // Addresses
             Route::get('/addresses', [AddressController::class, 'index']);
             Route::post('/addresses', [AddressController::class, 'store']);
+            Route::put('/addresses/{id}', [AddressController::class, 'update']);
             Route::delete('/addresses/{id}', [AddressController::class, 'destroy']);
         });
 

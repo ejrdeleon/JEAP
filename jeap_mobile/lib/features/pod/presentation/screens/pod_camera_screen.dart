@@ -1,7 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
-import '../../../../../../theme/app_theme.dart';
+import 'package:jeap_mobile/core/theme/app_theme.dart';
 import 'package:jeap_mobile/features/tasks/models/delivery_task.dart';
 
 class PodCameraScreen extends StatefulWidget {

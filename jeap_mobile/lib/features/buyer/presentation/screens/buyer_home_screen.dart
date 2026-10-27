@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:jeap_mobile/core/theme/app_theme.dart';
-import 'package:jeap_mobile/features/account/presentation/screens/account_screen.dart';
-import 'package:jeap_mobile/features/buyer/presentation/widgets/buyer_drawer.dart';
-import 'package:jeap_mobile/features/cart/presentation/screens/cart_screen.dart';
-import 'package:jeap_mobile/features/catalog/presentation/screens/categories_screen.dart';
+import '../../../../../../theme/app_theme.dart';
 import 'package:jeap_mobile/features/catalog/presentation/screens/home_tab_screen.dart';
+import 'package:jeap_mobile/features/catalog/presentation/screens/categories_screen.dart';
+import 'package:jeap_mobile/features/cart/presentation/screens/cart_screen.dart';
 import 'package:jeap_mobile/features/orders/presentation/screens/orders_screen.dart';
+import 'package:jeap_mobile/features/account/presentation/screens/account_screen.dart';
 
 class BuyerHomeScreen extends StatefulWidget {
   const BuyerHomeScreen({super.key});
@@ -15,33 +14,23 @@ class BuyerHomeScreen extends StatefulWidget {
 }
 
 class _BuyerHomeScreenState extends State<BuyerHomeScreen> {
-  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   int _currentIndex = 0;
 
-  void _onSelectTab(int index) {
-    setState(() => _currentIndex = index);
-  }
+  final List<Widget> _tabs = const [
+    HomeTabScreen(),
+    CategoriesScreen(),
+    CartScreen(),
+    OrdersScreen(),
+    AccountScreen(),
+  ];
 
   @override
   Widget build(BuildContext context) {
-    final tabs = [
-      HomeTabScreen(
-        onOpenDrawer: () => _scaffoldKey.currentState?.openDrawer(),
-        onSelectTab: _onSelectTab,
-      ),
-      const CategoriesScreen(),
-      const CartScreen(),
-      const OrdersScreen(),
-      const AccountScreen(),
-    ];
-
     return Scaffold(
-      key: _scaffoldKey,
-      drawer: BuyerDrawer(onSelectTab: _onSelectTab),
-      body: IndexedStack(index: _currentIndex, children: tabs),
+      body: IndexedStack(index: _currentIndex, children: _tabs),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _currentIndex,
-        onDestinationSelected: _onSelectTab,
+        onDestinationSelected: (i) => setState(() => _currentIndex = i),
         backgroundColor: Colors.white,
         indicatorColor: AppTheme.jeapPurple.withValues(alpha: 0.12),
         labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,

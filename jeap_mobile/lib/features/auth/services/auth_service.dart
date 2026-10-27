@@ -209,6 +209,38 @@ class AuthService {
     }
   }
 
+  Future<AuthResult> updateProfilePhoto(String filePath) async {
+    try {
+      final response = await _api.postImage(
+        '/profile/avatar',
+        filePath,
+        fieldName: 'avatar',
+      );
+      final user = _asMap(_asMap(response)?['user']);
+      if (user != null) {
+        await AuthSession.instance.setUser(user);
+      }
+      return AuthResult(
+        success: true,
+        message: _message(response, 'Profile photo updated.'),
+        user: user,
+      );
+    } on ApiException catch (error) {
+      return AuthResult(success: false, message: error.firstError);
+    } catch (e) {
+      return AuthResult(success: false, message: 'Failed to upload photo: $e');
+    }
+  }
+
+  Future<bool> checkServerHealth() async {
+    try {
+      await _api.get('/categories');
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
   Future<AuthResult> changePassword(String current, String newPass) async {
     try {
       final response = await _api.put('/password', {

@@ -2,9 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:jeap_mobile/core/network/api_exception.dart';
-import '../../../../../../theme/app_theme.dart';
+import 'package:jeap_mobile/core/theme/app_theme.dart';
+import 'package:jeap_mobile/core/storage/auth_session.dart';
+import 'package:jeap_mobile/core/widgets/jeap_logo.dart';
+import 'package:jeap_mobile/features/chat/presentation/screens/rider_chat_screen.dart';
 import 'package:jeap_mobile/features/account/presentation/screens/change_password_screen.dart';
 import 'package:jeap_mobile/features/account/presentation/screens/edit_profile_screen.dart';
+import 'package:jeap_mobile/features/account/presentation/screens/help_support_screen.dart';
+import 'package:jeap_mobile/features/notifications/presentation/screens/notification_settings_screen.dart';
 import 'package:jeap_mobile/features/auth/presentation/screens/login_screen.dart';
 import 'package:jeap_mobile/features/auth/services/auth_service.dart';
 import 'package:jeap_mobile/features/tasks/models/delivery_task.dart';
@@ -80,16 +85,67 @@ class _RiderDashboardState extends State<_RiderDashboard> {
   Widget build(BuildContext context) => Scaffold(
         backgroundColor: AppTheme.backgroundColor,
         appBar: AppBar(
-          title: const Text('JEAP Courier'),
+          title: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(6),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.1),
+                      blurRadius: 4,
+                      offset: const Offset(0, 1),
+                    ),
+                  ],
+                ),
+                child: const JeapLogo(height: 20),
+              ),
+              const SizedBox(width: 10),
+              const Text(
+                'Courier',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 18,
+                ),
+              ),
+            ],
+          ),
           actions: [
             IconButton(
               tooltip: 'Refresh',
               onPressed: _refresh,
               icon: const Icon(Icons.refresh),
             ),
-            const Padding(
-              padding: EdgeInsets.only(right: 16),
-              child: Icon(Icons.account_circle_outlined),
+            ValueListenableBuilder<Map<String, dynamic>?>(
+              valueListenable: AuthSession.instance.userNotifier,
+              builder: (context, user, _) {
+                final avatarUrl = AuthSession.instance.avatarUrl;
+                final name = AuthSession.instance.displayName;
+                return Padding(
+                  padding: const EdgeInsets.only(right: 14),
+                  child: CircleAvatar(
+                    radius: 15,
+                    backgroundColor: Colors.white,
+                    backgroundImage: (avatarUrl != null && avatarUrl.isNotEmpty)
+                        ? NetworkImage(avatarUrl)
+                        : null,
+                    child: (avatarUrl == null || avatarUrl.isEmpty)
+                        ? Text(
+                            name.isNotEmpty ? name[0].toUpperCase() : 'R',
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.bold,
+                              color: AppTheme.jeapPurple,
+                            ),
+                          )
+                        : null,
+                  ),
+                );
+              },
             ),
           ],
         ),
@@ -227,11 +283,17 @@ class _RiderDashboardState extends State<_RiderDashboard> {
                       child: _QuickAction(
                         icon: Icons.chat_bubble_outline,
                         label: 'Chat',
-                        onTap: () => ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                              content: Text(
-                                  'Rider chat is not connected to the API yet.')),
-                        ),
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const RiderChatScreen(
+                                buyerName: 'Support Desk',
+                                trackingNumber: 'General Inquiries',
+                              ),
+                            ),
+                          );
+                        },
                       ),
                     ),
                   ]),
@@ -565,9 +627,58 @@ class _RiderChatInbox extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Scaffold(
         appBar: AppBar(title: const Text('Chat')),
-        body: const _EmptyPanel(
-          message:
-              'Rider conversations will appear here when chat is enabled for the rider API.',
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: AppTheme.jeapPurple.withValues(alpha: .1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.chat_bubble_outline,
+                      size: 40, color: AppTheme.jeapPurple),
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'Buyer & Support Messages',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: AppTheme.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Message buyers regarding active deliveries or reach out to the support desk.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: AppTheme.textSecondary, fontSize: 13),
+                ),
+                const SizedBox(height: 20),
+                FilledButton.icon(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const RiderChatScreen(
+                          buyerName: 'Support Desk',
+                          trackingNumber: 'General Inquiries',
+                        ),
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.chat, size: 16),
+                  label: const Text('Open Messages'),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AppTheme.jeapPurple,
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
       );
 }
@@ -581,11 +692,96 @@ class _RiderProfile extends StatefulWidget {
 class _RiderProfileState extends State<_RiderProfile> {
   final _auth = AuthService();
   late Future<Map<String, dynamic>?> _user;
+  bool _uploadingPhoto = false;
 
   @override
   void initState() {
     super.initState();
     _user = _auth.me();
+  }
+
+  Future<void> _pickAndUploadPhoto(String? currentAvatarUrl) async {
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 36,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 12),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const Text(
+                'Change Profile Photo',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 12),
+              ListTile(
+                leading: const Icon(Icons.photo_camera_outlined,
+                    color: AppTheme.jeapPurple),
+                title: const Text('Take a photo'),
+                onTap: () => Navigator.pop(ctx, ImageSource.camera),
+              ),
+              ListTile(
+                leading: const Icon(Icons.photo_library_outlined,
+                    color: AppTheme.jeapPurple),
+                title: const Text('Choose from gallery'),
+                onTap: () => Navigator.pop(ctx, ImageSource.gallery),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    if (source == null || !mounted) return;
+
+    try {
+      final picker = ImagePicker();
+      final picked = await picker.pickImage(
+        source: source,
+        maxWidth: 800,
+        maxHeight: 800,
+        imageQuality: 80,
+      );
+      if (picked == null || !mounted) return;
+
+      setState(() => _uploadingPhoto = true);
+      final result = await _auth.updateProfilePhoto(picked.path);
+      if (!mounted) return;
+
+      setState(() {
+        _uploadingPhoto = false;
+        _user = _auth.me();
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(result.message),
+          backgroundColor:
+              result.success ? AppTheme.statusGreen : Colors.redAccent,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _uploadingPhoto = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to update photo: $e'),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+    }
   }
 
   Future<void> _logout() async {
@@ -627,16 +823,76 @@ class _RiderProfileState extends State<_RiderProfile> {
                 ? Map<String, dynamic>.from(user['rider_profile'] as Map)
                 : const <String, dynamic>{};
             final name = (user['name'] ?? 'Rider').toString();
+            final avatarUrl = user['avatar_url']?.toString();
             return ListView(
               padding: const EdgeInsets.all(16),
               children: [
                 _DashboardCard(
                   child: Row(children: [
-                    CircleAvatar(
-                      backgroundColor: AppTheme.jeapPurple,
-                      foregroundColor: Colors.white,
-                      child:
-                          Text(name.isNotEmpty ? name[0].toUpperCase() : 'R'),
+                    InkWell(
+                      onTap: _uploadingPhoto
+                          ? null
+                          : () => _pickAndUploadPhoto(avatarUrl),
+                      borderRadius: BorderRadius.circular(28),
+                      child: Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          CircleAvatar(
+                            radius: 28,
+                            backgroundColor:
+                                AppTheme.jeapPurple.withValues(alpha: 0.15),
+                            backgroundImage:
+                                (avatarUrl != null && avatarUrl.isNotEmpty)
+                                    ? NetworkImage(avatarUrl)
+                                    : null,
+                            child: (avatarUrl == null || avatarUrl.isEmpty)
+                                ? Text(
+                                    name.isNotEmpty
+                                        ? name[0].toUpperCase()
+                                        : 'R',
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 22,
+                                      color: AppTheme.jeapPurple,
+                                    ),
+                                  )
+                                : null,
+                          ),
+                          if (_uploadingPhoto)
+                            Container(
+                              width: 56,
+                              height: 56,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: Colors.black.withValues(alpha: .45),
+                              ),
+                              child: const Center(
+                                child: SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    valueColor: AlwaysStoppedAnimation<Color>(
+                                        Colors.white),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          Positioned(
+                            bottom: 0,
+                            right: 0,
+                            child: Container(
+                              padding: const EdgeInsets.all(4),
+                              decoration: const BoxDecoration(
+                                color: AppTheme.jeapPurple,
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(Icons.camera_alt,
+                                  size: 11, color: Colors.white),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
@@ -705,13 +961,20 @@ class _RiderProfileState extends State<_RiderProfile> {
                 _ProfileItem(
                   icon: Icons.notifications_none,
                   title: 'Notification Settings',
-                  onTap: () =>
-                      _showUnavailable(context, 'Notification settings'),
+                  onTap: () => Navigator.push<void>(
+                    context,
+                    MaterialPageRoute(
+                        builder: (_) => const NotificationSettingsScreen()),
+                  ),
                 ),
                 _ProfileItem(
                   icon: Icons.help_outline,
                   title: 'Help & Support',
-                  onTap: () => _showUnavailable(context, 'Help & Support'),
+                  onTap: () => Navigator.push<void>(
+                    context,
+                    MaterialPageRoute(
+                        builder: (_) => const HelpSupportScreen()),
+                  ),
                 ),
                 const SizedBox(height: 8),
                 OutlinedButton.icon(
@@ -758,6 +1021,23 @@ class _RiderMore extends StatelessWidget {
               onTap: () => Navigator.push<void>(
                 context,
                 MaterialPageRoute(builder: (_) => const _ProfitScreen()),
+              ),
+            ),
+            _ProfileItem(
+              icon: Icons.notifications_none,
+              title: 'Notification Settings',
+              onTap: () => Navigator.push<void>(
+                context,
+                MaterialPageRoute(
+                    builder: (_) => const NotificationSettingsScreen()),
+              ),
+            ),
+            _ProfileItem(
+              icon: Icons.help_outline,
+              title: 'Help & Support',
+              onTap: () => Navigator.push<void>(
+                context,
+                MaterialPageRoute(builder: (_) => const HelpSupportScreen()),
               ),
             ),
           ],
