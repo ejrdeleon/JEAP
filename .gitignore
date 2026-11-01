@@ -11,8 +11,7 @@ Thumbs.db
 *.log
 
 # Local launchers and deployment scripts
-deploy_to_phone.bat
-start_backend.bat
+*.bat
 start.exe
 stop.exe
 **/start.exe
