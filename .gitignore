@@ -1,0 +1,11 @@
+# Screenshots and visual artifacts
+screenshots/
+**/screenshots/
+
+# OS and IDE files
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.log
