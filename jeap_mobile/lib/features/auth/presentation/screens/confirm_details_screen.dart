@@ -5,7 +5,7 @@ import 'package:jeap_mobile/core/widgets/jeap_app_bar.dart';
 import 'package:jeap_mobile/core/widgets/primary_button.dart';
 import 'package:jeap_mobile/features/auth/models/registration_data.dart';
 import 'package:jeap_mobile/features/auth/services/auth_service.dart';
-import 'package:jeap_mobile/features/auth/presentation/screens/registration_pending_screen.dart';
+import 'package:jeap_mobile/features/auth/presentation/screens/email_otp_screen.dart';
 
 class ConfirmDetailsScreen extends StatefulWidget {
   final RegistrationData registrationData;
@@ -29,7 +29,9 @@ class _ConfirmDetailsScreenState extends State<ConfirmDetailsScreen> {
     if (result.success) {
       Navigator.pushAndRemoveUntil(
         context,
-        MaterialPageRoute(builder: (_) => const RegistrationPendingScreen()),
+        MaterialPageRoute(
+          builder: (_) => EmailOtpScreen(email: widget.registrationData.email),
+        ),
         (route) => false,
       );
     } else {
@@ -103,16 +105,13 @@ class _ConfirmDetailsScreenState extends State<ConfirmDetailsScreen> {
               const _SectionLabel('ADDRESS'),
               const SizedBox(height: 10),
               _ReviewCard(items: [
-                if (d.regionName != null && d.regionName!.isNotEmpty)
-                  _Item('Region', d.regionName!),
-                if (d.province.isNotEmpty) _Item('Province', d.province),
+                _Item('Province', d.province),
                 _Item('City / Municipality', d.city),
                 _Item('Barangay', d.barangay),
                 _Item('House No.', d.houseNumber),
                 _Item('Street', d.street),
-                if (d.subdivision != null && d.subdivision!.isNotEmpty)
-                  _Item('Subdivision', d.subdivision!),
-                if (d.buildingUnit != null && d.buildingUnit!.isNotEmpty)
+                if (d.subdivision != null) _Item('Subdivision', d.subdivision!),
+                if (d.buildingUnit != null)
                   _Item('Building / Unit', d.buildingUnit!),
                 _Item('ZIP Code', d.zipCode),
               ]),

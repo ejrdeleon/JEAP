@@ -1,17 +1,16 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'package:jeap_mobile/core/network/api_config.dart';
 import 'package:jeap_mobile/core/storage/token_storage.dart';
 import 'package:jeap_mobile/core/network/api_exception.dart';
 
 class ApiClient {
-  final String baseUrl;
+  final String? _baseUrl;
 
-  const ApiClient({
-    this.baseUrl = const String.fromEnvironment(
-      'API_BASE_URL',
-      defaultValue: 'http://127.0.0.1:8080/api/v1',
-    ),
-  });
+  const ApiClient({String? baseUrl}) : _baseUrl = baseUrl;
+
+  String get baseUrl => _baseUrl ?? ApiConfig.baseUrl;
 
   Future<Map<String, String>> get _headers async => {
         'Content-Type': 'application/json',
@@ -23,7 +22,12 @@ class ApiClient {
   Future<dynamic> get(String path) => _send('GET', path);
   Future<dynamic> post(String path, Map<String, dynamic> body) =>
       _send('POST', path, body: body);
-  Future<dynamic> postImage(String path, String filePath) async {
+
+  Future<dynamic> postImage(
+    String path,
+    String filePath, {
+    String fieldName = 'proof',
+  }) async {
     final client = HttpClient()
       ..connectionTimeout = const Duration(seconds: 10);
     try {
@@ -36,7 +40,9 @@ class ApiClient {
         _ => 'image/jpeg',
       };
       final boundary = '----JEAP${DateTime.now().microsecondsSinceEpoch}';
-      final request = await client.openUrl('POST', Uri.parse('$baseUrl$path'));
+      final request = await client
+          .openUrl('POST', Uri.parse('$baseUrl$path'))
+          .timeout(const Duration(seconds: 10));
       final headers = await _headers;
       for (final entry in headers.entries) {
         if (entry.key.toLowerCase() != 'content-type') {
@@ -49,13 +55,14 @@ class ApiClient {
       );
       request.add(utf8.encode(
         '--$boundary\r\n'
-        'Content-Disposition: form-data; name="proof"; filename="$filename"\r\n'
+        'Content-Disposition: form-data; name="$fieldName"; filename="$filename"\r\n'
         'Content-Type: $contentType\r\n\r\n',
       ));
       request.add(await file.readAsBytes());
       request.add(utf8.encode('\r\n--$boundary--\r\n'));
 
-      final response = await request.close();
+      final response =
+          await request.close().timeout(const Duration(seconds: 15));
       final raw = await response.transform(utf8.decoder).join();
       dynamic json;
       try {
@@ -73,7 +80,13 @@ class ApiClient {
         errors: json is Map ? json['errors'] as Map<String, dynamic>? : null,
       );
     } on SocketException {
-      throw const ApiException(message: 'No connection to server');
+      throw const ApiException(
+        message: 'Unable to connect to the server. Check your connection and try again.',
+      );
+    } on TimeoutException {
+      throw const ApiException(
+        message: 'Server request timed out. Please try again.',
+      );
     } finally {
       client.close();
     }
@@ -86,17 +99,17 @@ class ApiClient {
   Future<dynamic> _send(String method, String path,
       {Map<String, dynamic>? body}) async {
     final client = HttpClient()
-      ..connectionTimeout = const Duration(seconds: 10);
+      ..connectionTimeout = const Duration(seconds: 8);
 
     try {
       final uri = Uri.parse('$baseUrl$path');
-      final request = await client.openUrl(method, uri);
+      final request = await client.openUrl(method, uri).timeout(const Duration(seconds: 8));
 
       (await _headers).forEach((k, v) => request.headers.set(k, v));
 
       if (body != null) request.write(jsonEncode(body));
 
-      final response = await request.close();
+      final response = await request.close().timeout(const Duration(seconds: 10));
       final raw = await response.transform(utf8.decoder).join();
 
       dynamic json;
@@ -117,7 +130,13 @@ class ApiClient {
         errors: json is Map ? json['errors'] as Map<String, dynamic>? : null,
       );
     } on SocketException {
-      throw const ApiException(message: 'No connection to server');
+      throw const ApiException(
+        message: 'Unable to connect to the server. Check your connection and try again.',
+      );
+    } on TimeoutException {
+      throw const ApiException(
+        message: 'Server request timed out. Please try again.',
+      );
     } finally {
       client.close();
     }

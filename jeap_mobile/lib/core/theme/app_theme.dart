@@ -11,6 +11,7 @@ class AppTheme {
   static const Color textSecondary = Color(0xFF6B7280);
   static const Color borderColor = Color(0xFFE5E7EB);
   static const Color priceRed = Color(0xFFE53935);
+  static const Color errorRed = Color(0xFFDC2626);
   static const Color statusGreen = Color(0xFF2E7D32);
   static const Color inputFill = Color(0xFFF3F4F6);
 

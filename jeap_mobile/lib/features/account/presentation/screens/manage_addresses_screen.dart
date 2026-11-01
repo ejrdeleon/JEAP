@@ -40,6 +40,27 @@ class _ManageAddressesScreenState extends State<ManageAddressesScreen> {
   }
 
   Future<void> _deleteAddress(int id) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete Address'),
+        content: const Text('Are you sure you want to remove this address?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: FilledButton.styleFrom(backgroundColor: AppTheme.priceRed),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true || !mounted) return;
+
     setState(() => _addresses.removeWhere((a) => a.id == id));
     try {
       await _addressService.deleteAddress(id);
@@ -48,6 +69,17 @@ class _ManageAddressesScreenState extends State<ManageAddressesScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Address removed.')),
     );
+  }
+
+  Future<void> _openAddressForm([Address? address]) async {
+    final result = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => AddressFormScreen(initialAddress: address),
+      ),
+    );
+    if (result == true && mounted) {
+      _loadAddresses();
+    }
   }
 
   @override
@@ -61,8 +93,10 @@ class _ManageAddressesScreenState extends State<ManageAddressesScreen> {
           children: [
             const Padding(
               padding: EdgeInsets.fromLTRB(16, 8, 16, 12),
-              child: Text('My Addresses',
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+              child: Text(
+                'My Addresses',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              ),
             ),
             Expanded(
               child: _loading && _addresses.isEmpty
@@ -70,27 +104,44 @@ class _ManageAddressesScreenState extends State<ManageAddressesScreen> {
                   : RefreshIndicator(
                       onRefresh: _loadAddresses,
                       child: _addresses.isEmpty
-                          ? const Center(
-                              child: Text('No saved addresses.',
-                                  style:
-                                      TextStyle(color: AppTheme.textSecondary)))
+                          ? Center(
+                              child: SingleChildScrollView(
+                                physics: const AlwaysScrollableScrollPhysics(),
+                                padding: const EdgeInsets.all(24),
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Icon(Icons.location_off_outlined,
+                                        size: 48,
+                                        color: AppTheme.textSecondary),
+                                    const SizedBox(height: 12),
+                                    const Text(
+                                      'No saved addresses yet.',
+                                      style: TextStyle(
+                                        color: AppTheme.textSecondary,
+                                        fontSize: 15,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 16),
+                                    FilledButton.icon(
+                                      onPressed: () => _openAddressForm(),
+                                      icon: const Icon(Icons.add, size: 18),
+                                      label: const Text('Add Address'),
+                                      style: FilledButton.styleFrom(
+                                        backgroundColor: AppTheme.jeapPurple,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            )
                           : ListView.builder(
                               padding:
                                   const EdgeInsets.symmetric(horizontal: 16),
                               itemCount: _addresses.length,
                               itemBuilder: (_, i) => _AddressCard(
                                 address: _addresses[i],
-                                onEdit: () async {
-                                  final updated =
-                                      await Navigator.of(context).push<bool>(
-                                    MaterialPageRoute(
-                                      builder: (_) => AddressFormScreen(
-                                        initialAddress: _addresses[i],
-                                      ),
-                                    ),
-                                  );
-                                  if (updated == true) _loadAddresses();
-                                },
+                                onEdit: () => _openAddressForm(_addresses[i]),
                                 onDelete: () =>
                                     _deleteAddress(_addresses[i].id!),
                               ),
@@ -102,14 +153,7 @@ class _ManageAddressesScreenState extends State<ManageAddressesScreen> {
               child: PrimaryButton(
                 label: '+ ADD NEW ADDRESS',
                 outlined: true,
-                onPressed: () async {
-                  final created = await Navigator.of(context).push<bool>(
-                    MaterialPageRoute(
-                      builder: (_) => const AddressFormScreen(),
-                    ),
-                  );
-                  if (created == true) _loadAddresses();
-                },
+                onPressed: () => _openAddressForm(),
               ),
             ),
           ],
@@ -148,9 +192,11 @@ class _AddressCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              Text(address.label,
-                  style: const TextStyle(
-                      fontWeight: FontWeight.bold, fontSize: 14)),
+              Text(
+                address.label,
+                style:
+                    const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+              ),
               const SizedBox(width: 8),
               if (address.isDefault)
                 Container(
@@ -160,11 +206,14 @@ class _AddressCard extends StatelessWidget {
                     color: AppTheme.jeapPurple.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(4),
                   ),
-                  child: const Text('Default',
-                      style: TextStyle(
-                          fontSize: 10,
-                          color: AppTheme.jeapPurple,
-                          fontWeight: FontWeight.w600)),
+                  child: const Text(
+                    'Default',
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: AppTheme.jeapPurple,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                 ),
               const Spacer(),
               IconButton(
@@ -174,7 +223,7 @@ class _AddressCard extends StatelessWidget {
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 12),
               IconButton(
                 icon: const Icon(Icons.delete_outline,
                     size: 18, color: Colors.red),
@@ -185,9 +234,18 @@ class _AddressCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 6),
-          Text(address.fullAddress,
-              style:
-                  const TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+          Text(
+            '${address.recipientName} • ${address.phone}',
+            style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+                color: AppTheme.textPrimary),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            address.fullAddress,
+            style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+          ),
         ],
       ),
     );

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:jeap_mobile/core/theme/app_theme.dart';
+import 'package:jeap_mobile/features/tasks/presentation/screens/rider_home_screen.dart';
 
 class ChatMessage {
   final String text;
@@ -49,6 +50,20 @@ class _RiderChatScreenState extends State<RiderChatScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          tooltip: 'Back',
+          onPressed: () {
+            if (Navigator.of(context).canPop()) {
+              Navigator.of(context).pop();
+            } else {
+              Navigator.of(context).pushAndRemoveUntil(
+                MaterialPageRoute(builder: (_) => const RiderHomeScreen()),
+                (_) => false,
+              );
+            }
+          },
+        ),
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -98,23 +113,20 @@ class _RiderChatScreenState extends State<RiderChatScreen> {
             height: 40,
             child: ListView.builder(
               scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 8),
               itemCount: _quickReplies.length,
               itemBuilder: (context, index) {
                 return Padding(
-                  padding: const EdgeInsets.only(left: 8.0),
+                  padding: const EdgeInsets.only(right: 8),
                   child: ActionChip(
-                    backgroundColor: Colors.white,
-                    side: const BorderSide(color: AppTheme.jeapPurple),
                     label: Text(_quickReplies[index],
-                        style: const TextStyle(
-                            color: AppTheme.jeapPurple, fontSize: 12)),
+                        style: const TextStyle(fontSize: 12)),
                     onPressed: () => _sendMessage(_quickReplies[index]),
                   ),
                 );
               },
             ),
           ),
-          const SizedBox(height: 8),
           Container(
             padding: const EdgeInsets.all(8),
             color: Colors.white,
@@ -124,12 +136,15 @@ class _RiderChatScreenState extends State<RiderChatScreen> {
                   child: TextField(
                     controller: _messageController,
                     decoration: const InputDecoration(
-                      hintText: 'Type a message to buyer...',
-                      border: InputBorder.none,
-                      contentPadding: EdgeInsets.all(10),
+                      hintText: "Type a message...",
+                      border: OutlineInputBorder(),
+                      contentPadding:
+                          EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     ),
+                    onSubmitted: _sendMessage,
                   ),
                 ),
+                const SizedBox(width: 8),
                 IconButton(
                   icon: const Icon(Icons.send, color: AppTheme.jeapPurple),
                   onPressed: () => _sendMessage(_messageController.text),

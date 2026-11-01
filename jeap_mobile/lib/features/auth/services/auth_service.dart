@@ -3,6 +3,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/services.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:jeap_mobile/core/network/api_client.dart';
+import 'package:jeap_mobile/core/network/api_config.dart';
 import 'package:jeap_mobile/core/network/api_exception.dart';
 import 'package:jeap_mobile/core/storage/auth_session.dart';
 import 'package:jeap_mobile/core/storage/token_storage.dart';
@@ -133,6 +134,43 @@ class AuthService {
     }
   }
 
+  Future<AuthResult> verifyEmail(String email, String code) async {
+    try {
+      final response = await _api.post('/email/verify', {
+        'email': email,
+        'code': code,
+      });
+      final data = _asMap(response);
+      final token = data?['token'];
+      final user = _asMap(data?['user']);
+      if (token is String && token.isNotEmpty && user != null) {
+        await TokenStorage.save(token);
+        await AuthSession.instance.setUser(user);
+      }
+      return AuthResult(
+        success: true,
+        message: _message(response, 'Email verified successfully.'),
+        user: user,
+      );
+    } on ApiException catch (error) {
+      return AuthResult(success: false, message: error.firstError);
+    }
+  }
+
+  Future<AuthResult> resendEmailVerification(String email) async {
+    try {
+      final response = await _api.post('/email/resend', {
+        'email': email,
+      });
+      return AuthResult(
+        success: true,
+        message: _message(response, 'A new verification code has been sent.'),
+      );
+    } on ApiException catch (error) {
+      return AuthResult(success: false, message: error.firstError);
+    }
+  }
+
   Future<AuthResult> login(
     String email,
     String password, {
@@ -176,7 +214,8 @@ class AuthService {
   }
 
   Future<Map<String, dynamic>?> me() async {
-    if (await TokenStorage.get() == null) {
+    final token = await TokenStorage.get();
+    if (token == null) {
       await AuthSession.instance.clear();
       return null;
     }
@@ -192,6 +231,16 @@ class AuthService {
         await AuthSession.instance.clear();
         return null;
       }
+      final cachedUser = AuthSession.instance.currentUser;
+      if (cachedUser != null && cachedUser['status'] == 'active') {
+        return cachedUser;
+      }
+      rethrow;
+    } catch (_) {
+      final cachedUser = AuthSession.instance.currentUser;
+      if (cachedUser != null && cachedUser['status'] == 'active') {
+        return cachedUser;
+      }
       rethrow;
     }
   }
@@ -199,13 +248,98 @@ class AuthService {
   Future<AuthResult> updateProfile(Map<String, dynamic> data) async {
     try {
       final response = await _api.put('/profile', data);
+      final updatedUser = _asMap(_asMap(response)?['user']);
+      if (updatedUser != null) {
+        await AuthSession.instance.setUser(updatedUser);
+      }
       return AuthResult(
         success: true,
         message: _message(response, 'Profile updated.'),
-        user: _asMap(_asMap(response)?['user']),
+        user: updatedUser,
       );
     } on ApiException catch (error) {
       return AuthResult(success: false, message: error.firstError);
+    }
+  }
+
+  Future<AuthResult> updateProfilePhoto(String filePath) async {
+    try {
+      final response = await _api.postImage(
+        '/profile/avatar',
+        filePath,
+        fieldName: 'avatar',
+      );
+      final user = _asMap(_asMap(response)?['user']);
+      if (user != null) {
+        await AuthSession.instance.setUser(user);
+        ApiConfig.bumpAvatarVersion();
+      }
+      return AuthResult(
+        success: true,
+        message: _message(response, 'Profile photo updated.'),
+        user: user,
+      );
+    } on ApiException catch (error) {
+      return AuthResult(success: false, message: error.firstError);
+    } catch (e) {
+      return AuthResult(success: false, message: 'Failed to upload photo: $e');
+    }
+  }
+
+  Future<bool> checkServerHealth() async {
+    try {
+      await _api.get('/categories');
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<AuthResult> forgotPassword(String email) async {
+    try {
+      final response = await _api.post('/forgot-password', {
+        'email': email.trim().toLowerCase(),
+      });
+      final map = _asMap(response);
+      return AuthResult(
+        success: true,
+        message: _message(
+          response,
+          'If an account exists with that email address, we have sent instructions to reset your password.',
+        ),
+        user: map,
+      );
+    } on ApiException catch (error) {
+      return AuthResult(success: false, message: error.firstError);
+    } catch (e) {
+      return AuthResult(success: false, message: 'Network error: $e');
+    }
+  }
+
+  Future<AuthResult> resetPassword({
+    required String email,
+    required String token,
+    required String newPassword,
+    required String confirmPassword,
+  }) async {
+    try {
+      final response = await _api.post('/reset-password', {
+        'email': email.trim().toLowerCase(),
+        'token': token.trim(),
+        'password': newPassword,
+        'password_confirmation': confirmPassword,
+      });
+      return AuthResult(
+        success: true,
+        message: _message(
+          response,
+          'Your password has been reset successfully. Please log in with your new password.',
+        ),
+      );
+    } on ApiException catch (error) {
+      return AuthResult(success: false, message: error.firstError);
+    } catch (e) {
+      return AuthResult(success: false, message: 'Network error: $e');
     }
   }
 

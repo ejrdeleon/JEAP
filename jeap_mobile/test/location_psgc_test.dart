@@ -55,7 +55,7 @@ void main() {
       );
 
       // In NCR, province is omitted/null
-      final ncrSelection = SelectedPhilippineAddress(
+      const ncrSelection = SelectedPhilippineAddress(
         region: ncr,
         province: null,
         locality: taguig,

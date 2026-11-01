@@ -14,6 +14,8 @@ class DeliveryTask {
   final String contactPhone;
   final String deliveryAddress;
   final double codAmount;
+  final double payout;
+  final int attemptNumber;
   final double? latitude;
   final double? longitude;
   final TaskStatus status;
@@ -26,6 +28,8 @@ class DeliveryTask {
     required this.contactPhone,
     required this.deliveryAddress,
     required this.codAmount,
+    this.payout = 50.0,
+    this.attemptNumber = 1,
     this.latitude,
     this.longitude,
     required this.status,
@@ -59,6 +63,12 @@ class DeliveryTask {
     final kind = (delivery['type'] ?? json['type'] ?? json['task_type'] ?? '')
         .toString()
         .toLowerCase();
+    final isPickup = kind == 'pickup' || kind == 'collection';
+
+    final defaultPayout = isPickup ? 30.0 : 50.0;
+    final parsedPayout = double.tryParse(
+            (json['payout'] ?? delivery['payout'] ?? defaultPayout).toString()) ??
+        defaultPayout;
 
     return DeliveryTask(
       id: (json['id'] ?? delivery['id'] ?? '').toString(),
@@ -84,10 +94,15 @@ class DeliveryTask {
               (order['cod_amount'] ?? delivery['cod_amount'] ?? 0)
                   .toString()) ??
           0,
+      payout: parsedPayout,
+      attemptNumber: int.tryParse(
+              (delivery['attempt_number'] ?? json['attempt_number'] ?? 1)
+                  .toString()) ??
+          1,
       latitude: double.tryParse((address['latitude'] ?? '').toString()),
       longitude: double.tryParse((address['longitude'] ?? '').toString()),
       status: status,
-      isPickup: kind == 'pickup' || kind == 'collection',
+      isPickup: isPickup,
     );
   }
 }

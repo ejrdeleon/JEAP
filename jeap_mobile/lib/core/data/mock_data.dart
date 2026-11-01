@@ -37,6 +37,7 @@ class MockData {
       reviewCount: 120,
       isNew: true,
       category: 'laptops',
+      imageUrl: 'images/categories/cat-computers.png',
       description: 'Apple M2 chip, thin and light laptop.',
     ),
     Product(
@@ -47,6 +48,7 @@ class MockData {
       reviewCount: 89,
       isNew: true,
       category: 'sounds',
+      imageUrl: 'images/categories/cat-audios.png',
       description: 'Wireless Noise Cancelling Headphones',
       colors: ['black', 'silver', 'navy'],
     ),
@@ -57,6 +59,7 @@ class MockData {
       rating: 4.8,
       reviewCount: 120,
       category: 'phones',
+      imageUrl: 'images/categories/cat-mobiles.png',
     ),
     Product(
       id: 'p4',
@@ -65,6 +68,7 @@ class MockData {
       rating: 4.8,
       reviewCount: 120,
       category: 'laptops',
+      imageUrl: 'images/categories/cat-computers.png',
     ),
     Product(
       id: 'p5',
@@ -73,6 +77,7 @@ class MockData {
       rating: 4.8,
       reviewCount: 120,
       category: 'cameras',
+      imageUrl: 'images/categories/cat-cameras.png',
     ),
     Product(
       id: 'p6',
@@ -81,6 +86,7 @@ class MockData {
       rating: 4.8,
       reviewCount: 120,
       category: 'gaming',
+      imageUrl: 'images/categories/cat-gaming.png',
     ),
   ];
 

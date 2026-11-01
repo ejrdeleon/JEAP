@@ -1,13 +1,21 @@
+import 'package:jeap_mobile/core/storage/guest_cart_manager.dart';
+import 'package:jeap_mobile/features/cart/services/cart_service.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:jeap_mobile/core/storage/auth_session.dart';
 import 'package:jeap_mobile/core/storage/token_storage.dart';
 import 'package:jeap_mobile/core/theme/app_theme.dart';
 import 'package:jeap_mobile/core/widgets/google_sign_in_button.dart';
 import 'package:jeap_mobile/core/widgets/jeap_logo.dart';
+import 'package:jeap_mobile/core/widgets/server_settings_sheet.dart';
+import 'package:jeap_mobile/features/auth/presentation/screens/forgot_password_screen.dart';
 import 'package:jeap_mobile/features/auth/presentation/screens/signup_screen.dart';
 import 'package:jeap_mobile/features/auth/services/auth_service.dart';
 import 'package:jeap_mobile/features/buyer/presentation/screens/buyer_home_screen.dart';
+import 'package:jeap_mobile/features/auth/presentation/screens/email_otp_screen.dart';
 import 'package:jeap_mobile/features/tasks/presentation/screens/rider_home_screen.dart';
+import 'package:jeap_mobile/features/logistics/presentation/screens/logistics_dashboard_screen.dart';
+
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -73,6 +81,8 @@ class _LoginScreenState extends State<LoginScreen> {
     if (!mounted) return;
     setState(() => _loading = false);
     if (result.success) {
+      AuthSession.instance.setGuest(false);
+      await GuestCartManager.instance.mergeIntoAccount(CartService());
       final user = result.user;
       String role = 'buyer';
       if (user != null) {
@@ -82,16 +92,30 @@ class _LoginScreenState extends State<LoginScreen> {
             r == 'courier' ||
             (roles != null &&
                 (roles.contains('rider') || roles.contains('courier')));
-        role = isRider ? 'rider' : 'buyer';
+        final isLogistics = r == 'logistics' ||
+            (roles != null && roles.contains('logistics'));
+        if (isLogistics) {
+          role = 'logistics';
+        } else if (isRider) {
+          role = 'rider';
+        } else {
+          role = 'buyer';
+        }
       }
 
+      Widget targetScreen;
+      if (role == 'logistics') {
+        targetScreen = const LogisticsDashboardScreen();
+      } else if (role == 'rider') {
+        targetScreen = const RiderHomeScreen();
+      } else {
+        targetScreen = const BuyerHomeScreen();
+      }
+
+      if (!mounted) return;
       Navigator.pushAndRemoveUntil(
         context,
-        MaterialPageRoute(
-          builder: (_) => role == 'rider'
-              ? const RiderHomeScreen()
-              : const BuyerHomeScreen(),
-        ),
+        MaterialPageRoute(builder: (_) => targetScreen),
         (_) => false,
       );
       return;
@@ -101,31 +125,65 @@ class _LoginScreenState extends State<LoginScreen> {
 
   void _showMessage(String message) {
     final lower = message.toLowerCase();
-    final color = lower.contains('pending') || lower.contains('approval')
+    final isUnverified = lower.contains('verify your email') ||
+        lower.contains('unverified') ||
+        lower.contains('verification');
+    final isPending = lower.contains('pending') || lower.contains('approval');
+    final isConnectionError = lower.contains('connect') ||
+        lower.contains('connection') ||
+        lower.contains('server') ||
+        lower.contains('network') ||
+        lower.contains('timed out');
+
+    final color = (isUnverified || isPending)
         ? Colors.orange.shade700
         : Colors.redAccent;
+
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       content: Text(message),
       backgroundColor: color,
-      duration: const Duration(seconds: 5),
+      duration: Duration(seconds: (isUnverified || isConnectionError) ? 8 : 5),
+      action: isConnectionError
+          ? SnackBarAction(
+              label: 'SETTINGS',
+              textColor: Colors.white,
+              onPressed: () => ServerSettingsSheet.show(context),
+            )
+          : (isUnverified
+              ? SnackBarAction(
+                  label: 'VERIFY',
+                  textColor: Colors.white,
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) =>
+                            EmailOtpScreen(email: _emailCtrl.text.trim()),
+                      ),
+                    );
+                  },
+                )
+              : null),
     ));
   }
 
   void _showForgotPassword() {
-    showDialog<void>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Forgot password?'),
-        content: const Text(
-          'Password reset is not available through the JEAP API yet. Please contact support for help with your account.',
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ForgotPasswordScreen(
+          initialEmail: _emailCtrl.text.trim(),
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Close'),
-          ),
-        ],
       ),
+    );
+  }
+
+  void _handleContinueAsGuest() {
+    AuthSession.instance.setGuest(true);
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(builder: (_) => const BuyerHomeScreen()),
+      (_) => false,
     );
   }
 
@@ -139,17 +197,27 @@ class _LoginScreenState extends State<LoginScreen> {
             constraints: const BoxConstraints(maxWidth: 430),
             child: SingleChildScrollView(
               keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
               child: Form(
                 key: _formKey,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const SizedBox(height: 20),
+                    Align(
+                      alignment: Alignment.topRight,
+                      child: IconButton(
+                        icon: const Icon(
+                          Icons.dns_outlined,
+                          color: AppTheme.textSecondary,
+                        ),
+                        tooltip: 'Server Environment Settings',
+                        onPressed: () => ServerSettingsSheet.show(context),
+                      ),
+                    ),
                     const Center(
                       child: JeapLogo(height: 68),
                     ),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 20),
                     const Center(
                       child: Text(
                         'Welcome Back',
@@ -170,7 +238,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                       ),
                     ),
-                    const SizedBox(height: 32),
+                    const SizedBox(height: 28),
                     const _FieldLabel('E-mail or Contact No.'),
                     const SizedBox(height: 7),
                     TextFormField(
@@ -273,7 +341,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 22),
+                    const SizedBox(height: 20),
                     SizedBox(
                       width: double.infinity,
                       height: 50,
@@ -308,7 +376,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       isLoading: _loading,
                       onPressed: _handleGoogleLogin,
                     ),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 20),
                     Center(
                       child: RichText(
                         text: TextSpan(
@@ -333,6 +401,48 @@ class _LoginScreenState extends State<LoginScreen> {
                                     ),
                             ),
                           ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    const Row(
+                      children: [
+                        Expanded(child: Divider(color: AppTheme.borderColor)),
+                        Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 12),
+                          child: Text(
+                            'OR',
+                            style: TextStyle(
+                              color: Color(0xFF9297A8),
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                        Expanded(child: Divider(color: AppTheme.borderColor)),
+                      ],
+                    ),
+                    const SizedBox(height: 18),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 48,
+                      child: OutlinedButton.icon(
+                        onPressed: _loading ? null : _handleContinueAsGuest,
+                        icon: const Icon(Icons.explore_outlined, size: 20),
+                        label: const Text(
+                          'Continue as Guest',
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppTheme.jeapPurple,
+                          side: const BorderSide(
+                              color: AppTheme.jeapPurple, width: 1.5),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(9),
+                          ),
                         ),
                       ),
                     ),

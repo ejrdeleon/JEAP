@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:jeap_mobile/core/network/api_config.dart';
 
 class AuthSession {
   AuthSession._();
@@ -11,10 +12,14 @@ class AuthSession {
 
   final ValueNotifier<Map<String, dynamic>?> userNotifier =
       ValueNotifier<Map<String, dynamic>?>(null);
+  final ValueNotifier<bool> isGuestNotifier = ValueNotifier<bool>(false);
 
   Map<String, dynamic>? get currentUser => userNotifier.value;
+  bool get isGuest => isGuestNotifier.value;
+  bool get isAuthenticated => currentUser != null && !isGuest;
 
   bool get isSeller {
+    if (isGuest) return false;
     final user = currentUser;
     if (user == null) return false;
     if (user['is_seller'] == true) return true;
@@ -29,6 +34,7 @@ class AuthSession {
   }
 
   bool get isRider {
+    if (isGuest) return false;
     final user = currentUser;
     if (user == null) return false;
     final role = user['role']?.toString().toLowerCase();
@@ -44,6 +50,7 @@ class AuthSession {
   }
 
   String get displayName {
+    if (isGuest) return 'Guest User';
     final user = currentUser;
     if (user == null) return 'JEAP User';
     final name = user['name']?.toString();
@@ -54,7 +61,20 @@ class AuthSession {
     return combined.isNotEmpty ? combined : 'JEAP User';
   }
 
-  String get email => currentUser?['email']?.toString() ?? '';
+  String get email => isGuest ? '' : (currentUser?['email']?.toString() ?? '');
+
+  String? get avatarUrl {
+    if (isGuest) return null;
+    final url = currentUser?['avatar_url']?.toString();
+    return ApiConfig.resolveImageUrl(url);
+  }
+
+  void setGuest(bool value) {
+    isGuestNotifier.value = value;
+    if (value) {
+      userNotifier.value = null;
+    }
+  }
 
   Future<void> init() async {
     try {
@@ -63,6 +83,7 @@ class AuthSession {
         final decoded = jsonDecode(raw);
         if (decoded is Map<String, dynamic>) {
           userNotifier.value = decoded;
+          isGuestNotifier.value = false;
         }
       }
     } catch (_) {}
@@ -70,6 +91,9 @@ class AuthSession {
 
   Future<void> setUser(Map<String, dynamic>? user) async {
     userNotifier.value = user;
+    if (user != null) {
+      isGuestNotifier.value = false;
+    }
     try {
       if (user != null) {
         await _storage.write(key: _userKey, value: jsonEncode(user));
@@ -81,6 +105,7 @@ class AuthSession {
 
   Future<void> clear() async {
     userNotifier.value = null;
+    isGuestNotifier.value = false;
     try {
       await _storage.delete(key: _userKey);
     } catch (_) {}

@@ -1,29 +1,26 @@
 import 'package:flutter/material.dart';
-import 'package:jeap_mobile/core/models/category.dart';
-import 'package:jeap_mobile/core/models/product.dart';
-import 'package:jeap_mobile/core/storage/auth_session.dart';
 import 'package:jeap_mobile/core/theme/app_theme.dart';
 import 'package:jeap_mobile/core/utils/category_icons.dart';
-import 'package:jeap_mobile/core/widgets/jeap_logo.dart';
 import 'package:jeap_mobile/core/widgets/product_card.dart';
+import 'package:jeap_mobile/core/data/mock_data.dart';
+import 'package:jeap_mobile/core/models/product.dart';
+import 'package:jeap_mobile/features/catalog/services/catalog_service.dart';
+import 'package:jeap_mobile/features/catalog/presentation/screens/search_screen.dart';
+import 'package:jeap_mobile/features/catalog/presentation/screens/categories_screen.dart';
 import 'package:jeap_mobile/features/catalog/presentation/screens/category_products_screen.dart';
 import 'package:jeap_mobile/features/catalog/presentation/screens/product_detail_screen.dart';
-import 'package:jeap_mobile/features/catalog/presentation/screens/search_screen.dart';
-import 'package:jeap_mobile/features/catalog/services/catalog_service.dart';
-import 'package:jeap_mobile/features/messaging/models/conversation.dart';
+import 'package:jeap_mobile/features/catalog/presentation/screens/wishlist_screen.dart';
 import 'package:jeap_mobile/features/messaging/presentation/screens/buyer_conversations_screen.dart';
-import 'package:jeap_mobile/features/messaging/services/message_service.dart';
 import 'package:jeap_mobile/features/notifications/presentation/screens/notifications_screen.dart';
-import 'package:jeap_mobile/features/notifications/services/notification_service.dart';
 
 class HomeTabScreen extends StatefulWidget {
+  final List<Product>? initialProducts;
   final VoidCallback? onOpenDrawer;
-  final ValueChanged<int>? onSelectTab;
 
   const HomeTabScreen({
     super.key,
+    this.initialProducts,
     this.onOpenDrawer,
-    this.onSelectTab,
   });
 
   @override
@@ -31,75 +28,40 @@ class HomeTabScreen extends StatefulWidget {
 }
 
 class _HomeTabScreenState extends State<HomeTabScreen> {
-  final _catalogService = CatalogService();
-  final _messageService = MessageService();
-  final _notificationService = NotificationService();
-
-  List<ProductCategory> _categories = [];
+  final CatalogService _catalogService = CatalogService();
   List<Product> _products = [];
-  int _unreadNotifications = 0;
-  int _unreadMessages = 0;
-  bool _isLoading = true;
-  String? _error;
+  bool _loading = true;
 
   @override
   void initState() {
     super.initState();
-    _loadData();
-  }
-
-  Future<void> _loadData() async {
-    setState(() {
-      _isLoading = true;
-      _error = null;
-    });
-
-    try {
-      final results = await Future.wait([
-        _catalogService.fetchCategories(),
-        _catalogService.fetchProducts(),
-        _notificationService.fetchNotifications().catchError(
-            (_) => const NotificationResult(unreadCount: 0, notifications: [])),
-        _messageService
-            .fetchConversations()
-            .catchError((_) => <Conversation>[]),
-      ]);
-
-      if (mounted) {
-        final notifRes = results[2] as NotificationResult;
-        final convs = results[3] as List<Conversation>;
-        final unreadMsgs = convs.fold<int>(0, (sum, c) => sum + c.unreadCount);
-
-        setState(() {
-          _categories = results[0] as List<ProductCategory>;
-          _products = results[1] as List<Product>;
-          _unreadNotifications = notifRes.unreadCount;
-          _unreadMessages = unreadMsgs;
-          _isLoading = false;
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _error = 'Could not load products. Please check server connection.';
-          _isLoading = false;
-        });
-      }
+    if (widget.initialProducts != null) {
+      _products = widget.initialProducts!;
+      _loading = false;
+    } else {
+      _loadProducts();
     }
   }
 
-  Future<void> _refreshBadges() async {
+  Future<void> _loadProducts() async {
+    if (widget.initialProducts != null && _products.isNotEmpty) return;
+    setState(() => _loading = true);
     try {
-      final notifRes = await _notificationService.fetchNotifications();
-      final convs = await _messageService.fetchConversations();
-      final unreadMsgs = convs.fold<int>(0, (sum, c) => sum + c.unreadCount);
+      final items = await _catalogService.fetchProducts();
       if (mounted) {
         setState(() {
-          _unreadNotifications = notifRes.unreadCount;
-          _unreadMessages = unreadMsgs;
+          _products = items.isNotEmpty ? items : MockData.products;
+          _loading = false;
         });
       }
-    } catch (_) {}
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _products = MockData.products;
+          _loading = false;
+        });
+      }
+    }
   }
 
   @override
@@ -108,59 +70,34 @@ class _HomeTabScreenState extends State<HomeTabScreen> {
       backgroundColor: AppTheme.backgroundColor,
       body: SafeArea(
         child: RefreshIndicator(
-          onRefresh: _loadData,
+          onRefresh: _loadProducts,
           color: AppTheme.jeapPurple,
           child: CustomScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
             slivers: [
               SliverToBoxAdapter(child: _buildHeader(context)),
               SliverToBoxAdapter(child: _buildSearchBar(context)),
-              SliverToBoxAdapter(child: _buildBanner(context)),
-              SliverToBoxAdapter(child: _buildQuickShortcuts(context)),
-              SliverToBoxAdapter(child: _buildSectionTitle('Categories')),
+              SliverToBoxAdapter(child: _buildBanner()),
+              SliverToBoxAdapter(child: _buildQuickServicesRow(context)),
+              SliverToBoxAdapter(
+                child: _buildSectionTitle(
+                  'Categories',
+                  onSeeAll: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const CategoriesScreen(),
+                    ),
+                  ),
+                ),
+              ),
               SliverToBoxAdapter(child: _buildCategoryRow(context)),
-              SliverToBoxAdapter(child: _buildSectionTitle('Best Sellers')),
-              if (_isLoading)
+              SliverToBoxAdapter(child: _buildSectionTitle('Best Sellers & Recommendations')),
+              if (_loading)
                 const SliverToBoxAdapter(
-                  child: Padding(
-                    padding: EdgeInsets.all(40),
-                    child: Center(
-                      child:
-                          CircularProgressIndicator(color: AppTheme.jeapPurple),
-                    ),
-                  ),
-                )
-              else if (_error != null)
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.all(32),
-                    child: Column(
-                      children: [
-                        Text(_error!,
-                            textAlign: TextAlign.center,
-                            style:
-                                const TextStyle(color: AppTheme.textSecondary)),
-                        const SizedBox(height: 12),
-                        ElevatedButton.icon(
-                          onPressed: _loadData,
-                          icon: const Icon(Icons.refresh, size: 18),
-                          label: const Text('Retry'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppTheme.jeapPurple,
-                            foregroundColor: Colors.white,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                )
-              else if (_products.isEmpty)
-                const SliverToBoxAdapter(
-                  child: Padding(
-                    padding: EdgeInsets.all(32),
-                    child: Center(
-                      child: Text('No products available right now.',
-                          style: TextStyle(color: AppTheme.textSecondary)),
+                  child: Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(32),
+                      child: CircularProgressIndicator(color: AppTheme.jeapPurple),
                     ),
                   ),
                 )
@@ -175,177 +112,99 @@ class _HomeTabScreenState extends State<HomeTabScreen> {
   }
 
   Widget _buildHeader(BuildContext context) {
-    return ValueListenableBuilder<Map<String, dynamic>?>(
-      valueListenable: AuthSession.instance.userNotifier,
-      builder: (context, user, _) {
-        final isSeller = AuthSession.instance.isSeller;
-
-        return Padding(
-          padding: const EdgeInsets.fromLTRB(8, 10, 12, 0),
-          child: Row(
-            children: [
-              IconButton(
-                icon: const Icon(Icons.menu,
-                    color: AppTheme.textPrimary, size: 24),
-                tooltip: 'Open menu',
-                onPressed: widget.onOpenDrawer,
-              ),
-              const SizedBox(width: 2),
-              const JeapLogo(height: 30),
-              if (isSeller)
-                Container(
-                  margin: const EdgeInsets.only(left: 8),
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: AppTheme.jeapPurple.withValues(alpha: 0.12),
-                    border: Border.all(
-                      color: AppTheme.jeapPurple.withValues(alpha: 0.35),
-                      width: 1,
-                    ),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: const Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.store_outlined,
-                          size: 11, color: AppTheme.jeapPurple),
-                      SizedBox(width: 3),
-                      Text(
-                        'Seller',
-                        style: TextStyle(
-                          color: AppTheme.jeapPurple,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              const Spacer(),
-              // Notification Bell with Badge
-              Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.notifications_outlined,
-                        color: AppTheme.textPrimary, size: 24),
-                    tooltip: 'Notifications',
-                    onPressed: () async {
-                      await Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                            builder: (_) => const NotificationsScreen()),
-                      );
-                      _refreshBadges();
-                    },
-                  ),
-                  if (_unreadNotifications > 0)
-                    Positioned(
-                      right: 6,
-                      top: 6,
-                      child: Container(
-                        padding: const EdgeInsets.all(4),
-                        decoration: const BoxDecoration(
-                          color: Colors.redAccent,
-                          shape: BoxShape.circle,
-                        ),
-                        constraints:
-                            const BoxConstraints(minWidth: 16, minHeight: 16),
-                        alignment: Alignment.center,
-                        child: Text(
-                          _unreadNotifications > 9
-                              ? '9+'
-                              : '$_unreadNotifications',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 9,
-                            fontWeight: FontWeight.bold,
-                            height: 1,
-                          ),
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-              // Messages Button with Badge
-              Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.chat_bubble_outline,
-                        color: AppTheme.textPrimary, size: 22),
-                    tooltip: 'Messages',
-                    onPressed: () async {
-                      await Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                            builder: (_) => const BuyerConversationsScreen()),
-                      );
-                      _refreshBadges();
-                    },
-                  ),
-                  if (_unreadMessages > 0)
-                    Positioned(
-                      right: 6,
-                      top: 6,
-                      child: Container(
-                        padding: const EdgeInsets.all(4),
-                        decoration: const BoxDecoration(
-                          color: AppTheme.jeapPurple,
-                          shape: BoxShape.circle,
-                        ),
-                        constraints:
-                            const BoxConstraints(minWidth: 16, minHeight: 16),
-                        alignment: Alignment.center,
-                        child: Text(
-                          _unreadMessages > 9 ? '9+' : '$_unreadMessages',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 9,
-                            fontWeight: FontWeight.bold,
-                            height: 1,
-                          ),
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-            ],
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+      child: Row(
+        children: [
+          Builder(
+            builder: (ctx) => IconButton(
+              icon: const Icon(Icons.menu, color: AppTheme.textPrimary, size: 24),
+              padding: EdgeInsets.zero,
+              visualDensity: VisualDensity.compact,
+              constraints: const BoxConstraints(),
+              tooltip: 'Navigation Menu',
+              onPressed: () {
+                if (widget.onOpenDrawer != null) {
+                  widget.onOpenDrawer!();
+                } else {
+                  Scaffold.maybeOf(ctx)?.openDrawer();
+                }
+              },
+            ),
           ),
-        );
-      },
+          const SizedBox(width: 8),
+          const Text(
+            'JEAP',
+            style: TextStyle(
+              color: AppTheme.jeapPurple,
+              fontSize: 22,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const Spacer(),
+          IconButton(
+            padding: EdgeInsets.zero,
+            visualDensity: VisualDensity.compact,
+            constraints: const BoxConstraints(),
+            icon: const Icon(Icons.favorite_border,
+                color: AppTheme.textPrimary, size: 22),
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const WishlistScreen()),
+            ),
+          ),
+          const SizedBox(width: 8),
+          IconButton(
+            padding: EdgeInsets.zero,
+            visualDensity: VisualDensity.compact,
+            constraints: const BoxConstraints(),
+            icon: const Icon(Icons.notifications_outlined,
+                color: AppTheme.textPrimary, size: 22),
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const NotificationsScreen()),
+            ),
+          ),
+          const SizedBox(width: 8),
+          IconButton(
+            padding: EdgeInsets.zero,
+            visualDensity: VisualDensity.compact,
+            constraints: const BoxConstraints(),
+            icon: const Icon(Icons.chat_bubble_outline,
+                color: AppTheme.textPrimary, size: 22),
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                  builder: (_) => const BuyerConversationsScreen()),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
   Widget _buildSearchBar(BuildContext context) {
     return GestureDetector(
       onTap: () => Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => const SearchScreen()),
-      ),
+          context, MaterialPageRoute(builder: (_) => const SearchScreen())),
       child: Container(
-        margin: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+        margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppTheme.inputFill,
           borderRadius: BorderRadius.circular(AppTheme.buyerRadius),
-          border: Border.all(color: AppTheme.borderColor),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.02),
-              blurRadius: 4,
-              offset: const Offset(0, 2),
-            ),
-          ],
         ),
         child: const Row(
           children: [
             Icon(Icons.search, color: AppTheme.textSecondary, size: 20),
             SizedBox(width: 10),
-            Text(
-              'Search products, brands, and categories...',
-              style: TextStyle(color: AppTheme.textSecondary, fontSize: 13),
+            Expanded(
+              child: Text(
+                'Search products...',
+                style: TextStyle(color: AppTheme.textSecondary, fontSize: 14),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
           ],
         ),
@@ -353,25 +212,26 @@ class _HomeTabScreenState extends State<HomeTabScreen> {
     );
   }
 
-  Widget _buildBanner(BuildContext context) {
+  Widget _buildBanner() {
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 14, 16, 0),
+      constraints: const BoxConstraints(minHeight: 125),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: [AppTheme.jeapPurple, AppTheme.jeapDarkPurple],
+          colors: [Color(0xFF4F46E5), Color(0xFF312E81)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(AppTheme.buyerRadius),
         boxShadow: [
           BoxShadow(
-            color: AppTheme.jeapPurple.withValues(alpha: 0.25),
-            blurRadius: 8,
+            color: AppTheme.jeapPurple.withValues(alpha: 0.18),
+            blurRadius: 10,
             offset: const Offset(0, 4),
           ),
         ],
       ),
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.all(16),
       child: Row(
         children: [
           Expanded(
@@ -379,152 +239,166 @@ class _HomeTabScreenState extends State<HomeTabScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: const Text(
+                    '🚚 FREE NATIONWIDE SHIPPING',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 9.5,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 0.4,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 6),
                 const Text(
-                  'Welcome to JEAP!',
+                  'Welcome to JEAP',
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: 3),
                 const Text(
-                  'Discover authentic deals and seamless delivery.',
-                  style: TextStyle(color: Colors.white70, fontSize: 12),
-                ),
-                const SizedBox(height: 12),
-                FilledButton.tonal(
-                  onPressed: () => widget.onSelectTab?.call(2), // go to cart
-                  style: FilledButton.styleFrom(
-                    backgroundColor: Colors.white,
-                    foregroundColor: AppTheme.jeapPurple,
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                    visualDensity: VisualDensity.compact,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
-                  child: const Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.shopping_cart_outlined, size: 14),
-                      SizedBox(width: 6),
-                      Text('View Cart',
-                          style: TextStyle(
-                              fontWeight: FontWeight.w700, fontSize: 12)),
-                    ],
-                  ),
+                  'Discover authentic products & daily deals.',
+                  style: TextStyle(color: Colors.white70, fontSize: 11.5),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ],
             ),
           ),
-          const SizedBox(width: 12),
-          const JeapLogo(height: 38, width: 100),
+          const SizedBox(width: 8),
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.15),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.shopping_bag_outlined,
+              color: Colors.white,
+              size: 28,
+            ),
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildQuickShortcuts(BuildContext context) {
+  Widget _buildQuickServicesRow(BuildContext context) {
+    final services = [
+      {'icon': Icons.bolt, 'label': 'Flash Deals', 'color': Colors.amber.shade700},
+      {'icon': Icons.local_shipping_outlined, 'label': 'Free Shipping', 'color': AppTheme.jeapPurple},
+      {'icon': Icons.verified_outlined, 'label': 'Authentic', 'color': AppTheme.statusGreen},
+      {'icon': Icons.confirmation_number_outlined, 'label': 'Vouchers', 'color': Colors.deepOrange},
+    ];
+
     return Container(
-      margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+      margin: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(AppTheme.buyerRadius),
         border: Border.all(color: AppTheme.borderColor),
       ),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
+        children: services.map((s) {
+          return Expanded(
+            child: InkWell(
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => SearchScreen(initialQuery: s['label'] as String),
+                  ),
+                );
+              },
+              borderRadius: BorderRadius.circular(8),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 4),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        color: (s['color'] as Color).withValues(alpha: 0.12),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(s['icon'] as IconData, color: s['color'] as Color, size: 19),
+                    ),
+                    const SizedBox(height: 5),
+                    Text(
+                      s['label'] as String,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600, color: AppTheme.textPrimary),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  Widget _buildSectionTitle(String title, {VoidCallback? onSeeAll}) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          _shortcutItem(
-            icon: Icons.receipt_long_outlined,
-            label: 'My Orders',
-            onTap: () => widget.onSelectTab?.call(3),
+          Expanded(
+            child: Text(
+              title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 15.5, fontWeight: FontWeight.bold, color: AppTheme.textPrimary),
+            ),
           ),
-          _shortcutItem(
-            icon: Icons.local_shipping_outlined,
-            label: 'To Receive',
-            onTap: () => widget.onSelectTab?.call(3),
-          ),
-          _shortcutItem(
-            icon: Icons.assignment_return_outlined,
-            label: 'Returns',
-            onTap: () => widget.onSelectTab?.call(3),
-          ),
-          _shortcutItem(
-            icon: Icons.shopping_bag_outlined,
-            label: 'Categories',
-            onTap: () => widget.onSelectTab?.call(1),
-          ),
+          if (onSeeAll != null)
+            InkWell(
+              onTap: onSeeAll,
+              child: const Row(
+                children: [
+                  Text(
+                    'See All',
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w600,
+                      color: AppTheme.jeapPurple,
+                    ),
+                  ),
+                  Icon(Icons.chevron_right, size: 16, color: AppTheme.jeapPurple),
+                ],
+              ),
+            ),
         ],
       ),
     );
   }
 
-  Widget _shortcutItem({
-    required IconData icon,
-    required String label,
-    required VoidCallback onTap,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, color: AppTheme.jeapPurple, size: 22),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              style: const TextStyle(
-                fontSize: 11,
-                color: AppTheme.textPrimary,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSectionTitle(String title) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 18, 16, 8),
-      child: Text(
-        title,
-        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-      ),
-    );
-  }
-
   Widget _buildCategoryRow(BuildContext context) {
-    if (_categories.isEmpty && _isLoading) {
-      return const SizedBox(
-        height: 84,
-        child: Center(
-          child: SizedBox(
-            width: 24,
-            height: 24,
-            child: CircularProgressIndicator(
-                strokeWidth: 2, color: AppTheme.jeapPurple),
-          ),
-        ),
-      );
-    }
-
+    const cats = MockData.topCategories;
     return SizedBox(
-      height: 84,
+      height: 80,
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 12),
-        itemCount: _categories.length,
+        itemCount: cats.length,
         itemBuilder: (_, i) {
-          final cat = _categories[i];
+          final cat = cats[i];
           return GestureDetector(
             onTap: () => Navigator.push(
               context,
@@ -532,7 +406,7 @@ class _HomeTabScreenState extends State<HomeTabScreen> {
                   builder: (_) => CategoryProductsScreen(category: cat)),
             ),
             child: Container(
-              width: 74,
+              width: 68,
               margin: const EdgeInsets.symmetric(horizontal: 4),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -547,15 +421,12 @@ class _HomeTabScreenState extends State<HomeTabScreen> {
                     child: Icon(categoryIcon(cat.icon),
                         color: AppTheme.jeapPurple, size: 22),
                   ),
-                  const SizedBox(height: 5),
-                  Text(
-                    cat.name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                        fontSize: 11, fontWeight: FontWeight.w500),
-                  ),
+                  const SizedBox(height: 4),
+                  Text(cat.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(fontSize: 10)),
                 ],
               ),
             ),
@@ -566,30 +437,30 @@ class _HomeTabScreenState extends State<HomeTabScreen> {
   }
 
   Widget _buildProductGrid(BuildContext context) {
-    final screenWidth = MediaQuery.of(context).size.width;
-    // Responsive aspect ratio to avoid overflow on small or narrow devices
-    final childAspectRatio =
-        screenWidth < 360 ? 0.65 : (screenWidth > 600 ? 0.8 : 0.70);
+    final products = _products;
+    final width = MediaQuery.sizeOf(context).width;
+    final crossAxisCount = width >= 900 ? 4 : (width >= 600 ? 3 : 2);
+    final childAspectRatio = width < 360 ? 0.56 : (width < 600 ? 0.58 : 0.65);
 
     return SliverPadding(
-      padding: const EdgeInsets.symmetric(horizontal: 14),
+      padding: const EdgeInsets.symmetric(horizontal: 12),
       sliver: SliverGrid(
         delegate: SliverChildBuilderDelegate(
           (_, i) => ProductCard(
-            product: _products[i],
+            product: products[i],
             onTap: () => Navigator.push(
               context,
               MaterialPageRoute(
-                  builder: (_) => ProductDetailScreen(product: _products[i])),
+                  builder: (_) => ProductDetailScreen(product: products[i])),
             ),
           ),
-          childCount: _products.length,
+          childCount: products.length,
         ),
         gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: screenWidth > 600 ? 3 : 2,
+          crossAxisCount: crossAxisCount,
           childAspectRatio: childAspectRatio,
-          crossAxisSpacing: 10,
-          mainAxisSpacing: 10,
+          crossAxisSpacing: 8,
+          mainAxisSpacing: 8,
         ),
       ),
     );

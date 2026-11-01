@@ -82,6 +82,20 @@ class OrderService {
     revision.value++;
   }
 
+  Future<void> requestReturn({
+    required String orderNumber,
+    required String reason,
+    String? description,
+  }) async {
+    await _api.post('/returns', {
+      'order_number': orderNumber,
+      'reason': reason,
+      if (description != null && description.isNotEmpty)
+        'description': description,
+    });
+    revision.value++;
+  }
+
   Future<void> submitRating({
     required String orderNumber,
     required String productId,

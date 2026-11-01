@@ -1,15 +1,28 @@
 import 'package:flutter/material.dart';
+import 'package:jeap_mobile/core/storage/auth_session.dart';
 import 'package:jeap_mobile/core/theme/app_theme.dart';
+import 'package:jeap_mobile/core/widgets/guest_prompt_view.dart';
 import 'package:jeap_mobile/core/widgets/jeap_app_bar.dart';
+import 'package:jeap_mobile/core/widgets/jeap_avatar.dart';
 import 'package:jeap_mobile/features/auth/services/auth_service.dart';
 import 'package:jeap_mobile/features/auth/presentation/screens/login_screen.dart';
+import 'package:jeap_mobile/features/buyer/presentation/widgets/buyer_drawer.dart';
 import 'package:jeap_mobile/features/messaging/presentation/screens/buyer_conversations_screen.dart';
 import 'package:jeap_mobile/features/account/presentation/screens/edit_profile_screen.dart';
 import 'package:jeap_mobile/features/account/presentation/screens/manage_addresses_screen.dart';
 import 'package:jeap_mobile/features/account/presentation/screens/change_password_screen.dart';
 
 class AccountScreen extends StatefulWidget {
-  const AccountScreen({super.key});
+  final Map<String, dynamic>? initialUser;
+  final VoidCallback? onOpenDrawer;
+  final ValueChanged<int>? onSelectTab;
+
+  const AccountScreen({
+    super.key,
+    this.initialUser,
+    this.onOpenDrawer,
+    this.onSelectTab,
+  });
 
   @override
   State<AccountScreen> createState() => _AccountScreenState();
@@ -22,7 +35,11 @@ class _AccountScreenState extends State<AccountScreen> {
   @override
   void initState() {
     super.initState();
-    _userFuture = _authService.me();
+    _userFuture = widget.initialUser != null
+        ? Future.value(widget.initialUser)
+        : (AuthSession.instance.currentUser != null
+            ? Future.value(AuthSession.instance.currentUser)
+            : _authService.me());
   }
 
   void _refresh() {
@@ -33,117 +50,99 @@ class _AccountScreenState extends State<AccountScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (AuthSession.instance.isGuest) {
+      return Scaffold(
+        backgroundColor: AppTheme.backgroundColor,
+        drawer: BuyerDrawer(currentTabIndex: 4, onSelectTab: widget.onSelectTab),
+        appBar: JeapAppBar(showBack: false, showWishlist: false, onMenuTap: widget.onOpenDrawer),
+        body: const SafeArea(
+          child: GuestPromptView(
+            title: 'Your Account',
+            message:
+                'Sign in to your JEAP account to manage your profile, delivery addresses, security settings, and order history.',
+            icon: Icons.person_outline,
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
-      appBar: const JeapAppBar(showBack: false, showWishlist: false),
+      drawer: BuyerDrawer(currentTabIndex: 4, onSelectTab: widget.onSelectTab),
+      appBar: JeapAppBar(showBack: false, showWishlist: false, onMenuTap: widget.onOpenDrawer),
       body: SafeArea(
         child: SingleChildScrollView(
           child: Column(
             children: [
-              // Profile header via FutureBuilder
-              FutureBuilder<Map<String, dynamic>?>(
-                future: _userFuture,
-                builder: (context, snapshot) {
-                  final user = snapshot.data;
-                  final String name = (user?['name'] as String?) ??
-                      (user?['first_name'] != null
-                          ? '${user?['first_name']} ${user?['last_name'] ?? ''}'
-                              .trim()
-                          : 'Juan Dela Cruz');
-                  final String email =
-                      (user?['email'] as String?) ?? 'juan@example.com';
-                  final roles = user?['roles'] as List?;
-                  final bool isSeller = user?['is_seller'] == true ||
-                      (roles != null && roles.contains('seller')) ||
-                      user?['role'] == 'seller';
+              // Profile header reactive to userNotifier
+              ValueListenableBuilder<Map<String, dynamic>?>(
+                valueListenable: AuthSession.instance.userNotifier,
+                builder: (context, activeUser, _) {
+                  return FutureBuilder<Map<String, dynamic>?>(
+                    future: _userFuture,
+                    builder: (context, snapshot) {
+                      final user = activeUser ?? snapshot.data ?? AuthSession.instance.currentUser;
+                      final String name = (user?['name'] as String?) ??
+                          (user?['first_name'] != null
+                              ? '${user?['first_name']} ${user?['last_name'] ?? ''}'
+                                  .trim()
+                              : 'Juan Dela Cruz');
+                      final String email =
+                          (user?['email'] as String?) ?? 'juan@example.com';
+                      final String role = (user?['role'] as String?) ?? 'buyer';
+                      final String status = role.isNotEmpty
+                          ? role[0].toUpperCase() + role.substring(1)
+                          : 'Active';
 
-                  final initials = name.trim().isNotEmpty
-                      ? name
-                          .trim()
-                          .split(' ')
-                          .where((p) => p.isNotEmpty)
-                          .take(2)
-                          .map((e) => e[0].toUpperCase())
-                          .join()
-                      : 'JD';
-
-                  return Container(
-                    width: double.infinity,
-                    color: Colors.white,
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 20, vertical: 20),
-                    child: Row(
-                      children: [
-                        CircleAvatar(
-                          radius: 32,
-                          backgroundColor:
-                              AppTheme.jeapPurple.withValues(alpha: 0.15),
-                          child: snapshot.connectionState ==
-                                      ConnectionState.waiting &&
-                                  user == null
-                              ? const SizedBox(
-                                  width: 24,
-                                  height: 24,
-                                  child:
-                                      CircularProgressIndicator(strokeWidth: 2),
-                                )
-                              : Text(initials,
-                                  style: const TextStyle(
-                                      fontSize: 20,
-                                      fontWeight: FontWeight.bold,
-                                      color: AppTheme.jeapPurple)),
-                        ),
-                        const SizedBox(width: 14),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(name,
-                                  style: const TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.bold)),
-                              const SizedBox(height: 2),
-                              Text(email,
-                                  style: const TextStyle(
-                                      fontSize: 13,
-                                      color: AppTheme.textSecondary)),
-                              if (isSeller) ...[
-                                const SizedBox(height: 5),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 8, vertical: 2),
-                                  decoration: BoxDecoration(
-                                    color: AppTheme.jeapPurple
-                                        .withValues(alpha: 0.1),
-                                    border: Border.all(
-                                      color: AppTheme.jeapPurple
-                                          .withValues(alpha: 0.3),
+                      return Container(
+                        width: double.infinity,
+                        color: Colors.white,
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 20, vertical: 20),
+                        child: Row(
+                          children: [
+                            JeapAvatar(
+                              radius: 32,
+                              imageUrl: user?['avatar_url'] ?? AuthSession.instance.avatarUrl,
+                              name: name,
+                              cacheBust: true,
+                            ),
+                            const SizedBox(width: 14),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(name,
+                                      style: const TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.bold)),
+                                  const SizedBox(height: 2),
+                                  Text(email,
+                                      style: const TextStyle(
+                                          fontSize: 13,
+                                          color: AppTheme.textSecondary)),
+                                  const SizedBox(height: 4),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 8, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: AppTheme.statusGreen
+                                          .withValues(alpha: 0.1),
+                                      borderRadius: BorderRadius.circular(6),
                                     ),
-                                    borderRadius: BorderRadius.circular(6),
+                                    child: Text(status,
+                                        style: const TextStyle(
+                                            fontSize: 11,
+                                            color: AppTheme.statusGreen,
+                                            fontWeight: FontWeight.w600)),
                                   ),
-                                  child: const Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Icon(Icons.store_outlined,
-                                          size: 12, color: AppTheme.jeapPurple),
-                                      SizedBox(width: 4),
-                                      Text(
-                                        'Seller',
-                                        style: TextStyle(
-                                          fontSize: 11,
-                                          color: AppTheme.jeapPurple,
-                                          fontWeight: FontWeight.w700,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ],
-                          ),
+                                ],
+                              ),
+                            ),
+                          ],
                         ),
-                      ],
-                    ),
+                      );
+                    },
                   );
                 },
               ),
@@ -254,7 +253,7 @@ class _MenuSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return Material(
       color: Colors.white,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

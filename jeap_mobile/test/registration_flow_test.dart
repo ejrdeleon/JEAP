@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:jeap_mobile/core/theme/app_theme.dart';
 import 'package:jeap_mobile/features/auth/models/registration_data.dart';
 import 'package:jeap_mobile/features/auth/presentation/screens/confirm_details_screen.dart';
+import 'package:jeap_mobile/features/auth/presentation/screens/email_otp_screen.dart';
 import 'package:jeap_mobile/features/auth/presentation/screens/signup_screen.dart';
 
 void main() {
@@ -14,7 +15,7 @@ void main() {
         lastName: 'Dela Cruz',
         email: 'juan@example.com',
         mobileNumber: '+639123456789',
-        dateOfBirth: '01/15/1995',
+        dateOfBirth: '1995-01-15',
         gender: 'Male',
         houseNumber: '123',
         street: 'Rizal St',
@@ -33,7 +34,7 @@ void main() {
       expect(json['last_name'], 'Dela Cruz');
       expect(json['email'], 'juan@example.com');
       expect(json['phone'], '+639123456789');
-      expect(json['date_of_birth'], '01/15/1995');
+      expect(json['date_of_birth'], '1995-01-15');
       expect(json['gender'], 'Male');
       expect(json['house_number'], '123');
       expect(json['street'], 'Rizal St');
@@ -122,7 +123,7 @@ void main() {
         lastName: 'Santos',
         email: 'maria@example.com',
         mobileNumber: '09123456789',
-        dateOfBirth: '05/20/1998',
+        dateOfBirth: '1998-05-20',
         gender: 'Female',
         houseNumber: 'Block 5 Lot 10',
         street: 'Maharlika Hwy',
@@ -154,7 +155,7 @@ void main() {
       expect(find.text('Maria Santos'), findsOneWidget);
       expect(find.text('maria@example.com'), findsOneWidget);
       expect(find.text('09123456789'), findsOneWidget);
-      expect(find.text('05/20/1998'), findsOneWidget);
+      expect(find.text('1998-05-20'), findsOneWidget);
       expect(find.text('Female'), findsOneWidget);
       expect(find.text('••••••••'), findsOneWidget);
 
@@ -164,6 +165,52 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(popped, isTrue);
+    });
+
+    testWidgets(
+        'SignUpScreen triggers validation errors when submitted empty',
+        (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.lightTheme,
+          home: const SignUpScreen(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final continueBtn = find.text('CONTINUE');
+      await tester.ensureVisible(continueBtn);
+      await tester.tap(continueBtn);
+      await tester.pumpAndSettle();
+
+      expect(find.text('First name is required'), findsOneWidget);
+      expect(find.text('Last name is required'), findsOneWidget);
+      expect(find.text('Email is required'), findsOneWidget);
+      expect(find.text('Contact number is required'), findsOneWidget);
+      expect(find.text('Birthday is required'), findsOneWidget);
+      expect(find.text('ZIP code is required'), findsOneWidget);
+      expect(find.text('Password is required'), findsOneWidget);
+    });
+
+    testWidgets('EmailOtpScreen renders 6-digit input boxes and expiry timer',
+        (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.lightTheme,
+          home: const EmailOtpScreen(email: 'buyer@example.com'),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Verify Your Email'), findsOneWidget);
+      expect(find.textContaining('buyer@example.com'), findsOneWidget);
+      expect(find.text('VERIFY & CONTINUE'), findsOneWidget);
+      expect(find.textContaining('Code expires in'), findsOneWidget);
+      expect(find.textContaining('Resend'), findsOneWidget);
+
+      // Verify exactly 6 input fields are present
+      final textFields = find.byType(TextFormField);
+      expect(textFields, findsNWidgets(6));
     });
   });
 }
