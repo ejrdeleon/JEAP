@@ -49,13 +49,17 @@ extension OrderStatusLabel on OrderStatus {
         return OrderStatus.toPay;
       case 'toship':
       case 'to_ship':
+      case 'confirmed':
         return OrderStatus.toShip;
       case 'sellerpreparing':
       case 'seller_preparing':
+      case 'preparing':
       case 'processing':
         return OrderStatus.sellerPreparing;
       case 'riderpickup':
       case 'rider_pickup':
+      case 'ready_for_pickup':
+      case 'readyforpickup':
       case 'shipped':
         return OrderStatus.riderPickup;
       case 'sortingcenter':

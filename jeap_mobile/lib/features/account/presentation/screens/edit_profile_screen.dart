@@ -2,7 +2,9 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:jeap_mobile/core/storage/auth_session.dart';
+import 'package:jeap_mobile/core/network/api_config.dart';
 import 'package:jeap_mobile/core/theme/app_theme.dart';
+import 'package:jeap_mobile/core/widgets/jeap_avatar.dart';
 import 'package:jeap_mobile/core/widgets/jeap_app_bar.dart';
 import 'package:jeap_mobile/core/widgets/primary_button.dart';
 import 'package:jeap_mobile/features/auth/services/auth_service.dart';
@@ -131,6 +133,31 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       if (picked == null || !mounted) return;
 
       final file = File(picked.path);
+      final filename = file.path.toLowerCase();
+      final validExtensions = ['.jpg', '.jpeg', '.png', '.webp'];
+      if (!validExtensions.any((ext) => filename.endsWith(ext))) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Invalid image format. Supported formats: JPG, PNG, WEBP.'),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+        return;
+      }
+
+      final bytes = await file.length();
+      if (bytes > 5 * 1024 * 1024) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Image is too large. Maximum file size is 5 MB.'),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+        return;
+      }
+
       setState(() => _pendingImage = file);
       await _confirmAndUpload(file);
     } catch (e) {
@@ -198,6 +225,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       _pendingImage = null;
       if (result.success && result.user != null) {
         _avatarUrl = result.user!['avatar_url']?.toString();
+        ApiConfig.bumpAvatarVersion();
       }
     });
 
@@ -224,7 +252,16 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               child: _pendingImage != null
                   ? Image.file(_pendingImage!, fit: BoxFit.contain)
                   : (_avatarUrl != null && _avatarUrl!.isNotEmpty)
-                      ? Image.network(_avatarUrl!, fit: BoxFit.contain)
+                      ? Image.network(
+                          ApiConfig.resolveImageUrl(_avatarUrl, cacheBust: true)!,
+                          fit: BoxFit.contain,
+                          errorBuilder: (_, __, ___) => Container(
+                            width: 200,
+                            height: 200,
+                            color: Colors.white,
+                            child: const Icon(Icons.person, size: 100, color: AppTheme.textSecondary),
+                          ),
+                        )
                       : Container(
                           width: 200,
                           height: 200,
@@ -310,17 +347,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                                       height: 100,
                                       fit: BoxFit.cover,
                                     )
-                                  : (_avatarUrl != null &&
-                                          _avatarUrl!.isNotEmpty)
-                                      ? Image.network(
-                                          _avatarUrl!,
-                                          width: 100,
-                                          height: 100,
-                                          fit: BoxFit.cover,
-                                          errorBuilder: (_, __, ___) =>
-                                              _initialsAvatar(initials),
-                                        )
-                                      : _initialsAvatar(initials),
+                                  : JeapAvatar(
+                                      radius: 50,
+                                      imageUrl: _avatarUrl,
+                                      name: initials,
+                                      cacheBust: true,
+                                    ),
                             ),
                           ),
                           if (_uploadingPhoto)
@@ -401,21 +433,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     );
   }
 
-  Widget _initialsAvatar(String initials) {
-    return Container(
-      color: AppTheme.jeapPurple.withValues(alpha: .15),
-      child: Center(
-        child: Text(
-          initials.isNotEmpty ? initials : 'JE',
-          style: const TextStyle(
-            fontSize: 28,
-            fontWeight: FontWeight.bold,
-            color: AppTheme.jeapPurple,
-          ),
-        ),
-      ),
-    );
-  }
 
   Widget _field(String label, TextEditingController ctrl,
       {TextInputType? keyboardType}) {

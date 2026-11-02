@@ -1,3 +1,5 @@
+import 'package:jeap_mobile/core/network/api_config.dart';
+
 class Product {
   final String id;
   final String name;
@@ -101,13 +103,8 @@ class Product {
         }
       }
     }
-    if (imageUrl != null &&
-        imageUrl.isNotEmpty &&
-        !imageUrl.startsWith('http://') &&
-        !imageUrl.startsWith('https://')) {
-      final cleanPath =
-          imageUrl.startsWith('/') ? imageUrl.substring(1) : imageUrl;
-      imageUrl = 'http://127.0.0.1:8080/$cleanPath';
+    if (imageUrl != null && imageUrl.isNotEmpty) {
+      imageUrl = ApiConfig.resolveImageUrl(imageUrl);
     }
 
     final categoryObj = json['category'];

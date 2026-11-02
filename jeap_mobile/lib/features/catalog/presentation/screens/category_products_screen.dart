@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../../../../../theme/app_theme.dart';
+import 'package:jeap_mobile/core/theme/app_theme.dart';
 import 'package:jeap_mobile/core/widgets/jeap_app_bar.dart';
 import 'package:jeap_mobile/core/widgets/product_card.dart';
 import 'package:jeap_mobile/core/data/mock_data.dart';
@@ -25,6 +25,10 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
             (_searchQuery.isEmpty ||
                 p.name.toLowerCase().contains(_searchQuery.toLowerCase())))
         .toList();
+
+    final width = MediaQuery.sizeOf(context).width;
+    final crossAxisCount = width >= 900 ? 4 : (width >= 600 ? 3 : 2);
+    final childAspectRatio = width < 360 ? 0.56 : (width < 600 ? 0.58 : 0.65);
 
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
@@ -64,9 +68,9 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
                   : GridView.builder(
                       padding: const EdgeInsets.symmetric(horizontal: 12),
                       gridDelegate:
-                          const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 2,
-                        childAspectRatio: 0.72,
+                          SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: crossAxisCount,
+                        childAspectRatio: childAspectRatio,
                         crossAxisSpacing: 8,
                         mainAxisSpacing: 8,
                       ),

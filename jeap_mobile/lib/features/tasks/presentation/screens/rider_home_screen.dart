@@ -1,8 +1,12 @@
+import 'package:jeap_mobile/features/tasks/presentation/screens/rider_fleet_screen.dart';
+import 'package:jeap_mobile/features/tasks/presentation/screens/rider_vehicle_screen.dart';
+import 'package:jeap_mobile/features/tasks/presentation/screens/rider_documents_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:jeap_mobile/core/network/api_exception.dart';
 import 'package:jeap_mobile/core/theme/app_theme.dart';
+import 'package:jeap_mobile/core/widgets/jeap_avatar.dart';
 import 'package:jeap_mobile/core/storage/auth_session.dart';
 import 'package:jeap_mobile/core/widgets/jeap_logo.dart';
 import 'package:jeap_mobile/features/chat/presentation/screens/rider_chat_screen.dart';
@@ -14,6 +18,8 @@ import 'package:jeap_mobile/features/auth/presentation/screens/login_screen.dart
 import 'package:jeap_mobile/features/auth/services/auth_service.dart';
 import 'package:jeap_mobile/features/tasks/models/delivery_task.dart';
 import 'package:jeap_mobile/features/tasks/services/rider_assignment_service.dart';
+import 'package:jeap_mobile/core/theme/rider_theme.dart';
+import 'package:jeap_mobile/features/tasks/presentation/widgets/proof_of_delivery_sheet.dart';
 
 enum _AssignmentPage { pickup, delivery, history }
 
@@ -72,6 +78,8 @@ class _RiderDashboard extends StatefulWidget {
 class _RiderDashboardState extends State<_RiderDashboard> {
   final _service = RiderAssignmentService();
   late Future<RiderAssignmentsResult> _assignments;
+  bool _isOnline = true;
+  bool _safetyCheckCompleted = false;
 
   @override
   void initState() {
@@ -80,6 +88,173 @@ class _RiderDashboardState extends State<_RiderDashboard> {
   }
 
   void _refresh() => setState(() => _assignments = _service.list());
+
+  void _toggleOnline(bool value) {
+    if (value && !_safetyCheckCompleted) {
+      _showSafetyCheckDialog();
+    } else {
+      setState(() => _isOnline = value);
+    }
+  }
+
+  void _showSafetyCheckDialog() {
+    bool tires = false;
+    bool lights = false;
+    bool brakes = false;
+    bool fuel = false;
+    bool cargo = false;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDlg) => AlertDialog(
+          title: const Row(
+            children: [
+              Icon(Icons.checklist, color: AppTheme.jeapPurple),
+              SizedBox(width: 8),
+              Expanded(
+                child: Text('Pre-Trip Safety Inspection',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              ),
+            ],
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Complete your 5-point vehicle safety checklist before accepting delivery tasks:',
+                  style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+                ),
+                const SizedBox(height: 10),
+                CheckboxListTile(
+                  value: tires,
+                  title: const Text('Tires & Air Pressure Checked', style: TextStyle(fontSize: 13)),
+                  dense: true,
+                  activeColor: AppTheme.jeapPurple,
+                  onChanged: (v) => setDlg(() => tires = v ?? false),
+                ),
+                CheckboxListTile(
+                  value: lights,
+                  title: const Text('Headlights, Signals & Horn Working', style: TextStyle(fontSize: 13)),
+                  dense: true,
+                  activeColor: AppTheme.jeapPurple,
+                  onChanged: (v) => setDlg(() => lights = v ?? false),
+                ),
+                CheckboxListTile(
+                  value: brakes,
+                  title: const Text('Brakes & Brake Fluid Responsive', style: TextStyle(fontSize: 13)),
+                  dense: true,
+                  activeColor: AppTheme.jeapPurple,
+                  onChanged: (v) => setDlg(() => brakes = v ?? false),
+                ),
+                CheckboxListTile(
+                  value: fuel,
+                  title: const Text('Fuel Level or Battery Charge Sufficient', style: TextStyle(fontSize: 13)),
+                  dense: true,
+                  activeColor: AppTheme.jeapPurple,
+                  onChanged: (v) => setDlg(() => fuel = v ?? false),
+                ),
+                CheckboxListTile(
+                  value: cargo,
+                  title: const Text('Thermal Cargo Bag / Top Box Clean & Locked', style: TextStyle(fontSize: 13)),
+                  dense: true,
+                  activeColor: AppTheme.jeapPurple,
+                  onChanged: (v) => setDlg(() => cargo = v ?? false),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: (tires && lights && brakes && fuel && cargo)
+                  ? () {
+                      Navigator.pop(ctx);
+                      setState(() {
+                        _safetyCheckCompleted = true;
+                        _isOnline = true;
+                      });
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Safety inspection passed! You are now ONLINE.'),
+                          backgroundColor: AppTheme.statusGreen,
+                        ),
+                      );
+                    }
+                  : null,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.jeapPurple,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Pass & Go Online'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showRemittanceDialog(double codAmount) {
+    final noteCtrl = TextEditingController(text: 'Shift COD remittance');
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Submit COD Remittance', style: TextStyle(fontWeight: FontWeight.bold)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Amount to remit: ₱${codAmount.toStringAsFixed(2)}',
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.priceRed)),
+            const SizedBox(height: 12),
+            const Text('Notes / Reference:', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+            const SizedBox(height: 6),
+            TextField(
+              controller: noteCtrl,
+              decoration: const InputDecoration(
+                border: OutlineInputBorder(),
+                hintText: 'e.g. Drop reference or Cash Handover receipt',
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.jeapPurple, foregroundColor: Colors.white),
+            onPressed: () async {
+              Navigator.pop(ctx);
+              try {
+                await _service.submitRemittance(amount: codAmount, notes: noteCtrl.text.trim());
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('COD Remittance submitted for confirmation!'),
+                      backgroundColor: AppTheme.statusGreen,
+                    ),
+                  );
+                  _refresh();
+                }
+              } catch (_) {
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Failed to submit remittance.'), backgroundColor: Colors.redAccent),
+                  );
+                }
+              }
+            },
+            child: const Text('Confirm Remit'),
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) => Scaffold(
@@ -127,22 +302,12 @@ class _RiderDashboardState extends State<_RiderDashboard> {
                 final name = AuthSession.instance.displayName;
                 return Padding(
                   padding: const EdgeInsets.only(right: 14),
-                  child: CircleAvatar(
+                  child: JeapAvatar(
                     radius: 15,
+                    imageUrl: avatarUrl,
+                    name: name,
                     backgroundColor: Colors.white,
-                    backgroundImage: (avatarUrl != null && avatarUrl.isNotEmpty)
-                        ? NetworkImage(avatarUrl)
-                        : null,
-                    child: (avatarUrl == null || avatarUrl.isEmpty)
-                        ? Text(
-                            name.isNotEmpty ? name[0].toUpperCase() : 'R',
-                            style: const TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.bold,
-                              color: AppTheme.jeapPurple,
-                            ),
-                          )
-                        : null,
+                    cacheBust: true,
                   ),
                 );
               },
@@ -166,42 +331,129 @@ class _RiderDashboardState extends State<_RiderDashboard> {
                     task.status != TaskStatus.delivered &&
                     task.status != TaskStatus.failed)
                 .length;
+
+            final completedPickups = tasks
+                .where((t) => t.isPickup && (t.status == TaskStatus.pickedUp || t.status == TaskStatus.delivered))
+                .length;
+            final completedDeliveries = tasks
+                .where((t) => !t.isPickup && t.status == TaskStatus.delivered)
+                .length;
+            final totalEarnings = (completedPickups * 30.0) + (completedDeliveries * 50.0);
+            final codHeld = tasks
+                .where((t) => !t.isPickup && t.status == TaskStatus.delivered && t.codAmount > 0)
+                .fold(0.0, (sum, t) => sum + t.codAmount);
+
             return RefreshIndicator(
               onRefresh: () async => _refresh(),
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(16, 14, 16, 24),
                 children: [
+                  // Online / Offline Status Card
+                  Container(
+                    margin: const EdgeInsets.only(bottom: 14),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(AppTheme.buyerRadius),
+                      border: Border.all(
+                        color: _isOnline ? AppTheme.statusGreen : AppTheme.borderColor,
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 10,
+                          height: 10,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: _isOnline ? AppTheme.statusGreen : Colors.grey,
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            _isOnline ? 'ONLINE • Ready to receive deliveries' : 'OFFLINE • Shift paused',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.bold,
+                              color: _isOnline ? AppTheme.statusGreen : AppTheme.textSecondary,
+                            ),
+                          ),
+                        ),
+                        Switch(
+                          value: _isOnline,
+                          activeThumbColor: AppTheme.statusGreen,
+                          onChanged: _toggleOnline,
+                        ),
+                      ],
+                    ),
+                  ),
+
                   const Text('Today’s Earnings',
                       style: TextStyle(
                           color: AppTheme.textSecondary, fontSize: 13)),
                   const SizedBox(height: 4),
                   _DashboardCard(
-                    child: Row(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text('Estimated Shift Payout',
+                                      style: TextStyle(
+                                          color: AppTheme.textSecondary,
+                                          fontSize: 12)),
+                                  const SizedBox(height: 5),
+                                  Text('₱${totalEarnings.toStringAsFixed(2)}',
+                                      style: const TextStyle(
+                                          color: AppTheme.priceRed,
+                                          fontWeight: FontWeight.w700,
+                                          fontSize: 22)),
+                                  const SizedBox(height: 3),
+                                  Text(
+                                    '$completedPickups pickups (₱30) • $completedDeliveries deliveries (₱50)',
+                                    style: const TextStyle(
+                                        color: AppTheme.textSecondary,
+                                        fontSize: 11),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Icon(Icons.trending_up,
+                                color: AppTheme.jeapPurple.withValues(alpha: .8)),
+                          ],
+                        ),
+                        if (codHeld > 0) ...[
+                          const Divider(height: 18),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Text('Earnings summary',
-                                  style: TextStyle(
-                                      color: AppTheme.textSecondary,
-                                      fontSize: 12)),
-                              SizedBox(height: 5),
-                              Text('Not available',
-                                  style: TextStyle(
-                                      color: AppTheme.textPrimary,
-                                      fontWeight: FontWeight.w700,
-                                      fontSize: 20)),
-                              SizedBox(height: 3),
-                              Text('Earnings data is not provided by the API',
-                                  style: TextStyle(
-                                      color: AppTheme.textSecondary,
-                                      fontSize: 10)),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text('Unremitted COD Cash',
+                                      style: TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
+                                  Text('₱${codHeld.toStringAsFixed(2)}',
+                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.textPrimary)),
+                                ],
+                              ),
+                              ElevatedButton(
+                                onPressed: () => _showRemittanceDialog(codHeld),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppTheme.jeapPurple,
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                                  minimumSize: const Size(0, 32),
+                                ),
+                                child: const Text('REMIT COD', style: TextStyle(fontSize: 11)),
+                              ),
                             ],
                           ),
-                        ),
-                        Icon(Icons.trending_up,
-                            color: AppTheme.jeapPurple.withValues(alpha: .8)),
+                        ],
                       ],
                     ),
                   ),
@@ -267,6 +519,21 @@ class _RiderDashboardState extends State<_RiderDashboard> {
                         label: 'Deliver',
                         onTap: () =>
                             widget.onSelectPage(_AssignmentPage.delivery),
+                      ),
+                    ),
+                    const SizedBox(width: 9),
+                    Expanded(
+                      child: _QuickAction(
+                        icon: Icons.alt_route,
+                        label: 'Linehaul',
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const _LinehaulTripScreen(),
+                            ),
+                          );
+                        },
                       ),
                     ),
                     const SizedBox(width: 9),
@@ -439,13 +706,49 @@ class _RiderDeliveryDetailScreenState extends State<RiderDeliveryDetailScreen> {
             return;
           }
         case TaskStatus.outForDelivery:
+          if (widget.task.codAmount > 0) {
+            final confirmedCod = await showDialog<bool>(
+              context: context,
+              builder: (ctx) => AlertDialog(
+                title: const Text('Confirm Cash Collection',
+                    style: TextStyle(fontWeight: FontWeight.bold)),
+                content: Text(
+                  'Please confirm that you have collected ₱${widget.task.codAmount.toStringAsFixed(2)} in cash from ${widget.task.contactName}.',
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(ctx, false),
+                    child: const Text('Cancel'),
+                  ),
+                  ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.statusGreen,
+                      foregroundColor: Colors.white,
+                    ),
+                    onPressed: () => Navigator.pop(ctx, true),
+                    child: const Text('Confirm Received'),
+                  ),
+                ],
+              ),
+            );
+            if (confirmedCod != true) return;
+          }
           final proof = await ImagePicker().pickImage(
             source: ImageSource.camera,
             imageQuality: 78,
             maxWidth: 1600,
           );
-          if (proof == null) return;
-          await _service.completeDelivery(widget.task.id, proof.path);
+          if (proof == null || !mounted) return;
+          final confirmed = await ProofOfDeliverySheet.show(
+            context,
+            task: widget.task,
+            imagePath: proof.path,
+            onRetake: () => _advance(),
+          );
+          if (confirmed == true && mounted) {
+            Navigator.pop(context, true);
+          }
+          return;
         case TaskStatus.delivered:
         case TaskStatus.failed:
           return;
@@ -463,38 +766,69 @@ class _RiderDeliveryDetailScreenState extends State<RiderDeliveryDetailScreen> {
   }
 
   Future<void> _reportDeliveryFailure() async {
-    final controller = TextEditingController();
+    String selectedReason = 'Buyer not available / Not home';
+    final reasons = [
+      'Buyer not available / Not home',
+      'Incorrect or incomplete delivery address',
+      'Buyer refused parcel',
+      'Customer requested rescheduled delivery',
+      'Unreachable phone number / unattended',
+    ];
     final reason = await showDialog<String>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Report delivery issue'),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          minLines: 2,
-          maxLines: 4,
-          maxLength: 255,
-          decoration: const InputDecoration(
-            labelText: 'Reason for the failed attempt',
-            hintText: 'For example: recipient unavailable',
+      builder: (context) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          title: Text(
+              'Report Delivery Issue (Attempt ${widget.task.attemptNumber} of 3)'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                widget.task.attemptNumber >= 3
+                    ? 'Note: This is attempt 3 of 3. Marking this attempt failed will return the parcel to the hub.'
+                    : 'Select reason for failed delivery attempt:',
+                style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+              ),
+              const SizedBox(height: 8),
+              ...reasons.map((r) => InkWell(
+                    onTap: () => setDialogState(() => selectedReason = r),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 6),
+                      child: Row(
+                        children: [
+                          Icon(
+                            selectedReason == r
+                                ? Icons.radio_button_checked
+                                : Icons.radio_button_off,
+                            color: selectedReason == r
+                                ? AppTheme.jeapPurple
+                                : AppTheme.textSecondary,
+                            size: 20,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(r, style: const TextStyle(fontSize: 13)),
+                          ),
+                        ],
+                      ),
+                    ),
+                  )),
+            ],
           ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, selectedReason),
+              child: const Text('Submit Failure'),
+            ),
+          ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () {
-              final value = controller.text.trim();
-              if (value.length >= 3) Navigator.pop(context, value);
-            },
-            child: const Text('Submit'),
-          ),
-        ],
       ),
     );
-    controller.dispose();
     if (reason == null || !mounted) return;
 
     setState(() => _working = true);
@@ -821,7 +1155,9 @@ class _RiderProfileState extends State<_RiderProfile> {
             final user = snapshot.data ?? const <String, dynamic>{};
             final rider = user['rider_profile'] is Map
                 ? Map<String, dynamic>.from(user['rider_profile'] as Map)
-                : const <String, dynamic>{};
+                : (user['courier_profile'] is Map
+                    ? Map<String, dynamic>.from(user['courier_profile'] as Map)
+                    : const <String, dynamic>{});
             final name = (user['name'] ?? 'Rider').toString();
             final avatarUrl = user['avatar_url']?.toString();
             return ListView(
@@ -837,26 +1173,13 @@ class _RiderProfileState extends State<_RiderProfile> {
                       child: Stack(
                         alignment: Alignment.center,
                         children: [
-                          CircleAvatar(
+                          JeapAvatar(
                             radius: 28,
+                            imageUrl: avatarUrl,
+                            name: name,
                             backgroundColor:
                                 AppTheme.jeapPurple.withValues(alpha: 0.15),
-                            backgroundImage:
-                                (avatarUrl != null && avatarUrl.isNotEmpty)
-                                    ? NetworkImage(avatarUrl)
-                                    : null,
-                            child: (avatarUrl == null || avatarUrl.isEmpty)
-                                ? Text(
-                                    name.isNotEmpty
-                                        ? name[0].toUpperCase()
-                                        : 'R',
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 22,
-                                      color: AppTheme.jeapPurple,
-                                    ),
-                                  )
-                                : null,
+                            cacheBust: true,
                           ),
                           if (_uploadingPhoto)
                             Container(
@@ -933,13 +1256,22 @@ class _RiderProfileState extends State<_RiderProfile> {
                   ),
                 ),
                 _ProfileItem(
+                  icon: Icons.business_outlined,
+                  title: 'Logistics Fleet',
+                  subtitle: rider['company_name']?.toString() ?? 'JEAP Logistics Partner',
+                  onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const RiderFleetScreen())),
+                ),
+                _ProfileItem(
                   icon: Icons.two_wheeler_outlined,
                   title: 'Vehicle Information',
-                  subtitle: [rider['vehicle_type'], rider['vehicle_number']]
+                  subtitle: [
+                    rider['vehicle_type'],
+                    rider['plate_number'] ?? rider['vehicle_number'],
+                  ]
                       .whereType<String>()
                       .where((value) => value.isNotEmpty)
                       .join(' · '),
-                  onTap: () => _showUnavailable(context, 'Vehicle details'),
+                  onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const RiderVehicleScreen())),
                 ),
                 _ProfileItem(
                   icon: Icons.description_outlined,
@@ -947,7 +1279,7 @@ class _RiderProfileState extends State<_RiderProfile> {
                   subtitle: user['has_documents'] == true
                       ? 'Documents submitted for review'
                       : 'No documents on file',
-                  onTap: () => _showUnavailable(context, 'Document management'),
+                  onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const RiderDocumentsScreen())),
                 ),
                 _ProfileItem(
                   icon: Icons.lock_outline,
@@ -1016,11 +1348,20 @@ class _RiderMore extends StatelessWidget {
             ),
             _ProfileItem(
               icon: Icons.payments_outlined,
-              title: 'Profit Dashboard',
-              subtitle: 'Earnings API is unavailable',
+              title: 'Earnings & Remittance',
+              subtitle: 'View payout rates & COD policies',
               onTap: () => Navigator.push<void>(
                 context,
                 MaterialPageRoute(builder: (_) => const _ProfitScreen()),
+              ),
+            ),
+            _ProfileItem(
+              icon: Icons.alt_route,
+              title: 'Linehaul Hub Trips',
+              subtitle: 'Hub-to-hub linehaul transfer manifests',
+              onTap: () => Navigator.push<void>(
+                context,
+                MaterialPageRoute(builder: (_) => const _LinehaulTripScreen()),
               ),
             ),
             _ProfileItem(
@@ -1048,59 +1389,475 @@ class _RiderMore extends StatelessWidget {
 class _ProfitScreen extends StatelessWidget {
   const _ProfitScreen();
   @override
-  Widget build(BuildContext context) => Scaffold(
-        appBar: AppBar(title: const Text('Profit Dashboard')),
-        body: const _EmptyPanel(
-          message:
-              'Earnings and profit data are not available in the current Laravel API.',
-        ),
-      );
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppTheme.backgroundColor,
+      appBar: AppBar(title: const Text('Earnings & Remittance')),
+      body: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(AppTheme.buyerRadius),
+              border: Border.all(color: AppTheme.borderColor),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Payout Structure by Role',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                const SizedBox(height: 12),
+                _rateRow('Pickup Task (Rider)', '₱30.00 / parcel'),
+                _rateRow('Delivery Task (Rider)', '₱50.00 / parcel'),
+                _rateRow('Linehaul Van Trip (Courier)', '₱600.00 / trip'),
+                _rateRow('Linehaul 4-Wheeler (Courier)', '₱1,000.00 / trip'),
+                _rateRow('Linehaul 6-Wheeler (Courier)', '₱1,500.00 / trip'),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(AppTheme.buyerRadius),
+              border: Border.all(color: AppTheme.borderColor),
+            ),
+            child: const Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('COD Remittance Policy',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                SizedBox(height: 8),
+                Text(
+                  '1. All collected cash on delivery (COD) must be remitted by the end of each shift.\n'
+                  '2. Remittances are submitted through the JEAP Mobile app and verified at the hub.\n'
+                  '3. Failure to remit within 24 hours temporarily pauses new assignments.',
+                  style: TextStyle(fontSize: 12.5, color: AppTheme.textSecondary, height: 1.5),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  static Widget _rateRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label, style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+          Text(value, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
+        ],
+      ),
+    );
+  }
 }
 
 class _AssignmentCard extends StatelessWidget {
   const _AssignmentCard({required this.task, required this.onTap});
   final DeliveryTask task;
   final VoidCallback onTap;
+
   @override
-  Widget build(BuildContext context) => Card(
+  Widget build(BuildContext context) => Container(
+        margin: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: RiderTheme.cardBorder),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.04),
+              blurRadius: 4,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
         child: Padding(
           padding: const EdgeInsets.all(14),
-          child: Row(children: [
-            Expanded(
-              child: InkWell(
-                onTap: onTap,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(task.trackingNumber,
-                        style: const TextStyle(
-                            color: AppTheme.jeapPurple,
-                            fontWeight: FontWeight.w700)),
-                    const SizedBox(height: 5),
-                    Text(task.contactName,
-                        style: const TextStyle(fontWeight: FontWeight.w700)),
-                    const SizedBox(height: 3),
-                    Text(task.deliveryAddress,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                            color: AppTheme.textSecondary, fontSize: 12)),
-                  ],
-                ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      task.trackingNumber,
+                      style: const TextStyle(
+                        color: RiderTheme.brandPurple,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 13.5,
+                      ),
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: RiderTheme.statusDeliveredBg,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      'Payout: ₱${task.payout.toStringAsFixed(2)}',
+                      style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: RiderTheme.statusDelivered,
+                      ),
+                    ),
+                  ),
+                ],
               ),
-            ),
-            const SizedBox(width: 8),
-            FilledButton(
-              onPressed: onTap,
-              style: FilledButton.styleFrom(
-                minimumSize: const Size(68, 38),
-                padding: const EdgeInsets.symmetric(horizontal: 14),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  const Icon(Icons.person_outline, size: 16, color: RiderTheme.textDark),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      task.contactName,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 15,
+                        color: RiderTheme.textDark,
+                      ),
+                    ),
+                  ),
+                ],
               ),
-              child: const Text('View'),
-            ),
-          ]),
+              const SizedBox(height: 4),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(Icons.location_on_outlined, size: 16, color: RiderTheme.textMuted),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      task.deliveryAddress,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: RiderTheme.textMuted,
+                        fontSize: 12.5,
+                        height: 1.3,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  RiderStatusBadge(status: task.status, isPickup: task.isPickup),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: task.codAmount > 0
+                          ? RiderTheme.codOrangeBg
+                          : const Color(0xFFEFF6FF),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(
+                        color: task.codAmount > 0
+                            ? RiderTheme.codOrange.withValues(alpha: 0.3)
+                            : const Color(0xFF93C5FD),
+                      ),
+                    ),
+                    child: Text(
+                      task.codAmount > 0
+                          ? 'COD: ₱${task.codAmount.toStringAsFixed(2)}'
+                          : 'Prepaid',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: task.codAmount > 0
+                            ? RiderTheme.codOrange
+                            : const Color(0xFF1D4ED8),
+                      ),
+                    ),
+                  ),
+                  if (task.attemptNumber > 1)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: RiderTheme.statusFailedBg,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        'Attempt ${task.attemptNumber} of 3',
+                        style: const TextStyle(
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.bold,
+                          color: RiderTheme.statusFailed,
+                        ),
+                      ),
+                    ),
+                  FilledButton.icon(
+                    onPressed: onTap,
+                    style: FilledButton.styleFrom(
+                      backgroundColor: RiderTheme.primaryAction,
+                      minimumSize: const Size(76, 34),
+                      padding: const EdgeInsets.symmetric(horizontal: 10),
+                    ),
+                    icon: const Icon(Icons.arrow_forward, size: 14),
+                    label: const Text('View', style: TextStyle(fontSize: 12)),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       );
+}
+
+class _LinehaulTripScreen extends StatefulWidget {
+  const _LinehaulTripScreen();
+
+  @override
+  State<_LinehaulTripScreen> createState() => _LinehaulTripScreenState();
+}
+
+class _LinehaulTripScreenState extends State<_LinehaulTripScreen> {
+  final _sealCtrl = TextEditingController(text: 'BH-1049281');
+  String _status = 'At Origin Hub';
+  String? _sealError;
+
+  bool _validateSeal(String seal) {
+    final reg = RegExp(r'^BH-\d{7}$');
+    return reg.hasMatch(seal.trim());
+  }
+
+  void _depart() {
+    final seal = _sealCtrl.text.trim();
+    if (!_validateSeal(seal)) {
+      setState(() => _sealError = 'Seal must match format: BH- followed by 7 digits (e.g. BH-1234567)');
+      return;
+    }
+    setState(() {
+      _sealError = null;
+      _status = 'In Transit';
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Trip departed! Container sealed with verified seal.'),
+        backgroundColor: AppTheme.statusGreen,
+      ),
+    );
+  }
+
+  void _reportDelay() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Report Linehaul Delay'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              title: const Text('Heavy Traffic Congestion'),
+              onTap: () {
+                Navigator.pop(ctx);
+                _notifyDelay('Heavy Traffic Congestion');
+              },
+            ),
+            ListTile(
+              title: const Text('Vehicle Mechanical Issue'),
+              onTap: () {
+                Navigator.pop(ctx);
+                _notifyDelay('Vehicle Mechanical Issue');
+              },
+            ),
+            ListTile(
+              title: const Text('Severe Weather / Road Closure'),
+              onTap: () {
+                Navigator.pop(ctx);
+                _notifyDelay('Severe Weather / Road Closure');
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _notifyDelay(String reason) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Delay reported to Logistics Dispatch: $reason'),
+        backgroundColor: Colors.orange.shade800,
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppTheme.backgroundColor,
+      appBar: AppBar(title: const Text('Linehaul Hub Trip')),
+      body: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(AppTheme.buyerRadius),
+              border: Border.all(color: AppTheme.borderColor),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text('TRIP-MNL-042',
+                        style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                            color: AppTheme.jeapPurple)),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: _status == 'In Transit'
+                            ? Colors.blue.withValues(alpha: 0.12)
+                            : AppTheme.statusGreen.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        _status,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: _status == 'In Transit'
+                              ? Colors.blue.shade700
+                              : AppTheme.statusGreen,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                const Row(
+                  children: [
+                    Icon(Icons.trip_origin, size: 16, color: AppTheme.jeapPurple),
+                    SizedBox(width: 8),
+                    Text('Manila Central Sorting Hub (MNL)',
+                        style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                  ],
+                ),
+                Container(
+                  margin: const EdgeInsets.only(left: 7),
+                  height: 16,
+                  width: 2,
+                  color: AppTheme.borderColor,
+                ),
+                const Row(
+                  children: [
+                    Icon(Icons.location_on, size: 16, color: Colors.redAccent),
+                    SizedBox(width: 8),
+                    Text('Quezon City Distribution Hub (QC)',
+                        style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                  ],
+                ),
+                const Divider(height: 24),
+                const Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text('Assigned Vehicle',
+                        style: TextStyle(color: AppTheme.textSecondary, fontSize: 13)),
+                    Text('6-Wheeler Linehaul Truck (₱1,500/trip)',
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                const Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text('Manifest Loading',
+                        style: TextStyle(color: AppTheme.textSecondary, fontSize: 13)),
+                    Text('5 / 5 Containers Loaded (100%)',
+                        style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: AppTheme.statusGreen,
+                            fontSize: 13)),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                const Text('Container Security Seal:',
+                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                const SizedBox(height: 6),
+                TextField(
+                  controller: _sealCtrl,
+                  decoration: InputDecoration(
+                    hintText: 'e.g. BH-1049281',
+                    errorText: _sealError,
+                    border: const OutlineInputBorder(),
+                    contentPadding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  ),
+                  onChanged: (val) {
+                    if (_sealError != null) {
+                      setState(() {
+                        _sealError = _validateSeal(val) ? null : _sealError;
+                      });
+                    }
+                  },
+                ),
+                const SizedBox(height: 18),
+                if (_status == 'At Origin Hub')
+                  FilledButton.icon(
+                    onPressed: _depart,
+                    icon: const Icon(Icons.local_shipping),
+                    label: const Text('DEPART FROM ORIGIN HUB'),
+                    style: FilledButton.styleFrom(
+                      minimumSize: const Size(double.infinity, 48),
+                    ),
+                  )
+                else
+                  FilledButton.icon(
+                    onPressed: () {
+                      setState(() => _status = 'Completed');
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Trip marked arrived and completed!'),
+                          backgroundColor: AppTheme.statusGreen,
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.check_circle),
+                    label: const Text('CONFIRM ARRIVAL AT DESTINATION HUB'),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: AppTheme.statusGreen,
+                      minimumSize: const Size(double.infinity, 48),
+                    ),
+                  ),
+                const SizedBox(height: 8),
+                OutlinedButton.icon(
+                  onPressed: _reportDelay,
+                  icon: const Icon(Icons.warning_amber_rounded,
+                      color: Colors.orange),
+                  label: const Text('REPORT TRIP DELAY / INCIDENT',
+                      style: TextStyle(color: Colors.orange)),
+                  style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: Colors.orange),
+                    minimumSize: const Size(double.infinity, 44),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _ProgressCard extends StatelessWidget {
@@ -1320,6 +2077,7 @@ String _errorText(Object? error) => error is ApiException
     ? error.message
     : 'Could not load this information. Check your connection and try again.';
 
+// ignore: unused_element
 void _showUnavailable(BuildContext context, String feature) {
   ScaffoldMessenger.of(context).showSnackBar(
     SnackBar(content: Text('$feature is not available from the current API.')),

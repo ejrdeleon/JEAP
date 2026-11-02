@@ -33,6 +33,8 @@ class RiderAssignmentService {
   }
 
   Future<void> accept(String id) => _action(id, 'accept');
+  Future<void> decline(String id, [String? reason]) =>
+      _action(id, 'decline', {'reason': reason ?? 'Rider unavailable'});
   Future<void> confirmPickup(String id) => _action(id, 'scan');
   Future<void> startDelivery(String id) => _action(id, 'out-for-delivery');
   Future<void> completeDelivery(String id, String proofImagePath) async {
@@ -53,6 +55,13 @@ class RiderAssignmentService {
       }
     } catch (_) {}
     return {'total': 0.0, 'orders': []};
+  }
+
+  Future<void> submitRemittance({required double amount, String? notes}) async {
+    await _api.post('/rider/remittances', {
+      'amount': amount,
+      if (notes != null && notes.isNotEmpty) 'notes': notes,
+    });
   }
 
   Future<void> _action(String id, String action,

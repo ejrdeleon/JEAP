@@ -1,11 +1,11 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
-import '../../../../../../theme/app_theme.dart';
+import 'package:jeap_mobile/core/theme/app_theme.dart';
 import 'package:jeap_mobile/core/widgets/jeap_app_bar.dart';
 import 'package:jeap_mobile/core/widgets/primary_button.dart';
 import 'package:jeap_mobile/features/auth/models/registration_data.dart';
 import 'package:jeap_mobile/features/auth/services/auth_service.dart';
-import 'package:jeap_mobile/features/auth/presentation/screens/registration_pending_screen.dart';
+import 'package:jeap_mobile/features/auth/presentation/screens/email_otp_screen.dart';
 
 class ConfirmDetailsScreen extends StatefulWidget {
   final RegistrationData registrationData;
@@ -29,7 +29,9 @@ class _ConfirmDetailsScreenState extends State<ConfirmDetailsScreen> {
     if (result.success) {
       Navigator.pushAndRemoveUntil(
         context,
-        MaterialPageRoute(builder: (_) => const RegistrationPendingScreen()),
+        MaterialPageRoute(
+          builder: (_) => EmailOtpScreen(email: widget.registrationData.email),
+        ),
         (route) => false,
       );
     } else {

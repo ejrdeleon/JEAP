@@ -3,6 +3,8 @@ import 'package:jeap_mobile/core/theme/app_theme.dart';
 import 'package:jeap_mobile/core/widgets/jeap_app_bar.dart';
 import 'package:jeap_mobile/features/notifications/models/notification_item.dart';
 import 'package:jeap_mobile/features/notifications/services/notification_service.dart';
+import 'package:jeap_mobile/features/orders/presentation/screens/order_detail_screen.dart';
+import 'package:jeap_mobile/features/orders/services/order_service.dart';
 
 class NotificationsScreen extends StatefulWidget {
   const NotificationsScreen({super.key});
@@ -235,6 +237,22 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                   );
                 });
               }
+
+              final orderNum = item.data['order_number']?.toString() ??
+                  item.data['order_id']?.toString();
+              if (orderNum != null && orderNum.isNotEmpty && context.mounted) {
+                try {
+                  final order = await OrderService().fetchOrder(orderNum);
+                  if (order != null && context.mounted) {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => OrderDetailScreen(order: order),
+                      ),
+                    );
+                  }
+                } catch (_) {}
+              }
             },
           ),
         );
@@ -243,31 +261,28 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   }
 
   IconData _notificationIcon(String type) {
-    final lower = type.toLowerCase();
-    if (lower.contains('order')) {
-      return Icons.local_shipping_outlined;
+    switch (type.toLowerCase()) {
+      case 'order':
+      case 'order_update':
+        return Icons.local_shipping_outlined;
+      case 'promo':
+      case 'promotion':
+        return Icons.local_offer_outlined;
+      case 'security':
+        return Icons.security_outlined;
+      default:
+        return Icons.notifications_outlined;
     }
-    if (lower.contains('promo') || lower.contains('voucher')) {
-      return Icons.discount_outlined;
-    }
-    if (lower.contains('security') || lower.contains('password')) {
-      return Icons.lock_outline;
-    }
-    if (lower.contains('message') || lower.contains('chat')) {
-      return Icons.chat_bubble_outline;
-    }
-    return Icons.notifications_outlined;
   }
 
-  String _formatTime(DateTime dt) {
-    final diff = DateTime.now().difference(dt);
+  String _formatTime(DateTime time) {
+    final diff = DateTime.now().difference(time);
     if (diff.inMinutes < 60) {
-      final mins = diff.inMinutes;
-      return mins <= 1 ? 'Just now' : '$mins mins ago';
+      return '${diff.inMinutes}m ago';
+    } else if (diff.inHours < 24) {
+      return '${diff.inHours}h ago';
+    } else {
+      return '${diff.inDays}d ago';
     }
-    if (diff.inHours < 24) {
-      return '${diff.inHours} hours ago';
-    }
-    return '${dt.month}/${dt.day}/${dt.year}';
   }
 }

@@ -1,3 +1,4 @@
+import 'package:jeap_mobile/core/widgets/jeap_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:jeap_mobile/core/theme/app_theme.dart';
 import 'package:jeap_mobile/core/widgets/jeap_app_bar.dart';
@@ -152,8 +153,15 @@ class _RatingCard extends StatelessWidget {
                   color: AppTheme.inputFill,
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: const Icon(Icons.image_outlined,
-                    color: AppTheme.textSecondary, size: 20),
+                clipBehavior: Clip.antiAlias,
+                child: JeapNetworkImage(
+                  imageUrl: item.imageUrl,
+                  width: 48,
+                  height: 48,
+                  fit: BoxFit.cover,
+                  fallback: const Icon(Icons.image_outlined,
+                      color: AppTheme.textSecondary, size: 20),
+                ),
               ),
               const SizedBox(width: 10),
               Expanded(

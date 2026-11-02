@@ -1,11 +1,21 @@
+import 'package:jeap_mobile/core/storage/guest_cart_manager.dart';
+import 'package:jeap_mobile/features/cart/services/cart_service.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:jeap_mobile/core/storage/auth_session.dart';
 import 'package:jeap_mobile/core/storage/token_storage.dart';
-import '../../../../../../theme/app_theme.dart';
+import 'package:jeap_mobile/core/theme/app_theme.dart';
+import 'package:jeap_mobile/core/widgets/google_sign_in_button.dart';
+import 'package:jeap_mobile/core/widgets/jeap_logo.dart';
+import 'package:jeap_mobile/core/widgets/server_settings_sheet.dart';
+import 'package:jeap_mobile/features/auth/presentation/screens/forgot_password_screen.dart';
 import 'package:jeap_mobile/features/auth/presentation/screens/signup_screen.dart';
 import 'package:jeap_mobile/features/auth/services/auth_service.dart';
 import 'package:jeap_mobile/features/buyer/presentation/screens/buyer_home_screen.dart';
+import 'package:jeap_mobile/features/auth/presentation/screens/email_otp_screen.dart';
 import 'package:jeap_mobile/features/tasks/presentation/screens/rider_home_screen.dart';
+import 'package:jeap_mobile/features/logistics/presentation/screens/logistics_dashboard_screen.dart';
+
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -24,6 +34,25 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _loading = false;
 
   @override
+  void initState() {
+    super.initState();
+    _loadRememberedData();
+  }
+
+  Future<void> _loadRememberedData() async {
+    final remember = await TokenStorage.isRememberMeEnabled();
+    final savedEmail = await TokenStorage.getRememberedEmail();
+    if (mounted) {
+      setState(() {
+        _rememberMe = remember;
+        if (savedEmail != null && savedEmail.isNotEmpty) {
+          _emailCtrl.text = savedEmail;
+        }
+      });
+    }
+  }
+
+  @override
   void dispose() {
     _emailCtrl.dispose();
     _passwordCtrl.dispose();
@@ -33,8 +62,10 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> _handleLogin() async {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _loading = true);
+    final email = _emailCtrl.text.trim();
+    await TokenStorage.saveRememberedEmail(email, _rememberMe);
     final result = await _authService.login(
-      _emailCtrl.text.trim(),
+      email,
       _passwordCtrl.text,
       rememberMe: _rememberMe,
     );
@@ -50,20 +81,41 @@ class _LoginScreenState extends State<LoginScreen> {
     if (!mounted) return;
     setState(() => _loading = false);
     if (result.success) {
-      final role = result.user?['role'] as String?;
-      if (role != 'buyer' && role != 'rider') {
-        await TokenStorage.clear();
-        if (!mounted) return;
-        _showMessage('This account does not have access to the mobile app.');
-        return;
+      AuthSession.instance.setGuest(false);
+      await GuestCartManager.instance.mergeIntoAccount(CartService());
+      final user = result.user;
+      String role = 'buyer';
+      if (user != null) {
+        final r = user['role']?.toString().toLowerCase();
+        final roles = user['roles'] as List?;
+        final isRider = r == 'rider' ||
+            r == 'courier' ||
+            (roles != null &&
+                (roles.contains('rider') || roles.contains('courier')));
+        final isLogistics = r == 'logistics' ||
+            (roles != null && roles.contains('logistics'));
+        if (isLogistics) {
+          role = 'logistics';
+        } else if (isRider) {
+          role = 'rider';
+        } else {
+          role = 'buyer';
+        }
       }
+
+      Widget targetScreen;
+      if (role == 'logistics') {
+        targetScreen = const LogisticsDashboardScreen();
+      } else if (role == 'rider') {
+        targetScreen = const RiderHomeScreen();
+      } else {
+        targetScreen = const BuyerHomeScreen();
+      }
+
+      if (!mounted) return;
       Navigator.pushAndRemoveUntil(
         context,
-        MaterialPageRoute(
-          builder: (_) => role == 'rider'
-              ? const RiderHomeScreen()
-              : const BuyerHomeScreen(),
-        ),
+        MaterialPageRoute(builder: (_) => targetScreen),
         (_) => false,
       );
       return;
@@ -73,31 +125,65 @@ class _LoginScreenState extends State<LoginScreen> {
 
   void _showMessage(String message) {
     final lower = message.toLowerCase();
-    final color = lower.contains('pending') || lower.contains('approval')
+    final isUnverified = lower.contains('verify your email') ||
+        lower.contains('unverified') ||
+        lower.contains('verification');
+    final isPending = lower.contains('pending') || lower.contains('approval');
+    final isConnectionError = lower.contains('connect') ||
+        lower.contains('connection') ||
+        lower.contains('server') ||
+        lower.contains('network') ||
+        lower.contains('timed out');
+
+    final color = (isUnverified || isPending)
         ? Colors.orange.shade700
         : Colors.redAccent;
+
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       content: Text(message),
       backgroundColor: color,
-      duration: const Duration(seconds: 5),
+      duration: Duration(seconds: (isUnverified || isConnectionError) ? 8 : 5),
+      action: isConnectionError
+          ? SnackBarAction(
+              label: 'SETTINGS',
+              textColor: Colors.white,
+              onPressed: () => ServerSettingsSheet.show(context),
+            )
+          : (isUnverified
+              ? SnackBarAction(
+                  label: 'VERIFY',
+                  textColor: Colors.white,
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) =>
+                            EmailOtpScreen(email: _emailCtrl.text.trim()),
+                      ),
+                    );
+                  },
+                )
+              : null),
     ));
   }
 
   void _showForgotPassword() {
-    showDialog<void>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Forgot password?'),
-        content: const Text(
-          'Password reset is not available through the JEAP API yet. Please contact support for help with your account.',
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ForgotPasswordScreen(
+          initialEmail: _emailCtrl.text.trim(),
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Close'),
-          ),
-        ],
       ),
+    );
+  }
+
+  void _handleContinueAsGuest() {
+    AuthSession.instance.setGuest(true);
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(builder: (_) => const BuyerHomeScreen()),
+      (_) => false,
     );
   }
 
@@ -110,15 +196,28 @@ class _LoginScreenState extends State<LoginScreen> {
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 430),
             child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
+              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
               child: Form(
                 key: _formKey,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const SizedBox(height: 34),
-                    const Center(child: _JeapMark()),
-                    const SizedBox(height: 30),
+                    Align(
+                      alignment: Alignment.topRight,
+                      child: IconButton(
+                        icon: const Icon(
+                          Icons.dns_outlined,
+                          color: AppTheme.textSecondary,
+                        ),
+                        tooltip: 'Server Environment Settings',
+                        onPressed: () => ServerSettingsSheet.show(context),
+                      ),
+                    ),
+                    const Center(
+                      child: JeapLogo(height: 68),
+                    ),
+                    const SizedBox(height: 20),
                     const Center(
                       child: Text(
                         'Welcome Back',
@@ -139,7 +238,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                       ),
                     ),
-                    const SizedBox(height: 38),
+                    const SizedBox(height: 28),
                     const _FieldLabel('E-mail or Contact No.'),
                     const SizedBox(height: 7),
                     TextFormField(
@@ -182,33 +281,48 @@ class _LoginScreenState extends State<LoginScreen> {
                           ? 'Enter your password'
                           : null,
                     ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 8),
                     Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        SizedBox(
-                          height: 36,
-                          child: Row(
-                            children: [
-                              SizedBox(
-                                width: 24,
-                                child: Checkbox(
-                                  value: _rememberMe,
-                                  onChanged: (value) => setState(
-                                    () => _rememberMe = value ?? false,
+                        Flexible(
+                          child: InkWell(
+                            onTap: () =>
+                                setState(() => _rememberMe = !_rememberMe),
+                            borderRadius: BorderRadius.circular(4),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 4),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  SizedBox(
+                                    width: 24,
+                                    height: 24,
+                                    child: Checkbox(
+                                      value: _rememberMe,
+                                      onChanged: (value) => setState(
+                                        () => _rememberMe = value ?? false,
+                                      ),
+                                      visualDensity: VisualDensity.compact,
+                                      activeColor: AppTheme.jeapPurple,
+                                    ),
                                   ),
-                                  visualDensity: VisualDensity.compact,
-                                  activeColor: AppTheme.jeapPurple,
-                                ),
+                                  const SizedBox(width: 6),
+                                  const Flexible(
+                                    child: Text(
+                                      'Remember me',
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        color: AppTheme.textPrimary,
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
-                              const SizedBox(width: 4),
-                              const Text(
-                                'Remember me',
-                                style: TextStyle(fontSize: 12),
-                              ),
-                            ],
+                            ),
                           ),
                         ),
-                        const Spacer(),
                         TextButton(
                           onPressed: _showForgotPassword,
                           style: TextButton.styleFrom(
@@ -250,35 +364,19 @@ class _LoginScreenState extends State<LoginScreen> {
                               )
                             : const Text(
                                 'Login',
-                                style: TextStyle(fontWeight: FontWeight.w700),
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w700,
+                                ),
                               ),
                       ),
                     ),
-                    const SizedBox(height: 12),
-                    SizedBox(
-                      width: double.infinity,
-                      height: 46,
-                      child: OutlinedButton.icon(
-                        onPressed: _loading ? null : _handleGoogleLogin,
-                        icon: const Text(
-                          'G',
-                          style: TextStyle(
-                            color: Color(0xFF4285F4),
-                            fontWeight: FontWeight.bold,
-                            fontSize: 18,
-                          ),
-                        ),
-                        label: const Text('Continue with Google'),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: AppTheme.textPrimary,
-                          side: const BorderSide(color: AppTheme.borderColor),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(9),
-                          ),
-                        ),
-                      ),
+                    const SizedBox(height: 14),
+                    GoogleSignInButton(
+                      isLoading: _loading,
+                      onPressed: _handleGoogleLogin,
                     ),
-                    const SizedBox(height: 21),
+                    const SizedBox(height: 20),
                     Center(
                       child: RichText(
                         text: TextSpan(
@@ -306,6 +404,49 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                       ),
                     ),
+                    const SizedBox(height: 20),
+                    const Row(
+                      children: [
+                        Expanded(child: Divider(color: AppTheme.borderColor)),
+                        Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 12),
+                          child: Text(
+                            'OR',
+                            style: TextStyle(
+                              color: Color(0xFF9297A8),
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                        Expanded(child: Divider(color: AppTheme.borderColor)),
+                      ],
+                    ),
+                    const SizedBox(height: 18),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 48,
+                      child: OutlinedButton.icon(
+                        onPressed: _loading ? null : _handleContinueAsGuest,
+                        icon: const Icon(Icons.explore_outlined, size: 20),
+                        label: const Text(
+                          'Continue as Guest',
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppTheme.jeapPurple,
+                          side: const BorderSide(
+                              color: AppTheme.jeapPurple, width: 1.5),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(9),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
                   ],
                 ),
               ),
@@ -317,40 +458,6 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 }
 
-class _JeapMark extends StatelessWidget {
-  const _JeapMark();
-
-  @override
-  Widget build(BuildContext context) => Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            height: 26,
-            width: 22,
-            decoration: BoxDecoration(
-              border: Border.all(color: AppTheme.jeapPurple, width: 1.6),
-              borderRadius: BorderRadius.circular(4),
-            ),
-            child: const Icon(
-              Icons.shopping_bag_outlined,
-              color: AppTheme.jeapPurple,
-              size: 16,
-            ),
-          ),
-          const SizedBox(width: 6),
-          const Text(
-            'JEAP',
-            style: TextStyle(
-              color: AppTheme.jeapPurple,
-              fontSize: 19,
-              fontWeight: FontWeight.w800,
-              letterSpacing: -.5,
-            ),
-          ),
-        ],
-      );
-}
-
 class _FieldLabel extends StatelessWidget {
   const _FieldLabel(this.label);
   final String label;
@@ -360,7 +467,7 @@ class _FieldLabel extends StatelessWidget {
         label,
         style: const TextStyle(
           color: Color(0xFF81879A),
-          fontSize: 11,
+          fontSize: 12,
           fontWeight: FontWeight.w600,
         ),
       );

@@ -1,0 +1,8 @@
+﻿
+   PASS  Tests\Unit\CommissionCalculationTest
+  ✓ default rate is twenty percent of merchandise subtotal not shipping                                          0.38s  
+  ✓ rounding zero and updated rate                                                                               0.02s  
+
+  Tests:    2 passed (9 assertions)
+  Duration: 0.57s
+

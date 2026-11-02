@@ -1,0 +1,26 @@
+﻿
+   PASS  Tests\Unit\CartCheckoutPolicyTest
+  ✓ cart caps quantity at ten and requires ten units to sell                                                     0.18s  
+
+   PASS  Tests\Feature\CheckoutTest
+  ✓ buyer checkout places cod order and reserves stock                                                           0.42s  
+  ✓ checkout persists selected pin in saved address and order snapshot                                           0.04s  
+  ✓ checkout rejects an address owned by another buyer                                                           0.04s  
+  ✓ checkout rejects out of range pin coordinates                                                                0.03s  
+  ✓ checkout rejects insufficient stock without creating an order                                                0.04s  
+  ✓ guest cannot access checkout                                                                                 0.03s  
+  ✓ buyer navigation opens the live catalog cart and cod checkout                                                0.06s  
+  ✓ buyer dashboard shows only the signed in buyers orders                                                       0.05s  
+  ✓ cart explains insufficient stock and blocks checkout                                                         0.05s  
+  ✓ profile form updates account fields with labeled inputs                                                      0.07s  
+  ✓ api checkout rejects unsupported payment methods                                                             0.05s  
+  ✓ api checkout reserves stock and creates cod payment                                                          0.05s  
+  ✓ buyer can rate a product from a completed order                                                              0.04s  
+  ✓ buyer can cancel an unshipped order with a reason and stock is restored                                      0.06s  
+
+   PASS  Tests\Feature\RemainingClickupApiTest
+  ✓ cart add update and remove api                                                                               0.07s  
+
+  Tests:    16 passed (158 assertions)
+  Duration: 1.58s
+
