@@ -23,6 +23,8 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen>
   List<Product> _products = [];
   bool _loadingOrders = true;
   bool _loadingProducts = true;
+  String? _ordersError;
+  String? _productsError;
   String? _selectedOrderStatus;
 
   @override
@@ -51,10 +53,16 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen>
         setState(() {
           _orders = orders;
           _loadingOrders = false;
+          _ordersError = null;
         });
       }
     } catch (_) {
-      if (mounted) setState(() => _loadingOrders = false);
+      if (mounted) {
+        setState(() {
+          _loadingOrders = false;
+          _ordersError = 'Could not load seller orders. Pull down to try again.';
+        });
+      }
     }
   }
 
@@ -66,10 +74,17 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen>
         setState(() {
           _products = products;
           _loadingProducts = false;
+          _productsError = null;
         });
       }
     } catch (_) {
-      if (mounted) setState(() => _loadingProducts = false);
+      if (mounted) {
+        setState(() {
+          _loadingProducts = false;
+          _productsError =
+              'Could not load catalog. Pull down to try again.';
+        });
+      }
     }
   }
 
@@ -203,7 +218,31 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen>
                   child:
                       CircularProgressIndicator(color: AppTheme.jeapPurple),
                 )
-              : _filteredOrders.isEmpty
+              : _ordersError != null && _orders.isEmpty
+                  ? RefreshIndicator(
+                      onRefresh: _loadOrders,
+                      color: AppTheme.jeapPurple,
+                      child: ListView(
+                        children: [
+                          const SizedBox(height: 120),
+                          Center(
+                            child: Padding(
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 24),
+                              child: Text(
+                                _ordersError!,
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(
+                                  fontSize: 14,
+                                  color: AppTheme.textSecondary,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  : _filteredOrders.isEmpty
                   ? const Center(
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -266,11 +305,64 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen>
   }
 
   Widget _buildInventoryTab() {
-    return _loadingProducts && _products.isEmpty
-        ? const Center(
-            child: CircularProgressIndicator(color: AppTheme.jeapPurple),
-          )
-        : RefreshIndicator(
+    if (_loadingProducts && _products.isEmpty) {
+      return const Center(
+        child: CircularProgressIndicator(color: AppTheme.jeapPurple),
+      );
+    }
+    if (_productsError != null && _products.isEmpty) {
+      return RefreshIndicator(
+        onRefresh: _loadProducts,
+        color: AppTheme.jeapPurple,
+        child: ListView(
+          children: [
+            const SizedBox(height: 120),
+            Center(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: Text(
+                  _productsError!,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    color: AppTheme.textSecondary,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+    if (_products.isEmpty) {
+      return RefreshIndicator(
+        onRefresh: _loadProducts,
+        color: AppTheme.jeapPurple,
+        child: ListView(
+          children: const [
+            SizedBox(height: 120),
+            Center(
+              child: Column(
+                children: [
+                  Icon(Icons.inventory_2_outlined,
+                      size: 56, color: AppTheme.borderColor),
+                  SizedBox(height: 12),
+                  Text(
+                    'No products in your catalog yet',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+    return RefreshIndicator(
             onRefresh: _loadProducts,
             color: AppTheme.jeapPurple,
             child: ListView.builder(

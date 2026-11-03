@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:jeap_mobile/core/network/api_client.dart';
 import 'package:jeap_mobile/core/theme/app_theme.dart';
+import 'package:jeap_mobile/features/messaging/presentation/screens/buyer_conversations_screen.dart';
 
 class RiderFleetScreen extends StatefulWidget {
   const RiderFleetScreen({super.key});
@@ -35,18 +37,7 @@ class _RiderFleetScreenState extends State<RiderFleetScreen> {
 
     if (mounted) {
       setState(() {
-        _fleetData = {
-          'fleet_name': 'JEAP Central Logistics Fleet',
-          'fleet_code': 'FLEET-LAG-01',
-          'fleet_manager': 'Carlos Antonio Mendoza',
-          'contact_phone': '0917-888-4110',
-          'station_address':
-              'Santa Cruz Dispatch Center, Provincial Capitol Compound, Laguna',
-          'operating_hours': 'Mon - Sat: 6:00 AM - 8:00 PM',
-          'active_riders_count': 14,
-          'rider_status': 'Active / On-Duty',
-          'assigned_zone': 'Laguna Province - District 1, 2 & 4',
-        };
+        _fleetData = null;
         _isLoading = false;
       });
     }
@@ -67,9 +58,34 @@ class _RiderFleetScreenState extends State<RiderFleetScreen> {
         foregroundColor: AppTheme.textPrimary,
         elevation: 0,
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
+      body: _buildBody(d),
+    );
+  }
+
+  Widget _buildBody(Map<String, dynamic>? d) {
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (d == null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Text(
+                'Could not load fleet assignment.',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: AppTheme.textSecondary),
+              ),
+              const SizedBox(height: 12),
+              TextButton(onPressed: _loadFleet, child: const Text('Retry')),
+            ],
+          ),
+        ),
+      );
+    }
+    return SingleChildScrollView(
               padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -106,7 +122,7 @@ class _RiderFleetScreenState extends State<RiderFleetScreen> {
                                 border: Border.all(color: Colors.greenAccent),
                               ),
                               child: Text(
-                                d?['rider_status'] ?? 'Active On-Duty',
+                                d['rider_status'] ?? 'Offline',
                                 style: const TextStyle(
                                   color: Colors.greenAccent,
                                   fontSize: 11,
@@ -115,7 +131,7 @@ class _RiderFleetScreenState extends State<RiderFleetScreen> {
                               ),
                             ),
                             Text(
-                              d?['fleet_code'] ?? 'FLEET-LAG-01',
+                              d['fleet_code'] ?? 'HUB',
                               style: const TextStyle(
                                 color: Colors.white70,
                                 fontSize: 11,
@@ -127,7 +143,7 @@ class _RiderFleetScreenState extends State<RiderFleetScreen> {
                         ),
                         const SizedBox(height: 12),
                         Text(
-                          d?['fleet_name'] ?? 'JEAP Logistics Fleet',
+                          d['fleet_name'] ?? 'JEAP Dash',
                           style: const TextStyle(
                             color: Colors.white,
                             fontSize: 20,
@@ -141,7 +157,7 @@ class _RiderFleetScreenState extends State<RiderFleetScreen> {
                                 color: Colors.white70, size: 16),
                             const SizedBox(width: 6),
                             Text(
-                              '${d?['active_riders_count'] ?? 1} Registered Fleet Couriers',
+                              '${d['active_riders_count'] ?? 0} fleet riders',
                               style: const TextStyle(
                                   color: Colors.white70, fontSize: 12),
                             ),
@@ -159,17 +175,17 @@ class _RiderFleetScreenState extends State<RiderFleetScreen> {
                     children: [
                       _buildInfoRow(
                         'Station Address',
-                        d?['station_address'] ?? 'Santa Cruz, Laguna',
+                        d['station_address'] ?? '—',
                         Icons.place_outlined,
                       ),
                       _buildInfoRow(
                         'Assigned Zone',
-                        d?['assigned_zone'] ?? 'Laguna Province',
+                        d['assigned_zone'] ?? '—',
                         Icons.map_outlined,
                       ),
                       _buildInfoRow(
                         'Operating Hours',
-                        d?['operating_hours'] ?? '6:00 AM - 8:00 PM',
+                        d['operating_hours'] ?? '—',
                         Icons.access_time_outlined,
                       ),
                     ],
@@ -183,12 +199,12 @@ class _RiderFleetScreenState extends State<RiderFleetScreen> {
                     children: [
                       _buildInfoRow(
                         'Hub Manager',
-                        d?['fleet_manager'] ?? 'Fleet Supervisor',
+                        d['fleet_manager'] ?? '—',
                         Icons.person_outline,
                       ),
                       _buildInfoRow(
-                        'Dispatch Hotline',
-                        d?['contact_phone'] ?? '0917-888-4110',
+                        'Hub contact',
+                        d['contact_phone'] ?? '—',
                         Icons.phone_outlined,
                       ),
                       const SizedBox(height: 10),
@@ -196,15 +212,25 @@ class _RiderFleetScreenState extends State<RiderFleetScreen> {
                         children: [
                           Expanded(
                             child: OutlinedButton.icon(
-                              onPressed: () {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text('Dialing Dispatch Hotline...'),
-                                  ),
-                                );
+                              onPressed: () async {
+                                final raw =
+                                    d['contact_phone']?.toString().trim() ?? '';
+                                if (raw.isEmpty || raw == '—') {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text(
+                                          'No hub phone number is on file.'),
+                                    ),
+                                  );
+                                  return;
+                                }
+                                final uri = Uri(scheme: 'tel', path: raw);
+                                if (await canLaunchUrl(uri)) {
+                                  await launchUrl(uri);
+                                }
                               },
                               icon: const Icon(Icons.call, size: 16),
-                              label: const Text('Call Dispatch'),
+                              label: const Text('Call hub'),
                               style: OutlinedButton.styleFrom(
                                 foregroundColor: AppTheme.jeapPurple,
                                 side: const BorderSide(
@@ -219,9 +245,10 @@ class _RiderFleetScreenState extends State<RiderFleetScreen> {
                           Expanded(
                             child: ElevatedButton.icon(
                               onPressed: () {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text('Opening Support Chat...'),
+                                Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder: (_) =>
+                                        const BuyerConversationsScreen(),
                                   ),
                                 );
                               },
@@ -242,7 +269,6 @@ class _RiderFleetScreenState extends State<RiderFleetScreen> {
                   ),
                 ],
               ),
-            ),
     );
   }
 

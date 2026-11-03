@@ -16,9 +16,16 @@ class AboutPageTest extends TestCase
     {
         $this->get('/about')
             ->assertOk()
-            ->assertSee('A better way to shop from marketplace sellers.')
-            ->assertSee('Cash on Delivery')
+            ->assertSee('About JEAP')
+            ->assertSee('Jules • Ernest • Avril • Philippines')
+            ->assertSee('Our Mission')
+            ->assertSee('Our Vision')
+            ->assertSee('What JEAP Offers')
+            ->assertSee('Making Online Shopping Easier, One Click at a Time.')
             ->assertSee(route('products.index'))
+            ->assertDontSee('OUR APPROACH')
+            ->assertDontSee('One marketplace, made for everyday shopping.')
+            ->assertDontSee('Find what you need')
             ->assertDontSee('$12,5M')
             ->assertDontSee('our showreel');
     }

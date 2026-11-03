@@ -35,9 +35,9 @@ class Product {
     this.imageUrl,
     this.isNew = false,
     this.isFeatured = false,
-    this.freeShipping = true,
-    this.inStock = true,
-    this.stock = 10,
+    this.freeShipping = false,
+    this.inStock = false,
+    this.stock = 0,
     this.brand,
     this.sku,
     this.category,
@@ -79,7 +79,7 @@ class Product {
         int.tryParse(json['stock']?.toString() ?? '') ??
         (defaultVariant?['stock'] as num?)?.toInt() ??
         int.tryParse(defaultVariant?['stock']?.toString() ?? '') ??
-        (json['in_stock'] == false ? 0 : 10);
+        0;
 
     double parseDouble(dynamic v, [double fallback = 0.0]) {
       if (v == null) return fallback;
@@ -131,7 +131,7 @@ class Product {
       imageUrl: imageUrl,
       isNew: json['is_new'] as bool? ?? false,
       isFeatured: json['is_featured'] as bool? ?? false,
-      freeShipping: json['free_shipping'] as bool? ?? true,
+      freeShipping: json['free_shipping'] as bool? ?? false,
       inStock: json['in_stock'] as bool? ?? (stockVal > 0),
       stock: stockVal,
       brand: json['brand'] as String?,

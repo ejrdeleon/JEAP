@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Commerce\CatalogSearch;
 use App\Http\Controllers\Controller;
 use App\Models\Category;
 use App\Models\Product;
@@ -54,9 +55,7 @@ class CatalogController extends Controller
 
         $search = trim((string) ($filters['q'] ?? $filters['brand'] ?? ''));
         if ($search !== '') {
-            $term = addcslashes($search, '%_\\');
-            $query->where(fn ($q) => $q->where('name', 'like', '%'.$term.'%')
-                ->orWhere('description', 'like', '%'.$term.'%'));
+            CatalogSearch::applyToProducts($query, $search);
         }
 
         if (! empty($filters['category'])) {

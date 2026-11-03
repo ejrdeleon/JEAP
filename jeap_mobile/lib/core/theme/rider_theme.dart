@@ -1,11 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:jeap_mobile/features/tasks/models/delivery_task.dart';
 
-/// Cohesive, professional color palette and semantic design system
-/// for the JEAP Courier/Rider mobile experience.
-///
-/// Tailored for high-visibility outdoor usage, immediate visual feedback,
-/// strong contrast (WCAG AA+ compliance), and clear status differentiation.
+/// Rider colors and status styles.
 class RiderTheme {
   // Brand & Action Accents
   static const Color primaryBlue = Color(0xFF1D4ED8); // Blue 700 - high contrast

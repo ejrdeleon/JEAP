@@ -9,6 +9,8 @@ use App\Models\Cart;
 use App\Models\Category;
 use App\Models\Order;
 use App\Models\Parcel;
+use App\Models\CourierProfile;
+use App\Models\LogisticsProfile;
 use App\Models\PickupAssignment;
 use App\Models\Product;
 use App\Models\ProductVariant;
@@ -94,6 +96,15 @@ class RemainingClickupApiTest extends TestCase
     {
         $hub = $this->userWithRole('logistics');
         $courier = $this->userWithRole('courier');
+        $company = LogisticsProfile::query()->create([
+            'user_id' => $hub->id,
+            'hub_business_name' => 'Test Hub',
+            'hub_code' => 'HUB-TEST-1',
+        ]);
+        CourierProfile::query()->create([
+            'user_id' => $courier->id,
+            'logistics_profile_id' => $company->id,
+        ]);
         $seller = $this->userWithRole('seller');
         $buyer = $this->userWithRole('buyer');
         $order = Order::query()->create([

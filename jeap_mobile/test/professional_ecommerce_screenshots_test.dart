@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:jeap_mobile/core/data/mock_data.dart';
+import 'helpers/sample_catalog.dart';
 import 'package:jeap_mobile/core/storage/auth_session.dart';
 import 'package:jeap_mobile/core/theme/app_theme.dart';
 import 'package:jeap_mobile/features/account/models/address.dart';
@@ -141,7 +141,7 @@ void main() {
         theme: AppTheme.lightTheme,
         home: BuyerHomeScreen(
           initialTabIndex: 0,
-          initialProducts: MockData.products,
+          initialProducts: sampleProducts,
           initialCartItems: mockCartItems,
           initialOrders: mockOrders,
           initialUser: mockUser,
@@ -252,7 +252,7 @@ void main() {
         theme: AppTheme.lightTheme,
         home: BuyerHomeScreen(
           initialTabIndex: 0,
-          initialProducts: MockData.products,
+          initialProducts: sampleProducts,
           initialCartItems: mockCartItems,
           initialOrders: mockOrders,
           initialUser: mockUser,
@@ -279,12 +279,15 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
-    final testCategory = MockData.categories.first;
+    final testCategory = sampleCategories.first;
     await tester.pumpWidget(
       MaterialApp(
         debugShowCheckedModeBanner: false,
         theme: AppTheme.lightTheme,
-        home: CategoryProductsScreen(category: testCategory),
+        home: CategoryProductsScreen(
+          category: testCategory,
+          initialProducts: sampleProducts,
+        ),
       ),
     );
     await tester.pumpAndSettle();

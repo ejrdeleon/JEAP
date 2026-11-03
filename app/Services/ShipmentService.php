@@ -71,7 +71,7 @@ class ShipmentService
             if ($status === ShipmentStatus::Delivered) {
                 $proof = $data['proof_of_delivery'] ?? null;
                 if ($proof instanceof UploadedFile) {
-                    $locked->proof_of_delivery = $proof->store('proof_of_delivery', 'public');
+                    $locked->proof_of_delivery = $proof->store('proof_of_delivery', 'local');
                 }
                 if (! $locked->proof_of_delivery && empty($data['skip_proof'])) {
                     throw ValidationException::withMessages([

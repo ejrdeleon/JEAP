@@ -1,5 +1,4 @@
-import 'package:jeap_mobile/core/storage/guest_cart_manager.dart';
-import 'package:jeap_mobile/features/cart/services/cart_service.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:jeap_mobile/core/storage/auth_session.dart';
@@ -82,8 +81,12 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() => _loading = false);
     if (result.success) {
       AuthSession.instance.setGuest(false);
-      await GuestCartManager.instance.mergeIntoAccount(CartService());
       final user = result.user;
+      if (_isOfficeAccount(user)) {
+        await _authService.logout();
+        _showMessage('Use the JEAP website to access this account.');
+        return;
+      }
       String role = 'buyer';
       if (user != null) {
         final r = user['role']?.toString().toLowerCase();
@@ -178,8 +181,27 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  void _handleContinueAsGuest() {
-    AuthSession.instance.setGuest(true);
+  bool _isOfficeAccount(Map<String, dynamic>? user) {
+    if (user == null) return false;
+    final role = user['role']?.toString().toLowerCase();
+    if (role == 'admin' || role == 'super-admin' || role == 'super_admin') {
+      return true;
+    }
+    final roles = user['roles'];
+    if (roles is List) {
+      return roles.any((item) {
+        final value = item.toString().toLowerCase();
+        return value == 'admin' ||
+            value == 'super-admin' ||
+            value == 'super_admin';
+      });
+    }
+    return false;
+  }
+
+  Future<void> _handleContinueAsGuest() async {
+    await _authService.continueAsGuest();
+    if (!mounted) return;
     Navigator.pushAndRemoveUntil(
       context,
       MaterialPageRoute(builder: (_) => const BuyerHomeScreen()),
@@ -203,17 +225,18 @@ class _LoginScreenState extends State<LoginScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Align(
-                      alignment: Alignment.topRight,
-                      child: IconButton(
-                        icon: const Icon(
-                          Icons.dns_outlined,
-                          color: AppTheme.textSecondary,
+                    if (!kReleaseMode)
+                      Align(
+                        alignment: Alignment.topRight,
+                        child: IconButton(
+                          icon: const Icon(
+                            Icons.dns_outlined,
+                            color: AppTheme.textSecondary,
+                          ),
+                          tooltip: 'Server Environment Settings',
+                          onPressed: () => ServerSettingsSheet.show(context),
                         ),
-                        tooltip: 'Server Environment Settings',
-                        onPressed: () => ServerSettingsSheet.show(context),
                       ),
-                    ),
                     const Center(
                       child: JeapLogo(height: 68),
                     ),
@@ -363,7 +386,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                 ),
                               )
                             : const Text(
-                                'Login',
+                                'Log in',
                                 style: TextStyle(
                                   fontSize: 15,
                                   fontWeight: FontWeight.w700,
@@ -387,7 +410,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           children: [
                             const TextSpan(text: "Don't have an account? "),
                             TextSpan(
-                              text: 'Register',
+                              text: 'Sign up',
                               style: const TextStyle(
                                 color: AppTheme.jeapPurple,
                                 fontWeight: FontWeight.w700,

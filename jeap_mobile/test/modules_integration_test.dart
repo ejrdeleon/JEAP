@@ -8,7 +8,7 @@ import 'package:jeap_mobile/features/catalog/presentation/screens/wishlist_scree
 
 void main() {
   group('WishlistManager Unit Tests', () {
-    test('Wishlist toggles and removes items in memory', () async {
+    test('Guest wishlist toggle does not invent local items', () async {
       final manager = WishlistManager.instance;
       const product = Product(
         id: '99',
@@ -18,18 +18,7 @@ void main() {
       );
 
       expect(manager.isWishlisted('99'), isFalse);
-
       await manager.toggle(product);
-      expect(manager.isWishlisted('99'), isTrue);
-      expect(manager.items.any((p) => p.id == '99'), isTrue);
-
-      await manager.toggle(product);
-      expect(manager.isWishlisted('99'), isFalse);
-
-      await manager.toggle(product);
-      expect(manager.isWishlisted('99'), isTrue);
-
-      await manager.remove('99');
       expect(manager.isWishlisted('99'), isFalse);
     });
   });
@@ -45,7 +34,7 @@ void main() {
       };
       final pickupTask = DeliveryTask.fromApi(pickupJson);
       expect(pickupTask.isPickup, isTrue);
-      expect(pickupTask.payout, 30.0);
+      expect(pickupTask.payout, 0);
       expect(pickupTask.attemptNumber, 1);
 
       final deliveryJson = {
@@ -59,26 +48,9 @@ void main() {
       };
       final deliveryTask = DeliveryTask.fromApi(deliveryJson);
       expect(deliveryTask.isPickup, isFalse);
-      expect(deliveryTask.payout, 50.0);
+      expect(deliveryTask.payout, 0);
       expect(deliveryTask.codAmount, 750.50);
       expect(deliveryTask.attemptNumber, 2);
-    });
-  });
-
-  group('Courier Container Seal Regex Validation', () {
-    test('Validates BH- plus 7 digits format strictly', () {
-      final regex = RegExp(r'^BH-\d{7}$');
-
-      expect(regex.hasMatch('BH-1049281'), isTrue);
-      expect(regex.hasMatch('BH-0000001'), isTrue);
-      expect(regex.hasMatch('BH-9999999'), isTrue);
-
-      // Invalid formats
-      expect(regex.hasMatch('BH-123456'), isFalse); // only 6 digits
-      expect(regex.hasMatch('BH-12345678'), isFalse); // 8 digits
-      expect(regex.hasMatch('AB-1049281'), isFalse); // wrong prefix
-      expect(regex.hasMatch('BH1049281'), isFalse); // missing dash
-      expect(regex.hasMatch('BH-104928A'), isFalse); // contains letter
     });
   });
 
@@ -101,8 +73,7 @@ void main() {
         ),
       );
 
-      expect(find.text('Your Wishlist is Empty'), findsOneWidget);
-      expect(find.text('EXPLORE PRODUCTS'), findsOneWidget);
+      expect(find.text('Sign in to save items'), findsOneWidget);
     });
   });
 }

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Commerce\RemittanceService;
 use App\Enums\OrderStatus;
 use App\Http\Controllers\Controller;
 use App\Models\CodRemittance;
@@ -11,7 +12,7 @@ use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class CodRemittanceController extends Controller
 {
@@ -50,22 +51,17 @@ class CodRemittanceController extends Controller
             return response()->json(['message' => 'Remittance amount does not match the selected COD total.'], 422);
         }
 
-        $remittance = DB::transaction(function () use ($request, $orders, $data): CodRemittance {
-            $total = $orders->sum('total');
-            $remittance = CodRemittance::query()->create([
-                'courier_id' => $request->user()->id,
-                'logistics_id' => $request->user()->id, // will be confirmed by logistics
-                'amount' => $total,
-                'status' => 'pending',
-                'notes' => $data['notes'] ?? null,
-            ]);
-
-            foreach ($orders as $order) {
-                $remittance->orders()->attach($order->id, ['cod_amount' => $order->total]);
-            }
-
-            return $remittance;
-        });
+        try {
+            $remittance = app(RemittanceService::class)->submit(
+                $request->user(),
+                $orders->pluck('id')->all(),
+                $data['notes'] ?? null
+            );
+        } catch (ValidationException $exception) {
+            return response()->json([
+                'message' => collect($exception->errors())->flatten()->first() ?: 'Unable to submit remittance.',
+            ], 422);
+        }
 
         return response()->json(['message' => 'Remittance submitted.', 'remittance_id' => $remittance->id], 201);
     }
@@ -93,15 +89,23 @@ class CodRemittanceController extends Controller
     // Logistics: confirm receipt of cash
     public function confirm(Request $request, CodRemittance $remittance): JsonResponse
     {
-        if ($remittance->status !== 'pending') {
-            return response()->json(['message' => 'Already confirmed.'], 422);
-        }
+        $user = $request->user();
+        $remittance->loadMissing('courier.courierProfile.logisticsProfile');
+        $courierHubUserId = $remittance->courier?->courierProfile?->logisticsProfile?->user_id;
+        abort_unless(
+            $user->hasAnyRole(['admin', 'super-admin'])
+                || $remittance->logistics_id === $user->id
+                || $courierHubUserId === $user->id,
+            403
+        );
 
-        $remittance->update([
-            'status' => 'confirmed',
-            'logistics_id' => $request->user()->id,
-            'remitted_at' => now(),
-        ]);
+        try {
+            app(RemittanceService::class)->confirm($user, $remittance);
+        } catch (ValidationException $exception) {
+            return response()->json([
+                'message' => collect($exception->errors())->flatten()->first() ?: 'Already confirmed.',
+            ], 422);
+        }
 
         return response()->json(['message' => 'Remittance confirmed.']);
     }

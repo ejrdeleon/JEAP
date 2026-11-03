@@ -208,6 +208,10 @@ class AuthController extends Controller
             return response()->json(['message' => $user->signInBlockMessage()], 403);
         }
 
+        if ($blocked = $this->officeAccountMobileResponse($user)) {
+            return $blocked;
+        }
+
         $token = $user->createToken('mobile')->plainTextToken;
 
         return response()->json([
@@ -226,48 +230,14 @@ class AuthController extends Controller
             'last_name'    => ['nullable', 'string', 'max:80'],
         ]);
 
-        $verifiedEmail = null;
-        $firstName = $data['first_name'] ?? null;
-        $lastName = $data['last_name'] ?? null;
-
-        if (! empty($data['id_token'])) {
-            try {
-                $response = Http::timeout(10)->get('https://oauth2.googleapis.com/tokeninfo', [
-                    'id_token' => $data['id_token'],
-                ]);
-                if ($response->successful()) {
-                    $json = $response->json();
-                    $verifiedEmail = $json['email'] ?? null;
-                    $firstName = $firstName ?: ($json['given_name'] ?? null);
-                    $lastName = $lastName ?: ($json['family_name'] ?? null);
-                }
-            } catch (\Throwable $e) {}
-        }
-
-        if (! $verifiedEmail && ! empty($data['access_token'])) {
-            try {
-                $response = Http::timeout(10)->withToken($data['access_token'])
-                    ->get('https://www.googleapis.com/oauth2/v3/userinfo');
-                if ($response->successful()) {
-                    $json = $response->json();
-                    $verifiedEmail = $json['email'] ?? null;
-                    $firstName = $firstName ?: ($json['given_name'] ?? null);
-                    $lastName = $lastName ?: ($json['family_name'] ?? null);
-                }
-            } catch (\Throwable $e) {}
-        }
-
-        // If local development or token validated
-        if (! $verifiedEmail && ! empty($data['email'])) {
-            // If running on local network and token verification is unreachable, fallback to provided verified email if token was present
-            if (! empty($data['id_token']) || ! empty($data['access_token'])) {
-                $verifiedEmail = $data['email'];
-            }
-        }
-
-        if (! $verifiedEmail) {
+        $identity = $this->googleIdentity($data['id_token'] ?? null, $data['access_token'] ?? null);
+        if ($identity === null) {
             return response()->json(['message' => 'Unable to verify Google credentials.'], 401);
         }
+
+        $verifiedEmail = $identity['email'];
+        $firstName = $identity['first_name'] ?: ($data['first_name'] ?? null);
+        $lastName = $identity['last_name'] ?: ($data['last_name'] ?? null);
 
         $user = User::where('email', $verifiedEmail)->first();
 
@@ -295,6 +265,10 @@ class AuthController extends Controller
 
                 return $newUser;
             });
+        }
+
+        if ($blocked = $this->officeAccountMobileResponse($user)) {
+            return $blocked;
         }
 
         $token = $user->createToken('mobile')->plainTextToken;
@@ -389,6 +363,62 @@ class AuthController extends Controller
         }
     }
 
+    private function officeAccountMobileResponse(User $user): ?JsonResponse
+    {
+        if ($user->hasAnyRole(['admin', 'super-admin'])) {
+            return response()->json([
+                'message' => 'Use the JEAP website to access this account.',
+            ], 403);
+        }
+
+        return null;
+    }
+
+    /**
+     * @return array{email: string, first_name: ?string, last_name: ?string}|null
+     */
+    private function googleIdentity(?string $idToken, ?string $accessToken): ?array
+    {
+        $clientId = (string) config('services.google.client_id');
+        if ($clientId === '') {
+            return null;
+        }
+
+        $queries = [];
+        if (filled($idToken)) {
+            $queries[] = ['id_token' => $idToken];
+        }
+        if (filled($accessToken)) {
+            $queries[] = ['access_token' => $accessToken];
+        }
+
+        foreach ($queries as $query) {
+            try {
+                $response = Http::timeout(10)->get('https://oauth2.googleapis.com/tokeninfo', $query);
+                if (! $response->successful()) {
+                    continue;
+                }
+                $json = $response->json();
+                $email = $json['email'] ?? null;
+                $verified = filter_var($json['email_verified'] ?? false, FILTER_VALIDATE_BOOLEAN);
+                $audience = (string) ($json['aud'] ?? $json['azp'] ?? '');
+                if (! is_string($email) || $email === '' || ! $verified || ! hash_equals($clientId, $audience)) {
+                    continue;
+                }
+
+                return [
+                    'email' => $email,
+                    'first_name' => isset($json['given_name']) ? (string) $json['given_name'] : null,
+                    'last_name' => isset($json['family_name']) ? (string) $json['family_name'] : null,
+                ];
+            } catch (Throwable) {
+                continue;
+            }
+        }
+
+        return null;
+    }
+
     private function userPayload(User $user): array
     {
         $roles = $user->getRoleNames()->values();
@@ -409,6 +439,7 @@ class AuthController extends Controller
             'role'       => $appRole,
             'roles'      => $roles,
             'is_seller'  => $isSeller,
+            'notification_preferences' => $user->notificationPreferenceMap(),
         ];
     }
 }

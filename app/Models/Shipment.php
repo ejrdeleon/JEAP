@@ -53,7 +53,7 @@ class Shipment extends Model
             ShipmentStatus::PickedUp, ShipmentStatus::InTransit, ShipmentStatus::AtHub => 1,
             ShipmentStatus::OutForDelivery, ShipmentStatus::FailedDelivery => 2,
             ShipmentStatus::Delivered => 3,
-            ShipmentStatus::Cancelled => 0,
+            default => 0,
         };
     }
 
@@ -63,6 +63,6 @@ class Shipment extends Model
             return null;
         }
 
-        return asset('storage/'.$this->proof_of_delivery);
+        return route('media.proof', $this);
     }
 }

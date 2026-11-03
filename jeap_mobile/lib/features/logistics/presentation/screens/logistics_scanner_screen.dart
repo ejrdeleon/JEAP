@@ -1,7 +1,6 @@
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import 'package:jeap_mobile/core/theme/app_theme.dart';
-import 'package:jeap_mobile/features/logistics/models/logistics_parcel.dart';
 import 'package:jeap_mobile/features/logistics/presentation/screens/scan_result_screen.dart';
 import 'package:jeap_mobile/features/logistics/services/logistics_service.dart';
 
@@ -21,13 +20,6 @@ class _LogisticsScannerScreenState extends State<LogisticsScannerScreen> {
   bool _flashOn = false;
   bool _searching = false;
   String? _errorMessage;
-
-  final List<String> _quickTestBarcodes = [
-    'JEPLGN1001IN',
-    'JEPLGN1002SRT',
-    'JEPLGN1003DSP',
-    'JEPLGN1006DSP',
-  ];
 
   @override
   void initState() {
@@ -103,28 +95,9 @@ class _LogisticsScannerScreenState extends State<LogisticsScannerScreen> {
         ),
       );
     } else {
-      // Demo fallback if parcel lookup doesn't exist
-      final demoParcel = LogisticsParcel(
-        trackingNumber: trimmed.startsWith('JP-') ? trimmed : 'JP-$trimmed',
-        orderNumber: 'ORD-2026-${trimmed.replaceAll(RegExp(r'[^0-9]'), '')}',
-        status: 'AT_SORTING_CENTER',
-        recipientName: 'Maria Santos',
-        recipientPhone: '0917-123-4567',
-        destinationAddress: 'Brgy. Poblacion, Santa Cruz, Laguna 4009',
-        originHub: 'JEAP Central Warehouse (Santa Cruz, Laguna)',
-        itemsCount: 2,
-        totalAmount: 1450.00,
-        paymentMethod: 'Cash on Delivery (COD)',
-        createdAt: DateTime.now().toIso8601String(),
-        allowedActions: const ['sort', 'dispatch', 'transfer'],
-      );
-
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => ScanResultScreen(parcel: demoParcel),
-        ),
-      );
+      setState(() {
+        _errorMessage = 'Parcel not found. Enter a real JEP or JD tracking number.';
+      });
     }
   }
 
@@ -281,54 +254,6 @@ class _LogisticsScannerScreenState extends State<LogisticsScannerScreen> {
               ),
             ),
 
-            // Quick barcode testing chips for seamless test workflows
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              color: const Color(0xFF0F172A),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Quick Test Barcodes:',
-                    style: TextStyle(
-                      color: Colors.white70,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Row(
-                      children: _quickTestBarcodes.map((code) {
-                        return Padding(
-                          padding: const EdgeInsets.only(right: 6),
-                          child: ActionChip(
-                            backgroundColor: const Color(0xFF334155),
-                            side: BorderSide(
-                              color: AppTheme.jeapPurple.withValues(alpha: 0.5),
-                            ),
-                            label: Text(
-                              code,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 10.5,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            onPressed: () {
-                              _manualController.text = code;
-                              _handleLookup(code);
-                            },
-                          ),
-                        );
-                      }).toList(),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
             // Bottom manual entry sheet
             Container(
               padding: const EdgeInsets.all(16),
@@ -356,7 +281,7 @@ class _LogisticsScannerScreenState extends State<LogisticsScannerScreen> {
                           controller: _manualController,
                           style: const TextStyle(color: Colors.white, fontSize: 13),
                           decoration: InputDecoration(
-                            hintText: 'e.g. JEPLGN1001IN or ORD-001',
+                            hintText: 'JEP or JD tracking number',
                             hintStyle: const TextStyle(color: Colors.white38, fontSize: 12),
                             filled: true,
                             fillColor: Colors.black26,

@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:jeap_mobile/core/models/product.dart';
+import 'package:jeap_mobile/core/storage/auth_session.dart';
 import 'package:jeap_mobile/core/storage/wishlist_manager.dart';
 import 'package:jeap_mobile/core/theme/app_theme.dart';
+import 'package:jeap_mobile/core/widgets/guest_prompt_view.dart';
 import 'package:jeap_mobile/core/widgets/jeap_network_image.dart';
 
 /// The vertical product card seen in "Best Sellers" on Home — image
@@ -160,7 +162,18 @@ class ProductCard extends StatelessWidget {
                         final wishlisted =
                             WishlistManager.instance.isWishlisted(product.id);
                         return InkWell(
-                          onTap: () => WishlistManager.instance.toggle(product),
+                          onTap: () {
+                            if (!AuthSession.instance.isAuthenticated) {
+                              showGuestActionDialog(
+                                context,
+                                title: 'Sign in to save items',
+                                message:
+                                    'Log in or sign up to keep a wishlist on your JEAP account.',
+                              );
+                              return;
+                            }
+                            WishlistManager.instance.toggle(product);
+                          },
                           borderRadius: BorderRadius.circular(12),
                           child: Padding(
                             padding: const EdgeInsets.all(2),

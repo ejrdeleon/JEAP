@@ -33,7 +33,7 @@ class SecurityAuditTest extends TestCase
             ->assertHeader('X-Frame-Options', 'SAMEORIGIN')
             ->assertHeader('X-Content-Type-Options', 'nosniff')
             ->assertHeader('Referrer-Policy', 'strict-origin-when-cross-origin')
-            ->assertHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=(self), payment=()');
+            ->assertHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=(self), payment=(), clipboard-write=(self)');
     }
 
     public function test_seeded_style_password_can_log_in(): void
@@ -109,7 +109,7 @@ class SecurityAuditTest extends TestCase
             $this->actingAs($user)
                 ->from($home)
                 ->post('/logout')
-                ->assertRedirect(route('home'))
+                ->assertRedirect(route('logout.notice'))
                 ->assertStatus(302);
 
             $this->assertGuest();

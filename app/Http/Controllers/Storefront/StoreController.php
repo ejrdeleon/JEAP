@@ -22,7 +22,9 @@ class StoreController extends Controller
         ]);
         $productsQuery = Product::query()->where('seller_id', $seller->id)
             ->listed()
-            ->with(['images', 'variants' => fn ($query) => $query->sellable(), 'category']);
+            ->with(['images', 'variants' => fn ($query) => $query->sellable(), 'category'])
+            ->withAvg('reviews', 'rating')
+            ->withCount('reviews');
 
         if (! empty($filters['q'])) {
             $term = addcslashes($filters['q'], '%_\\');

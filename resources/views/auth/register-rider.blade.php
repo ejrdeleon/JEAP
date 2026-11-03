@@ -20,11 +20,11 @@
             @csrf
             <div class="s3-field">
                 <label>Your name</label>
-                <input name="name" value="{{ old('name') }}" placeholder="Jhon Deo" required>
+                <input name="name" value="{{ old('name') }}" placeholder="Your full name" required>
             </div>
             <div class="s3-field">
                 <label>Email Address</label>
-                <input type="email" name="email" value="{{ old('email') }}" placeholder="Example@gmail.com" required>
+                <input type="email" name="email" value="{{ old('email') }}" placeholder="you@email.com" required>
             </div>
             <div class="s3-field">
                 <label>Phone</label>
@@ -45,20 +45,20 @@
             </div>
             <div class="s3-field">
                 <label>Password</label>
-                <input type="password" name="password" placeholder="...." required>
+                <input type="password" name="password" placeholder="Password" required>
             </div>
             <div class="s3-field">
                 <label>Confirm Password</label>
-                <input type="password" name="password_confirmation" placeholder="...." required>
+                <input type="password" name="password_confirmation" placeholder="Confirm password" required>
             </div>
             <div class="s3-field">
                 <label>Driver's license / KYC document</label>
                 <input type="file" name="kyc" accept=".jpg,.jpeg,.png,.pdf" required>
             </div>
             <p><button class="s3-btn" type="submit" style="min-width:163px;">Apply as rider</button></p>
-            <p><a class="s3-link" href="{{ route('login') }}">already user ? Login</a></p>
+            <p><a class="s3-link" href="{{ route('login') }}">Already have an account? Log in</a></p>
             <p class="s3-extra" style="border:0;padding-top:8px;">
-                <a class="s3-link" href="{{ route('register') }}">Shopper registration</a>
+                <a class="s3-link" href="{{ route('register') }}">Sign up as a shopper</a>
                 &nbsp;·&nbsp;
                 <a class="s3-link" href="{{ route('register.seller') }}">Sell on JEAP</a>
             </p>

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:jeap_mobile/core/storage/auth_session.dart';
 import 'package:jeap_mobile/core/theme/app_theme.dart';
 import 'package:jeap_mobile/features/auth/presentation/screens/login_screen.dart';
+import 'package:jeap_mobile/features/auth/services/auth_service.dart';
 import 'package:jeap_mobile/features/logistics/models/logistics_parcel.dart';
 import 'package:jeap_mobile/features/logistics/presentation/screens/logistics_scanner_screen.dart';
 import 'package:jeap_mobile/features/logistics/presentation/screens/scan_result_screen.dart';
@@ -19,15 +19,16 @@ class _LogisticsDashboardScreenState extends State<LogisticsDashboardScreen> {
   final LogisticsService _service = LogisticsService();
   bool _loading = true;
   LogisticsHubStats _stats = const LogisticsHubStats(
-    incoming: 3,
-    received: 3,
-    awaitingSorting: 3,
-    readyForDispatch: 2,
-    outgoing: 1,
+    incoming: 0,
+    received: 0,
+    awaitingSorting: 0,
+    readyForDispatch: 0,
+    outgoing: 0,
   );
   List<LogisticsActivity> _recentActivity = [];
-  String _hubName = 'Laguna Central Hub';
-  String _hubCode = 'HUB-LAG-01';
+  String _hubName = 'JEAP Dash';
+  String _hubCode = '';
+  String? _error;
 
   @override
   void initState() {
@@ -58,44 +59,20 @@ class _LogisticsDashboardScreenState extends State<LogisticsDashboardScreen> {
         if (data['hub_code'] != null) {
           _hubCode = data['hub_code'].toString();
         }
+        _error = null;
         _loading = false;
       });
     } else {
-      // Fallback activities for immediate offline responsiveness
       setState(() {
-        _recentActivity = [
-          const LogisticsActivity(
-            trackingNumber: 'JEPLGN1001IN',
-            orderNumber: 'JEAP-LGN-1001',
-            status: 'AT_SORTING_CENTER',
-            action: 'Received at Hub & In Sorting',
-            timestamp: '10 mins ago',
-            location: 'Central Hub - Laguna',
-          ),
-          const LogisticsActivity(
-            trackingNumber: 'JEPLGN1003DSP',
-            orderNumber: 'JEAP-LGN-1003',
-            status: 'SORTED',
-            action: 'Sorted & Staged for Dispatch',
-            timestamp: '25 mins ago',
-            location: 'Staging Bay A',
-          ),
-          const LogisticsActivity(
-            trackingNumber: 'JEPLGN1006DSP',
-            orderNumber: 'JEAP-LGN-1006',
-            status: 'SORTED',
-            action: 'Sorted to Biñan City Bin',
-            timestamp: '45 mins ago',
-            location: 'Staging Bay B',
-          ),
-        ];
+        _recentActivity = [];
+        _error = 'Could not load hub stats. Check your connection and try again.';
         _loading = false;
       });
     }
   }
 
   void _handleLogout() async {
-    await AuthSession.instance.clear();
+    await AuthService().logout();
     if (!mounted) return;
     Navigator.pushAndRemoveUntil(
       context,
@@ -118,8 +95,7 @@ class _LogisticsDashboardScreenState extends State<LogisticsDashboardScreen> {
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Looking up parcel $trackingNumber...'),
-          duration: const Duration(seconds: 1),
+          content: Text('Parcel $trackingNumber was not found.'),
         ),
       );
     }
@@ -285,6 +261,15 @@ class _LogisticsDashboardScreenState extends State<LogisticsDashboardScreen> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     _buildHubBanner(),
+                    if (_error != null) ...[
+                      const SizedBox(height: 12),
+                      Text(
+                        _error!,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(color: AppTheme.textSecondary),
+                      ),
+                      TextButton(onPressed: _loadDashboard, child: const Text('Retry')),
+                    ],
                     const SizedBox(height: 16),
                     _buildOperationalMetrics(),
                     const SizedBox(height: 16),

@@ -17,7 +17,7 @@ class ChatService
     {
         return Conversation::query()
             ->whereHas('participants', fn ($query) => $query->where('users.id', $user->id))
-            ->with(['latestMessage.sender', 'participants', 'order'])
+            ->with(['latestMessage.sender', 'participants.roles', 'participants.sellerProfile', 'order'])
             ->latest('updated_at')
             ->get()
             ->map(function (Conversation $conversation) use ($user) {

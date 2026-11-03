@@ -14,70 +14,114 @@
     $variant = $product->defaultVariant();
     $images = $product->images;
     $main = $product->primaryImage();
+    $shipping = \App\Commerce\InventoryPolicy::shippingFee();
     $maxQty = $variant ? min(\App\Commerce\InventoryPolicy::maxQtyPerProduct(), $variant->stock) : 1;
     $canBuy = $variant?->isSellable();
+    $price = (float) ($variant?->price ?? 0);
+    $compare = (float) ($variant?->compare_at_price ?? 0);
+    $onSale = $compare > $price && $price > 0;
+    $savePct = $onSale ? (int) round((1 - ($price / $compare)) * 100) : 0;
+    $storeName = $product->seller?->sellerProfile?->business_name ?? $product->seller?->name ?? 'JEAP';
+    $isNew = $product->created_at?->gt(now()->subDays(30));
+    $ratingCount = $product->reviews->count();
+    $ratingAvg = $ratingCount ? round((float) $product->reviews->avg('rating'), 1) : null;
 @endphp
-<section class="s3-main">
-    <div class="s3-pdp">
-        <div class="s3-gallery">
-            <div class="s3-gallery-main">
+<section class="s3-main pdp-page">
+    <div class="pdp-hero">
+        <div class="pdp-gallery" data-pdp-gallery>
+            <div class="pdp-gallery-stage">
                 @if($main)
-                    <img src="{{ asset($main->path) }}" alt="{{ $product->name }}">
+                    <img src="{{ asset($main->path) }}" alt="{{ $product->name }}" data-pdp-stage>
+                @else
+                    <div class="pdp-gallery-empty">No photo yet</div>
                 @endif
-                <span class="s3-new">new</span>
+                @if($isNew)
+                    <span class="pdp-badge pdp-badge--new">New</span>
+                @endif
+                @if($onSale)
+                    <span class="pdp-badge pdp-badge--sale">−{{ $savePct }}%</span>
+                @endif
             </div>
-            <div class="s3-thumbs">
-                @forelse($images as $image)
-                    <img src="{{ asset($image->path) }}" alt="">
-                @empty
-                    <span></span><span></span><span></span>
-                @endforelse
-            </div>
-        </div>
-        <div>
-            <h1>{{ $product->name }}</h1>
-            <div class="pdp-price">₱{{ number_format($variant?->price ?? 0, 2) }}
-                @if($variant?->compare_at_price) - ₱{{ number_format($variant->compare_at_price, 2) }} @endif
-            </div>
-            @if($product->reviews->isNotEmpty())
-                <p class="pdp-rating">{{ number_format($product->reviews->avg('rating'), 1) }} / 5 · {{ $product->reviews->count() }} {{ Str::plural('review', $product->reviews->count()) }}</p>
-                <ul class="pdp-reviews">
-                    @foreach($product->reviews as $review)
-                        <li>
-                            <strong>{{ $review->rating }}/5</strong>
-                            <span>{{ $review->buyer?->name ?? 'JEAP buyer' }}</span>
-                            @if($review->comment)<p>{{ $review->comment }}</p>@endif
-                        </li>
+            @if($images->count() > 1)
+                <div class="pdp-thumbs" role="list">
+                    @foreach($images as $index => $image)
+                        <button type="button" class="pdp-thumb {{ $index === 0 ? 'is-on' : '' }}" data-pdp-thumb="{{ asset($image->path) }}" aria-label="Photo {{ $index + 1 }}">
+                            <img src="{{ asset($image->path) }}" alt="">
+                        </button>
                     @endforeach
-                </ul>
+                </div>
             @endif
-            @if($product->description)
-                <p class="s3-bullets">{{ $product->description }}</p>
-            @endif
-            <span class="s3-chip">₱{{ number_format(\App\Commerce\InventoryPolicy::shippingFee(), 0) }} shipping · COD</span>
-            <div style="margin:16px 0;">
-                @if($variant?->color)
-                    <strong>Color:</strong> {{ $variant->color }}
-                @endif
-                @if($variant?->size)<p style="margin-top:12px;"><strong>Size:</strong> {{ $variant->size }}</p>@endif
-            </div>
-            <div class="s3-meta">
-                <div><strong>SKU:</strong> {{ $variant?->sku }}</div>
-                <div><strong>Category:</strong> {{ $product->category?->name }}</div>
-                <div><strong>Store:</strong> @if($product->seller)<a href="{{ route('stores.show', $product->seller) }}">{{ $product->seller->sellerProfile?->business_name ?? $product->seller->name }}</a>@else JEAP @endif</div>
-            </div>
         </div>
-        <aside>
-            <div class="s3-paycard">
-                <small>Total Price:</small>
-                <div class="price">₱{{ number_format($variant?->price ?? 0, 2) }}</div>
+
+        <div class="pdp-info">
+            @if($product->category)
+                <a class="pdp-kicker" href="{{ route('products.index', ['category' => $product->category->slug]) }}">{{ $product->category->name }}</a>
+            @endif
+            <h1>{{ $product->name }}</h1>
+            <p class="pdp-rating">
+                @if($ratingAvg)
+                    ★ {{ number_format($ratingAvg, 1) }} · {{ $ratingCount }} {{ Str::plural('review', $ratingCount) }}
+                @else
+                    No customer reviews yet
+                @endif
+            </p>
+            <div class="pdp-price-row">
+                <strong>₱{{ number_format($price, 2) }}</strong>
+                @if($onSale)
+                    <span class="compare">₱{{ number_format($compare, 2) }}</span>
+                    <span class="pdp-save-tag">Save ₱{{ number_format($compare - $price, 2) }}</span>
+                @endif
+            </div>
+            @if($product->description)
+                <p class="pdp-lead">{{ $product->description }}</p>
+            @endif
+            <ul class="pdp-perks">
+                <li>Cash on Delivery</li>
+                <li>₱{{ number_format($shipping, 0) }} flat shipping</li>
+                <li>Ships with {{ config('jeap.courier_name') }}</li>
+                <li>Up to {{ \App\Commerce\InventoryPolicy::maxQtyPerProduct() }} per order</li>
+            </ul>
+            @if($variant?->color || $variant?->size)
+                <dl class="pdp-options">
+                    @if($variant?->color)
+                        <div><dt>Color</dt><dd>{{ $variant->color }}</dd></div>
+                    @endif
+                    @if($variant?->size)
+                        <div><dt>Size</dt><dd>{{ $variant->size }}</dd></div>
+                    @endif
+                </dl>
+            @endif
+            <dl class="pdp-facts">
+                @if($variant?->sku)
+                    <div><dt>SKU</dt><dd>{{ $variant->sku }}</dd></div>
+                @endif
+                @if($product->category)
+                    <div><dt>Category</dt><dd>{{ $product->category->name }}</dd></div>
+                @endif
+                <div>
+                    <dt>Store</dt>
+                    <dd>
+                        @if($product->seller)
+                            <a href="{{ route('stores.show', $product->seller) }}">{{ $storeName }}</a>
+                        @else
+                            JEAP
+                        @endif
+                    </dd>
+                </div>
+            </dl>
+        </div>
+
+        <aside class="pdp-buy">
+            <div class="pdp-paycard">
+                <small>Total</small>
+                <div class="price" data-pdp-total>₱{{ number_format($price, 2) }}</div>
                 <p class="in-stock" aria-live="polite">{{ $canBuy ? '● In stock' : 'Not available to sell yet' }}</p>
-                <form method="post" action="{{ route('cart.add') }}" data-cart-add-form data-existing-quantity="{{ $cartQuantity }}">
+                <form method="post" action="{{ route('cart.add') }}" data-cart-add-form data-existing-quantity="{{ $cartQuantity }}" data-unit-price="{{ $price }}">
                     @csrf
                     @if($variant)
                         <input type="hidden" name="product_variant_id" value="{{ $variant->id }}">
                     @endif
-                    <div class="s3-qty" data-quantity-control style="width:100%;height:53px;border-radius:4px;">
+                    <div class="s3-qty pdp-qty" data-quantity-control>
                         <button type="button" data-quantity-decrease aria-label="Decrease quantity" @disabled(! $canBuy)>−</button>
                         <input type="number" name="quantity" value="1" min="1" max="{{ $maxQty }}" data-quantity-input @disabled(! $canBuy)>
                         <button type="button" data-quantity-increase aria-label="Increase quantity" @disabled(! $canBuy)>+</button>
@@ -103,50 +147,138 @@
                         </div>
                     @endif
                 @else
-                    <a class="pdp-save-link" href="{{ route('login') }}">Sign in to save this product</a>
+                    <a class="pdp-save-link" href="{{ route('login') }}">Log in to save this product</a>
                 @endauth
-                <small>Cash on Delivery · ₱{{ number_format(\App\Commerce\InventoryPolicy::shippingFee(), 0) }} shipping</small>
+                <p class="pdp-pay-note">Cash on Delivery · ₱{{ number_format($shipping, 0) }} shipping</p>
             </div>
-            @auth
-                @if($product->seller)
+            @if($product->seller)
+                @auth
                     <form method="post" action="{{ route('chat.start') }}" class="pdp-chat-form">
                         @csrf
                         <input type="hidden" name="seller_id" value="{{ $product->seller->id }}">
-                        <button class="s3-btn" type="submit">Chat with seller</button>
+                        <button class="pdp-chat-btn" type="submit">Chat with seller</button>
                     </form>
-                @endif
-            @endauth
-            <p style="margin-top:12px;">🚚 Ships from Philippines · {{ config('jeap.courier_name') }}</p>
+                @else
+                    <a class="pdp-chat-btn" href="{{ route('login') }}">Log in to chat with seller</a>
+                @endauth
+            @endif
+            <p class="pdp-ship">Ships from the Philippines · {{ config('jeap.courier_name') }}</p>
         </aside>
     </div>
-    <div class="s3-related">
-        <h3>frequently bought together</h3>
-        <div class="s3-relgrid">
-            @foreach(($related ?? collect())->take(5) as $item)
-                @php $v = $item->defaultVariant(); $img = $item->primaryImage(); @endphp
-                <article class="s3-relcard">
-                    <a href="{{ route('products.show', $item->slug) }}">
-                        @if($img)<img src="{{ asset($img->path) }}" alt="{{ $item->name }}">@endif
-                        <h6>{{ $item->name }}</h6>
-                        <div class="price">₱{{ number_format($v?->price ?? 0, 2) }}</div>
-                    </a>
-                </article>
-            @endforeach
-        </div>
-        <h3 style="margin-top:40px;">related products</h3>
-        <div class="s3-relgrid">
-            @foreach(($related ?? collect())->take(5) as $item)
-                @php $v = $item->defaultVariant(); $img = $item->primaryImage(); @endphp
-                <article class="s3-relcard">
-                    <a href="{{ route('products.show', $item->slug) }}">
-                        @if($img)<img src="{{ asset($img->path) }}" alt="{{ $item->name }}">@endif
-                        <h6>{{ $item->name }}</h6>
-                        <div class="price">₱{{ number_format($v?->price ?? 0, 2) }}</div>
-                        <span class="s3-chip">₱{{ number_format(\App\Commerce\InventoryPolicy::shippingFee(), 0) }} shipping · COD</span>
-                    </a>
-                </article>
-            @endforeach
-        </div>
+
+    <div class="pdp-body">
+        <section class="pdp-panel">
+            <h2>About this product</h2>
+            @if($product->description)
+                <p>{{ $product->description }}</p>
+            @else
+                <p>{{ $product->name }} is sold on JEAP with Cash on Delivery and {{ config('jeap.courier_name') }} delivery.</p>
+            @endif
+            <ul class="pdp-spec">
+                @if($variant?->color)<li><span>Color</span><strong>{{ $variant->color }}</strong></li>@endif
+                @if($variant?->size)<li><span>Size</span><strong>{{ $variant->size }}</strong></li>@endif
+                <li><span>Payment</span><strong>Cash on Delivery</strong></li>
+                <li><span>Shipping</span><strong>₱{{ number_format($shipping, 0) }} · {{ config('jeap.courier_name') }}</strong></li>
+            </ul>
+        </section>
+        <section class="pdp-panel">
+            <h2>Sold by {{ $storeName }}</h2>
+            <p>Ask the seller before you buy if you need more photos, size help, or a stock check. Orders ship from the Philippines with {{ config('jeap.courier_name') }}.</p>
+            @if($product->seller)
+                <a class="pdp-store-link" href="{{ route('stores.show', $product->seller) }}">Visit store</a>
+            @endif
+        </section>
     </div>
+
+    <section class="pdp-panel pdp-reviews-panel" id="reviews">
+        <h2>Customer reviews</h2>
+        @if(session('status'))<p class="pdp-review-flash" role="status">{{ session('status') }}</p>@endif
+        @if($ratingCount)
+            <p class="pdp-rating">★ {{ number_format($ratingAvg, 1) }} / 5 · {{ $ratingCount }} {{ Str::plural('review', $ratingCount) }}</p>
+        @else
+            <p>No customer reviews yet. Buyers can rate this product after they confirm a Cash on Delivery order.</p>
+        @endif
+        @if($reviewOrder ?? null)
+            <form method="post" action="{{ route('buyer.orders.review', $reviewOrder) }}" class="pdp-review-form">
+                @csrf
+                <input type="hidden" name="product_id" value="{{ $product->id }}">
+                <p class="pdp-review-form-label">{{ ($existingReview ?? null) ? 'Update your review' : 'Leave a review' }}</p>
+                <label>Rating
+                    <select name="rating" required>
+                        @for($star = 5; $star >= 1; $star--)
+                            <option value="{{ $star }}" @selected((int) (($existingReview->rating ?? 5)) === $star)>{{ $star }} star{{ $star === 1 ? '' : 's' }}</option>
+                        @endfor
+                    </select>
+                </label>
+                <label>Comment <span>(optional)</span>
+                    <textarea name="comment" maxlength="1000" rows="3" placeholder="What did you think of this product?">{{ old('comment', $existingReview->comment ?? '') }}</textarea>
+                </label>
+                <button type="submit">{{ ($existingReview ?? null) ? 'Update review' : 'Post review' }}</button>
+            </form>
+        @elseif(auth()->guest())
+            <p class="pdp-review-hint"><a href="{{ route('login') }}">Log in</a> after you receive your order to leave a review.</p>
+        @endif
+        @if($ratingCount)
+            <ul class="pdp-reviews">
+                @foreach($product->reviews as $review)
+                    <li>
+                        <div class="pdp-review-head">
+                            <strong>{{ str_repeat('★', $review->rating) }}{{ str_repeat('☆', 5 - $review->rating) }}</strong>
+                            <span>{{ $review->buyer?->name ?? 'JEAP buyer' }}</span>
+                            @if($review->created_at)<time datetime="{{ $review->created_at->toDateString() }}">{{ $review->created_at->timezone(config('app.timezone'))->format('M j, Y') }}</time>@endif
+                        </div>
+                        @if($review->comment)<p>{{ $review->comment }}</p>@endif
+                    </li>
+                @endforeach
+            </ul>
+        @endif
+    </section>
+
+    @if(($related ?? collect())->isNotEmpty())
+        <section class="pdp-rail-wrap">
+            <h2>You may also like</h2>
+            <div class="pdp-rail">
+                @foreach($related as $item)
+                    @php $itemVariant = $item->defaultVariant(); $itemImage = $item->primaryImage(); @endphp
+                    <a class="s3-tile" href="{{ route('products.show', $item->slug) }}">
+                        @if($itemImage)
+                            <img src="{{ asset($itemImage->path) }}" alt="{{ $item->name }}">
+                        @endif
+                        <h6>{{ $item->name }}</h6>
+                        @include('partials.product-rating', ['product' => $item])
+                        <div class="price">₱{{ number_format($itemVariant?->price ?? 0, 2) }}
+                            @if($itemVariant?->compare_at_price)<span class="compare">₱{{ number_format($itemVariant->compare_at_price, 2) }}</span>@endif
+                        </div>
+                        <span class="s3-chip">₱{{ number_format($shipping, 0) }} shipping · COD</span>
+                    </a>
+                @endforeach
+            </div>
+        </section>
+    @endif
+
+    @php
+        $storeExtras = ($fromStore ?? collect())->reject(fn ($item) => ($related ?? collect())->contains('id', $item->id));
+    @endphp
+    @if($storeExtras->isNotEmpty())
+        <section class="pdp-rail-wrap">
+            <h2>More from {{ $storeName }}</h2>
+            <div class="pdp-rail">
+                @foreach($storeExtras as $item)
+                    @php $itemVariant = $item->defaultVariant(); $itemImage = $item->primaryImage(); @endphp
+                    <a class="s3-tile" href="{{ route('products.show', $item->slug) }}">
+                        @if($itemImage)
+                            <img src="{{ asset($itemImage->path) }}" alt="{{ $item->name }}">
+                        @endif
+                        <h6>{{ $item->name }}</h6>
+                        @include('partials.product-rating', ['product' => $item])
+                        <div class="price">₱{{ number_format($itemVariant?->price ?? 0, 2) }}
+                            @if($itemVariant?->compare_at_price)<span class="compare">₱{{ number_format($itemVariant->compare_at_price, 2) }}</span>@endif
+                        </div>
+                        <span class="s3-chip">₱{{ number_format($shipping, 0) }} shipping · COD</span>
+                    </a>
+                @endforeach
+            </div>
+        </section>
+    @endif
 </section>
 @endsection

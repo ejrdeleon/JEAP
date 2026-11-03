@@ -64,4 +64,25 @@ class CourierDashboardTest extends TestCase
             ->assertRedirect(route('courier.dashboard'))->assertSessionHasErrors('is_online');
         $this->assertDatabaseHas('courier_profiles', ['user_id' => $rider->id, 'is_online' => false]);
     }
+
+    public function test_rider_remittance_page_uses_rider_layout(): void
+    {
+        $this->seed(RoleSeeder::class);
+        $rider = User::factory()->create(['status' => UserStatus::Active]);
+        $rider->assignRole('courier');
+        CourierProfile::query()->create([
+            'user_id' => $rider->id,
+            'license_expires_at' => now()->addYear()->toDateString(),
+        ]);
+
+        $this->actingAs($rider)->get(route('courier.remittances'))
+            ->assertOk()
+            ->assertSee('COD remittance')
+            ->assertSee('Cash to turn in')
+            ->assertSee('Unremitted orders')
+            ->assertSee('No cash to turn in')
+            ->assertSee('No remittances yet')
+            ->assertDontSee('register-terms')
+            ->assertDontSee('s3-field');
+    }
 }

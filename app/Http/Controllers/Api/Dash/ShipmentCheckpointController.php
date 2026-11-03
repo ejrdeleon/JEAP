@@ -2,8 +2,11 @@
 
 namespace App\Http\Controllers\Api\Dash;
 
+use App\Enums\ShipmentStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\LogShipmentCheckpointRequest;
+use App\Models\DeliveryAssignment;
+use App\Models\PickupAssignment;
 use App\Models\Shipment;
 use App\Services\ShipmentService;
 use Illuminate\Http\JsonResponse;
@@ -16,6 +19,8 @@ class ShipmentCheckpointController extends Controller
         $shipment = Shipment::query()
             ->whereRaw('UPPER(tracking_number) = ?', [Str::upper($tracking_number)])
             ->firstOrFail();
+
+        $this->authorizeActor($request, $shipment);
 
         $checkpoint = $shipments->logCheckpoint($shipment, $request->validated(), $request->user());
         $shipment->refresh()->load(['checkpoints.loggedBy', 'courier']);
@@ -41,5 +46,32 @@ class ShipmentCheckpointController extends Controller
                 'logged_by' => $checkpoint->loggedBy?->name,
             ],
         ], 201);
+    }
+
+    private function authorizeActor(LogShipmentCheckpointRequest $request, Shipment $shipment): void
+    {
+        $user = $request->user();
+        abort_unless($user, 403);
+
+        if ($user->hasAnyRole(['logistics', 'admin', 'super-admin'])) {
+            return;
+        }
+
+        abort_unless($user->hasRole('courier'), 403);
+
+        $status = $request->validated('status');
+        abort_if($status === ShipmentStatus::Cancelled->value, 403);
+
+        $assigned = (int) $shipment->courier_id === (int) $user->id
+            || DeliveryAssignment::query()
+                ->where('courier_id', $user->id)
+                ->whereHas('parcel', fn ($query) => $query->where('order_id', $shipment->order_id))
+                ->exists()
+            || PickupAssignment::query()
+                ->where('courier_id', $user->id)
+                ->whereHas('parcel', fn ($query) => $query->where('order_id', $shipment->order_id))
+                ->exists();
+
+        abort_unless($assigned, 403, 'You are not assigned to this shipment.');
     }
 }

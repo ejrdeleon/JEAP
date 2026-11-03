@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\UserStatus;
+use App\Notifications\ChatMessageNotification;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -150,6 +151,16 @@ class User extends Authenticatable
     public function wantsNotification(string $channel): bool
     {
         return (bool) ($this->notificationPreferenceMap()[$channel] ?? true);
+    }
+
+    public function activityNotifications(): MorphMany
+    {
+        return $this->notifications()->where('type', '!=', ChatMessageNotification::class);
+    }
+
+    public function unreadActivityNotificationCount(): int
+    {
+        return $this->unreadNotifications()->where('type', '!=', ChatMessageNotification::class)->count();
     }
 
     public function conversations(): BelongsToMany

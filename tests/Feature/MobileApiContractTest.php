@@ -84,6 +84,53 @@ class MobileApiContractTest extends TestCase
         $this->assertTrue(Hash::check('JeapReset@2026', $user->fresh()->password));
     }
 
+    public function test_google_auth_rejects_unverified_client_email_fallback(): void
+    {
+        Http::fake([
+            'https://oauth2.googleapis.com/tokeninfo*' => Http::response(['error' => 'invalid_token'], 400),
+        ]);
+
+        $this->postJson('/api/v1/auth/google', [
+            'id_token' => 'not-a-real-token',
+            'email' => 'victim@example.test',
+        ])->assertStatus(401);
+
+        $this->assertDatabaseMissing('users', ['email' => 'victim@example.test']);
+    }
+
+    public function test_google_auth_uses_verified_token_email_not_client_email(): void
+    {
+        Http::fake([
+            'https://oauth2.googleapis.com/tokeninfo*' => Http::response([
+                'email' => 'google.mobile@example.test',
+                'email_verified' => 'true',
+                'aud' => config('services.google.client_id'),
+                'given_name' => 'Google',
+                'family_name' => 'Buyer',
+            ]),
+        ]);
+
+        $this->postJson('/api/v1/auth/google', [
+            'id_token' => 'real-looking-token',
+            'email' => 'attacker@example.test',
+        ])->assertOk()
+            ->assertJsonPath('user.email', 'google.mobile@example.test')
+            ->assertJsonStructure(['token', 'user']);
+
+        $this->assertDatabaseMissing('users', ['email' => 'attacker@example.test']);
+    }
+
+    public function test_admin_cannot_issue_a_mobile_token(): void
+    {
+        $admin = $this->userWithRole('admin');
+
+        $this->postJson('/api/v1/login', [
+            'email' => $admin->email,
+            'password' => 'password',
+        ])->assertForbidden()
+            ->assertJsonPath('message', 'Use the JEAP website to access this account.');
+    }
+
     public function test_catalog_search_alias_show_by_id_home_and_seller_products(): void
     {
         [$product] = $this->makeListedProduct('Air Purifier with HEPA Filter', 'air-purifier-hepa', 489, 80, 'kitchen');
@@ -153,6 +200,23 @@ class MobileApiContractTest extends TestCase
         $this->actingAs($seller, 'sanctum')->getJson('/api/v1/notifications')
             ->assertOk()
             ->assertJsonPath('unread_count', 1);
+
+        $this->actingAs($buyer, 'sanctum')->putJson('/api/v1/notification-preferences', [
+            'order_updates' => true,
+            'chat' => false,
+            'promos' => false,
+        ])->assertOk()->assertJsonPath('preferences.chat', false);
+
+        $this->actingAs($buyer, 'sanctum')->getJson('/api/v1/notification-preferences')
+            ->assertOk()
+            ->assertJsonPath('preferences.order_updates', true)
+            ->assertJsonPath('preferences.promos', false);
+
+        $this->actingAs($buyer, 'sanctum')->postJson('/api/v1/wishlist/'.$order->items()->value('product_id'))
+            ->assertOk();
+        $this->actingAs($buyer, 'sanctum')->getJson('/api/v1/wishlist')
+            ->assertOk()
+            ->assertJsonPath('data.0.name', 'Cancelable Mug');
 
         $this->actingAs($buyer, 'sanctum')->postJson('/api/v1/conversations', [
             'order_number' => $order->order_number,

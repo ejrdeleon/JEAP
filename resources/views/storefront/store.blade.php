@@ -42,7 +42,9 @@
                     @php($variant = $product->defaultVariant())
                     <a class="s3-tile" href="{{ route('products.show', $product->slug) }}">
                         @if($product->primaryImage())<img src="{{ asset($product->primaryImage()->path) }}" alt="{{ $product->name }}">@endif
-                        <h6>{{ $product->name }}</h6><span class="price">₱{{ number_format((float) ($variant?->price ?? 0), 2) }}</span>
+                        <h6>{{ $product->name }}</h6>
+                        @include('partials.product-rating', ['product' => $product])
+                        <span class="price">₱{{ number_format((float) ($variant?->price ?? 0), 2) }}</span>
                     </a>
                 @empty<p>No products match this selection.</p>@endforelse
             </div>

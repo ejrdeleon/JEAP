@@ -1,6 +1,5 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:jeap_mobile/core/network/api_client.dart';
 import 'package:jeap_mobile/core/storage/auth_session.dart';
 import 'package:jeap_mobile/core/theme/app_theme.dart';
 import 'package:jeap_mobile/core/widgets/jeap_app_bar.dart';
@@ -15,12 +14,10 @@ class NotificationSettingsScreen extends StatefulWidget {
 
 class _NotificationSettingsScreenState
     extends State<NotificationSettingsScreen> {
-  static const _storageKey = 'jeap_notification_preferences';
-  static const _storage = FlutterSecureStorage();
+  final _api = const ApiClient();
 
   bool _loading = true;
   bool _orderUpdates = true;
-  bool _taskAssignments = true;
   bool _chatMessages = true;
   bool _promotions = true;
   bool _sound = true;
@@ -33,39 +30,44 @@ class _NotificationSettingsScreenState
   }
 
   Future<void> _loadSettings() async {
+    if (!AuthSession.instance.isAuthenticated) {
+      setState(() => _loading = false);
+      return;
+    }
     try {
-      final raw = await _storage.read(key: _storageKey);
-      if (raw != null && raw.isNotEmpty) {
-        final data = jsonDecode(raw);
-        if (data is Map<String, dynamic>) {
-          setState(() {
-            _orderUpdates = data['order_updates'] ?? true;
-            _taskAssignments = data['task_assignments'] ?? true;
-            _chatMessages = data['chat_messages'] ?? true;
-            _promotions = data['promotions'] ?? true;
-            _sound = data['sound'] ?? true;
-            _vibration = data['vibration'] ?? true;
-            _loading = false;
-          });
-          return;
-        }
+      final res = await _api.get('/notification-preferences');
+      final prefs = res is Map ? res['preferences'] as Map? : null;
+      if (prefs != null && mounted) {
+        setState(() {
+          _orderUpdates = prefs['order_updates'] == true;
+          _chatMessages = prefs['chat'] == true;
+          _promotions = prefs['promos'] == true;
+          _loading = false;
+        });
+        return;
       }
     } catch (_) {}
-    setState(() => _loading = false);
+    if (mounted) setState(() => _loading = false);
   }
 
   Future<void> _saveSettings() async {
+    if (!AuthSession.instance.isAuthenticated) return;
     try {
-      final map = {
+      await _api.put('/notification-preferences', {
         'order_updates': _orderUpdates,
-        'task_assignments': _taskAssignments,
-        'chat_messages': _chatMessages,
-        'promotions': _promotions,
-        'sound': _sound,
-        'vibration': _vibration,
-      };
-      await _storage.write(key: _storageKey, value: jsonEncode(map));
-    } catch (_) {}
+        'chat': _chatMessages,
+        'promos': _promotions,
+      });
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Could not save notification preferences. Try again.'),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+      }
+    }
   }
 
   void _onToggle(String key, bool val) {
@@ -73,9 +75,6 @@ class _NotificationSettingsScreenState
       switch (key) {
         case 'order_updates':
           _orderUpdates = val;
-          break;
-        case 'task_assignments':
-          _taskAssignments = val;
           break;
         case 'chat_messages':
           _chatMessages = val;
@@ -118,47 +117,26 @@ class _NotificationSettingsScreenState
                   ),
                   const SizedBox(height: 4),
                   const Text(
-                    'Configure push notifications, sound alerts, and update preferences.',
+                    'These match the same order, chat, and promo settings as the website.',
                     style:
                         TextStyle(fontSize: 13, color: AppTheme.textSecondary),
                   ),
                   const SizedBox(height: 16),
-                  if (isRider) ...[
-                    _sectionHeader('Rider & Delivery Alerts'),
-                    _buildCard([
-                      _buildSwitchTile(
-                        icon: Icons.two_wheeler_outlined,
-                        title: 'New Delivery Assignments',
-                        subtitle:
-                            'Get instant alerts when a pickup or delivery task is assigned to you.',
-                        value: _taskAssignments,
-                        onChanged: (v) => _onToggle('task_assignments', v),
-                      ),
-                      const Divider(height: 1),
-                      _buildSwitchTile(
-                        icon: Icons.local_shipping_outlined,
-                        title: 'Assignment Status Changes',
-                        subtitle:
-                            'Receive status updates on package pickups, handoffs, and verification.',
-                        value: _orderUpdates,
-                        onChanged: (v) => _onToggle('order_updates', v),
-                      ),
-                    ]),
-                    const SizedBox(height: 16),
-                  ] else ...[
-                    _sectionHeader('Order & Tracking Updates'),
-                    _buildCard([
-                      _buildSwitchTile(
-                        icon: Icons.local_shipping_outlined,
-                        title: 'Order Tracking & Delivery',
-                        subtitle:
-                            'Receive real-time notifications when your order is packed, dispatched, and out for delivery.',
-                        value: _orderUpdates,
-                        onChanged: (v) => _onToggle('order_updates', v),
-                      ),
-                    ]),
-                    const SizedBox(height: 16),
-                  ],
+                  _sectionHeader(isRider ? 'Assignments & orders' : 'Order & Tracking Updates'),
+                  _buildCard([
+                    _buildSwitchTile(
+                      icon: Icons.local_shipping_outlined,
+                      title: isRider
+                          ? 'Assignment and order updates'
+                          : 'Order Tracking & Delivery',
+                      subtitle: isRider
+                          ? 'Get updates when a pickup or delivery is assigned to you.'
+                          : 'Get updates when your order is packed, out for delivery, and delivered.',
+                      value: _orderUpdates,
+                      onChanged: (v) => _onToggle('order_updates', v),
+                    ),
+                  ]),
+                  const SizedBox(height: 16),
                   _sectionHeader('Messages & Communication'),
                   _buildCard([
                     _buildSwitchTile(

@@ -28,7 +28,7 @@ class DeliveryTask {
     required this.contactPhone,
     required this.deliveryAddress,
     required this.codAmount,
-    this.payout = 50.0,
+    this.payout = 0,
     this.attemptNumber = 1,
     this.latitude,
     this.longitude,
@@ -65,10 +65,9 @@ class DeliveryTask {
         .toLowerCase();
     final isPickup = kind == 'pickup' || kind == 'collection';
 
-    final defaultPayout = isPickup ? 30.0 : 50.0;
     final parsedPayout = double.tryParse(
-            (json['payout'] ?? delivery['payout'] ?? defaultPayout).toString()) ??
-        defaultPayout;
+            (json['payout'] ?? delivery['payout'] ?? 0).toString()) ??
+        0;
 
     return DeliveryTask(
       id: (json['id'] ?? delivery['id'] ?? '').toString(),

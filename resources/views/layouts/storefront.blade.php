@@ -51,7 +51,7 @@
                     </ul>
                     <input type="hidden" name="category" value="{{ $activeCatSlug }}" data-cat-input>
                 </div>
-                <input type="search" name="q" placeholder="Search products" value="{{ request('q') }}">
+                <input type="search" name="q" placeholder="Search products and shops" value="{{ request('q') }}" aria-label="Search products and shops">
                 <button type="submit" aria-label="Search">
                     <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="11" cy="11" r="6.25" stroke="currentColor" stroke-width="1.8"/><path d="M16 16.5 20 20.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
                 </button>
@@ -83,7 +83,7 @@
                     @unless (auth()->user()?->hasRole('seller'))
                         <a class="nav-chip nav-chip--accent {{ request()->routeIs('register.seller') ? 'is-active' : '' }}" href="{{ route('register.seller') }}">Sell on JEAP</a>
                     @endunless
-                    <a class="nav-chip {{ request()->routeIs('shipping.home') ? 'is-active' : '' }}" href="{{ route('shipping.home') }}" @if(request()->routeIs('shipping.home')) aria-current="page" @endif>Shipping</a>
+                    <a class="nav-chip {{ request()->routeIs('shipping.home', 'shipping.track') ? 'is-active' : '' }}" href="{{ route('shipping.track') }}" @if(request()->routeIs('shipping.track')) aria-current="page" @endif>Shipping</a>
                     <a class="nav-chip {{ request()->routeIs('shipping.track') ? 'is-active' : '' }}" href="{{ route('shipping.track') }}" @if(request()->routeIs('shipping.track')) aria-current="page" @endif>Track order</a>
                 </div>
             </div>
@@ -104,12 +104,6 @@
 
     <footer class="site-footer">
         <div class="storefront-pad">
-            <div class="footer-perks">
-                <div>Cash on Delivery</div>
-                <div>₱{{ number_format(\App\Commerce\InventoryPolicy::shippingFee(), 0) }} flat shipping</div>
-                <div>Listed only at {{ \App\Commerce\InventoryPolicy::minSellableStock() }}+ stock</div>
-                <div><a href="{{ route('shipping.track') }}">Track your order</a></div>
-            </div>
             <div class="footer-grid">
                 <div>
                     <strong>JEAP — Philippine marketplace</strong>

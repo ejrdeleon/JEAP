@@ -173,8 +173,9 @@ class _JeapStartupGateState extends State<JeapStartupGate> {
                   ),
                   const SizedBox(height: 12),
                   OutlinedButton.icon(
-                    onPressed: () {
-                      AuthSession.instance.setGuest(true);
+                    onPressed: () async {
+                      await AuthService().continueAsGuest();
+                      if (!context.mounted) return;
                       Navigator.pushReplacement(
                         context,
                         MaterialPageRoute(
@@ -215,6 +216,20 @@ class _JeapStartupGateState extends State<JeapStartupGate> {
 
     final role = user['role']?.toString().toLowerCase();
     final roles = user['roles'] as List?;
+    final isOffice = role == 'admin' ||
+        role == 'super-admin' ||
+        role == 'super_admin' ||
+        (roles != null &&
+            roles.any((item) {
+              final value = item.toString().toLowerCase();
+              return value == 'admin' ||
+                  value == 'super-admin' ||
+                  value == 'super_admin';
+            }));
+    if (isOffice) {
+      AuthService().logout();
+      return const LoginScreen();
+    }
     final isRider = role == 'rider' ||
         role == 'courier' ||
         (roles != null &&

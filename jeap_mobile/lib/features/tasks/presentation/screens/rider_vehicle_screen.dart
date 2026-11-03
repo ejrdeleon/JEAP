@@ -34,10 +34,10 @@ class _RiderVehicleScreenState extends State<RiderVehicleScreen> {
   @override
   void initState() {
     super.initState();
-    _typeCtrl = TextEditingController(text: 'Motorcycle');
-    _plateCtrl = TextEditingController(text: 'ND-4110');
-    _licenseCtrl = TextEditingController(text: 'N01-23-456789');
-    _modelCtrl = TextEditingController(text: 'Yamaha NMAX 155');
+    _typeCtrl = TextEditingController();
+    _plateCtrl = TextEditingController();
+    _licenseCtrl = TextEditingController();
+    _modelCtrl = TextEditingController();
     _loadVehicle();
   }
 
@@ -56,11 +56,10 @@ class _RiderVehicleScreenState extends State<RiderVehicleScreen> {
       final res = await _api.get('/rider/vehicle');
       if (res is Map<String, dynamic>) {
         setState(() {
-          _typeCtrl.text = res['vehicle_type']?.toString() ?? 'Motorcycle';
-          _plateCtrl.text = res['plate_number']?.toString() ?? 'ND-4110';
-          _licenseCtrl.text =
-              res['license_number']?.toString() ?? 'N01-23-456789';
-          _modelCtrl.text = res['model_name']?.toString() ?? 'Yamaha NMAX 155';
+          _typeCtrl.text = res['vehicle_type']?.toString() ?? '';
+          _plateCtrl.text = res['plate_number']?.toString() ?? '';
+          _licenseCtrl.text = res['license_number']?.toString() ?? '';
+          _modelCtrl.text = res['model_name']?.toString() ?? '';
           _isOnline = res['is_online'] == true;
           _isLoading = false;
         });

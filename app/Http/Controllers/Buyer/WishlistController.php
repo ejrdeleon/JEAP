@@ -19,7 +19,11 @@ class WishlistController extends Controller
                 ->with(['images', 'variants' => fn ($query) => $query->where('is_active', true)])
                 ->latest('buyer_wishlists.created_at')
                 ->paginate(12),
-            'followedSellers' => $request->user()->followedSellers()->orderBy('users.first_name')->get(),
+            'followedSellers' => $request->user()->followedSellers()
+                ->with('sellerProfile')
+                ->withCount(['products as active_products_count' => fn ($query) => $query->where('status', 'active')])
+                ->orderBy('users.first_name')
+                ->get(),
         ]);
     }
 

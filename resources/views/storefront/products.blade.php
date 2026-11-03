@@ -67,10 +67,34 @@
                 <form method="get" class="catalog-search-form">
                     @if(request('category'))<input type="hidden" name="category" value="{{ request('category') }}">@endif
                     @foreach(['min_price', 'max_price', 'sort', 'in_stock'] as $filter)<input type="hidden" name="{{ $filter }}" value="{{ request($filter) }}">@endforeach
-                    <input name="q" value="{{ request('q') }}" placeholder="Search products">
+                    <input name="q" value="{{ request('q') }}" placeholder="Search products and shops">
                     <button type="submit">Search</button>
                 </form>
             </div>
+            @if(request('q') && ($shops ?? collect())->isNotEmpty())
+                <section class="catalog-shops">
+                    <h3>Shops</h3>
+                    <div class="catalog-shop-grid">
+                        @foreach($shops as $shop)
+                            @php
+                                $shopName = $shop->sellerProfile?->business_name ?: $shop->name;
+                                $logo = $shop->sellerProfile?->logo_path;
+                            @endphp
+                            <a class="catalog-shop" href="{{ route('stores.show', $shop) }}">
+                                @if($logo)
+                                    <img class="catalog-shop-logo" src="{{ asset($logo) }}" alt="">
+                                @else
+                                    <span class="catalog-shop-logo is-fallback" aria-hidden="true">{{ strtoupper(substr($shopName, 0, 1)) }}</span>
+                                @endif
+                                <span class="catalog-shop-copy">
+                                    <strong>{{ $shopName }}</strong>
+                                    <small>{{ $shop->listed_products_count }} {{ Str::plural('product', $shop->listed_products_count) }}{{ $shop->sellerProfile?->vacation_mode ? ' · On vacation' : '' }}</small>
+                                </span>
+                            </a>
+                        @endforeach
+                    </div>
+                </section>
+            @endif
             <div class="s3-grid4">
                 @forelse($products as $product)
                     @php $variant = $product->defaultVariant(); $img = $product->primaryImage(); @endphp
@@ -81,6 +105,7 @@
                             <img src="{{ asset('images/storefront/login.svg') }}" alt="">
                         @endif
                         <h6>{{ $product->name }}</h6>
+                        @include('partials.product-rating', ['product' => $product])
                         <div class="price">₱{{ number_format($variant?->price ?? 0, 2) }}
                             @if($variant?->compare_at_price)<span class="compare">₱{{ number_format($variant->compare_at_price, 2) }}</span>@endif
                         </div>

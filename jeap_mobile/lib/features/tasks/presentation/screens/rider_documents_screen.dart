@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:jeap_mobile/core/network/api_client.dart';
 import 'package:jeap_mobile/core/theme/app_theme.dart';
 
@@ -40,53 +41,12 @@ class _RiderDocumentsScreenState extends State<RiderDocumentsScreen> {
 
     if (mounted) {
       setState(() {
-        _documents = [
-          {
-            'type': 'drivers_license',
-            'title': "Professional Driver's License",
-            'status': 'approved',
-            'file_name': 'license_carlos_mendoza.jpg',
-            'submitted_at': '2026-10-15T09:30:00Z',
-            'reviewed_at': '2026-10-15T14:20:00Z',
-            'rejection_reason': null,
-            'requires_action': false,
-          },
-          {
-            'type': 'or_cr',
-            'title': 'Vehicle Registration (OR/CR)',
-            'status': 'approved',
-            'file_name': 'or_cr_yamaha_nmax.pdf',
-            'submitted_at': '2026-10-15T09:32:00Z',
-            'reviewed_at': '2026-10-15T14:22:00Z',
-            'rejection_reason': null,
-            'requires_action': false,
-          },
-          {
-            'type': 'clearance',
-            'title': 'NBI / Police Clearance',
-            'status': 'pending_review',
-            'file_name': 'nbi_clearance_2026.pdf',
-            'submitted_at': '2026-10-30T16:00:00Z',
-            'reviewed_at': null,
-            'rejection_reason': null,
-            'requires_action': false,
-          },
-          {
-            'type': 'drug_test',
-            'title': 'Drug Test Certificate',
-            'status': 'not_submitted',
-            'file_name': null,
-            'submitted_at': null,
-            'reviewed_at': null,
-            'rejection_reason': null,
-            'requires_action': true,
-          },
-        ];
+        _documents = [];
         _summary = {
-          'total': 4,
-          'approved': 2,
-          'pending': 1,
-          'action_needed': 1,
+          'total': 0,
+          'approved': 0,
+          'pending': 0,
+          'action_needed': 0,
         };
         _isLoading = false;
       });
@@ -94,33 +54,33 @@ class _RiderDocumentsScreenState extends State<RiderDocumentsScreen> {
   }
 
   Future<void> _handleUpload(String type, String title) async {
+    final picked = await ImagePicker().pickImage(source: ImageSource.gallery);
+    if (picked == null) return;
+
     setState(() => _uploadingType = type);
-    // Simulate upload selection or hit backend
-    await Future.delayed(const Duration(milliseconds: 600));
-
     try {
-      await _api.post('/rider/documents', {
-        'type': type,
-      });
-    } catch (_) {}
-
-    if (!mounted) return;
-    setState(() {
-      final idx = _documents.indexWhere((d) => d['type'] == type);
-      if (idx != -1) {
-        _documents[idx]['status'] = 'pending_review';
-        _documents[idx]['file_name'] = '${type}_upload.jpg';
-        _documents[idx]['requires_action'] = false;
-      }
-      _uploadingType = null;
-    });
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('$title uploaded successfully and queued for review.'),
-        backgroundColor: Colors.green.shade700,
-      ),
-    );
+      await _api.postImage(
+        '/rider/documents',
+        picked.path,
+        fieldName: 'document',
+        fields: {'type': type},
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('$title uploaded and queued for review.'),
+          backgroundColor: Colors.green.shade700,
+        ),
+      );
+      await _loadDocuments();
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not upload that document.')),
+      );
+    } finally {
+      if (mounted) setState(() => _uploadingType = null);
+    }
   }
 
   @override
@@ -179,10 +139,10 @@ class _RiderDocumentsScreenState extends State<RiderDocumentsScreen> {
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             _buildStatChip(
-                                '${_summary['approved'] ?? 2}', 'Approved', Colors.greenAccent),
+                                '${_summary['approved'] ?? 0}', 'Approved', Colors.greenAccent),
                             _buildStatChip(
-                                '${_summary['pending'] ?? 1}', 'Pending', Colors.amberAccent),
-                            _buildStatChip('${_summary['action_needed'] ?? 1}',
+                                '${_summary['pending'] ?? 0}', 'Pending', Colors.amberAccent),
+                            _buildStatChip('${_summary['action_needed'] ?? 0}',
                                 'Action Needed', Colors.redAccent),
                           ],
                         ),

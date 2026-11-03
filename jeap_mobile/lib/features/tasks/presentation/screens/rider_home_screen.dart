@@ -9,7 +9,7 @@ import 'package:jeap_mobile/core/theme/app_theme.dart';
 import 'package:jeap_mobile/core/widgets/jeap_avatar.dart';
 import 'package:jeap_mobile/core/storage/auth_session.dart';
 import 'package:jeap_mobile/core/widgets/jeap_logo.dart';
-import 'package:jeap_mobile/features/chat/presentation/screens/rider_chat_screen.dart';
+import 'package:jeap_mobile/features/messaging/presentation/screens/buyer_conversations_screen.dart';
 import 'package:jeap_mobile/features/account/presentation/screens/change_password_screen.dart';
 import 'package:jeap_mobile/features/account/presentation/screens/edit_profile_screen.dart';
 import 'package:jeap_mobile/features/account/presentation/screens/help_support_screen.dart';
@@ -338,7 +338,6 @@ class _RiderDashboardState extends State<_RiderDashboard> {
             final completedDeliveries = tasks
                 .where((t) => !t.isPickup && t.status == TaskStatus.delivered)
                 .length;
-            final totalEarnings = (completedPickups * 30.0) + (completedDeliveries * 50.0);
             final codHeld = tasks
                 .where((t) => !t.isPickup && t.status == TaskStatus.delivered && t.codAmount > 0)
                 .fold(0.0, (sum, t) => sum + t.codAmount);
@@ -403,23 +402,17 @@ class _RiderDashboardState extends State<_RiderDashboard> {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  const Text('Estimated Shift Payout',
+                                  const Text('Completed today',
                                       style: TextStyle(
                                           color: AppTheme.textSecondary,
                                           fontSize: 12)),
                                   const SizedBox(height: 5),
-                                  Text('₱${totalEarnings.toStringAsFixed(2)}',
-                                      style: const TextStyle(
-                                          color: AppTheme.priceRed,
-                                          fontWeight: FontWeight.w700,
-                                          fontSize: 22)),
-                                  const SizedBox(height: 3),
                                   Text(
-                                    '$completedPickups pickups (₱30) • $completedDeliveries deliveries (₱50)',
+                                    '$completedPickups pickups • $completedDeliveries deliveries',
                                     style: const TextStyle(
-                                        color: AppTheme.textSecondary,
-                                        fontSize: 11),
-                                  ),
+                                        color: AppTheme.priceRed,
+                                        fontWeight: FontWeight.w700,
+                                        fontSize: 18)),
                                 ],
                               ),
                             ),
@@ -524,21 +517,6 @@ class _RiderDashboardState extends State<_RiderDashboard> {
                     const SizedBox(width: 9),
                     Expanded(
                       child: _QuickAction(
-                        icon: Icons.alt_route,
-                        label: 'Linehaul',
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => const _LinehaulTripScreen(),
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                    const SizedBox(width: 9),
-                    Expanded(
-                      child: _QuickAction(
                         icon: Icons.history,
                         label: 'History',
                         onTap: () =>
@@ -554,10 +532,7 @@ class _RiderDashboardState extends State<_RiderDashboard> {
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (_) => const RiderChatScreen(
-                                buyerName: 'Support Desk',
-                                trackingNumber: 'General Inquiries',
-                              ),
+                              builder: (_) => const BuyerConversationsScreen(),
                             ),
                           );
                         },
@@ -997,10 +972,7 @@ class _RiderChatInbox extends StatelessWidget {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (_) => const RiderChatScreen(
-                          buyerName: 'Support Desk',
-                          trackingNumber: 'General Inquiries',
-                        ),
+                        builder: (_) => const BuyerConversationsScreen(),
                       ),
                     );
                   },
@@ -1348,20 +1320,11 @@ class _RiderMore extends StatelessWidget {
             ),
             _ProfileItem(
               icon: Icons.payments_outlined,
-              title: 'Earnings & Remittance',
-              subtitle: 'View payout rates & COD policies',
+              title: 'COD remittance',
+              subtitle: 'Turn in collected Cash on Delivery',
               onTap: () => Navigator.push<void>(
                 context,
                 MaterialPageRoute(builder: (_) => const _ProfitScreen()),
-              ),
-            ),
-            _ProfileItem(
-              icon: Icons.alt_route,
-              title: 'Linehaul Hub Trips',
-              subtitle: 'Hub-to-hub linehaul transfer manifests',
-              onTap: () => Navigator.push<void>(
-                context,
-                MaterialPageRoute(builder: (_) => const _LinehaulTripScreen()),
               ),
             ),
             _ProfileItem(
@@ -1392,32 +1355,10 @@ class _ProfitScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
-      appBar: AppBar(title: const Text('Earnings & Remittance')),
+      appBar: AppBar(title: const Text('COD remittance')),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(AppTheme.buyerRadius),
-              border: Border.all(color: AppTheme.borderColor),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text('Payout Structure by Role',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                const SizedBox(height: 12),
-                _rateRow('Pickup Task (Rider)', '₱30.00 / parcel'),
-                _rateRow('Delivery Task (Rider)', '₱50.00 / parcel'),
-                _rateRow('Linehaul Van Trip (Courier)', '₱600.00 / trip'),
-                _rateRow('Linehaul 4-Wheeler (Courier)', '₱1,000.00 / trip'),
-                _rateRow('Linehaul 6-Wheeler (Courier)', '₱1,500.00 / trip'),
-              ],
-            ),
-          ),
-          const SizedBox(height: 16),
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
@@ -1440,19 +1381,6 @@ class _ProfitScreen extends StatelessWidget {
               ],
             ),
           ),
-        ],
-      ),
-    );
-  }
-
-  static Widget _rateRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(label, style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
-          Text(value, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
         ],
       ),
     );
@@ -1496,6 +1424,7 @@ class _AssignmentCard extends StatelessWidget {
                       ),
                     ),
                   ),
+                  if (task.payout > 0)
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                     decoration: BoxDecoration(
@@ -1503,7 +1432,7 @@ class _AssignmentCard extends StatelessWidget {
                       borderRadius: BorderRadius.circular(4),
                     ),
                     child: Text(
-                      'Payout: ₱${task.payout.toStringAsFixed(2)}',
+                      'COD: ₱${task.codAmount.toStringAsFixed(2)}',
                       style: const TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.bold,
@@ -1615,249 +1544,6 @@ class _AssignmentCard extends StatelessWidget {
           ),
         ),
       );
-}
-
-class _LinehaulTripScreen extends StatefulWidget {
-  const _LinehaulTripScreen();
-
-  @override
-  State<_LinehaulTripScreen> createState() => _LinehaulTripScreenState();
-}
-
-class _LinehaulTripScreenState extends State<_LinehaulTripScreen> {
-  final _sealCtrl = TextEditingController(text: 'BH-1049281');
-  String _status = 'At Origin Hub';
-  String? _sealError;
-
-  bool _validateSeal(String seal) {
-    final reg = RegExp(r'^BH-\d{7}$');
-    return reg.hasMatch(seal.trim());
-  }
-
-  void _depart() {
-    final seal = _sealCtrl.text.trim();
-    if (!_validateSeal(seal)) {
-      setState(() => _sealError = 'Seal must match format: BH- followed by 7 digits (e.g. BH-1234567)');
-      return;
-    }
-    setState(() {
-      _sealError = null;
-      _status = 'In Transit';
-    });
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Trip departed! Container sealed with verified seal.'),
-        backgroundColor: AppTheme.statusGreen,
-      ),
-    );
-  }
-
-  void _reportDelay() {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Report Linehaul Delay'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              title: const Text('Heavy Traffic Congestion'),
-              onTap: () {
-                Navigator.pop(ctx);
-                _notifyDelay('Heavy Traffic Congestion');
-              },
-            ),
-            ListTile(
-              title: const Text('Vehicle Mechanical Issue'),
-              onTap: () {
-                Navigator.pop(ctx);
-                _notifyDelay('Vehicle Mechanical Issue');
-              },
-            ),
-            ListTile(
-              title: const Text('Severe Weather / Road Closure'),
-              onTap: () {
-                Navigator.pop(ctx);
-                _notifyDelay('Severe Weather / Road Closure');
-              },
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _notifyDelay(String reason) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Delay reported to Logistics Dispatch: $reason'),
-        backgroundColor: Colors.orange.shade800,
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppTheme.backgroundColor,
-      appBar: AppBar(title: const Text('Linehaul Hub Trip')),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(AppTheme.buyerRadius),
-              border: Border.all(color: AppTheme.borderColor),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text('TRIP-MNL-042',
-                        style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16,
-                            color: AppTheme.jeapPurple)),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: _status == 'In Transit'
-                            ? Colors.blue.withValues(alpha: 0.12)
-                            : AppTheme.statusGreen.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: Text(
-                        _status,
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          color: _status == 'In Transit'
-                              ? Colors.blue.shade700
-                              : AppTheme.statusGreen,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                const Row(
-                  children: [
-                    Icon(Icons.trip_origin, size: 16, color: AppTheme.jeapPurple),
-                    SizedBox(width: 8),
-                    Text('Manila Central Sorting Hub (MNL)',
-                        style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
-                  ],
-                ),
-                Container(
-                  margin: const EdgeInsets.only(left: 7),
-                  height: 16,
-                  width: 2,
-                  color: AppTheme.borderColor,
-                ),
-                const Row(
-                  children: [
-                    Icon(Icons.location_on, size: 16, color: Colors.redAccent),
-                    SizedBox(width: 8),
-                    Text('Quezon City Distribution Hub (QC)',
-                        style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
-                  ],
-                ),
-                const Divider(height: 24),
-                const Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text('Assigned Vehicle',
-                        style: TextStyle(color: AppTheme.textSecondary, fontSize: 13)),
-                    Text('6-Wheeler Linehaul Truck (₱1,500/trip)',
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                  ],
-                ),
-                const SizedBox(height: 6),
-                const Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text('Manifest Loading',
-                        style: TextStyle(color: AppTheme.textSecondary, fontSize: 13)),
-                    Text('5 / 5 Containers Loaded (100%)',
-                        style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: AppTheme.statusGreen,
-                            fontSize: 13)),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                const Text('Container Security Seal:',
-                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
-                const SizedBox(height: 6),
-                TextField(
-                  controller: _sealCtrl,
-                  decoration: InputDecoration(
-                    hintText: 'e.g. BH-1049281',
-                    errorText: _sealError,
-                    border: const OutlineInputBorder(),
-                    contentPadding:
-                        const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                  ),
-                  onChanged: (val) {
-                    if (_sealError != null) {
-                      setState(() {
-                        _sealError = _validateSeal(val) ? null : _sealError;
-                      });
-                    }
-                  },
-                ),
-                const SizedBox(height: 18),
-                if (_status == 'At Origin Hub')
-                  FilledButton.icon(
-                    onPressed: _depart,
-                    icon: const Icon(Icons.local_shipping),
-                    label: const Text('DEPART FROM ORIGIN HUB'),
-                    style: FilledButton.styleFrom(
-                      minimumSize: const Size(double.infinity, 48),
-                    ),
-                  )
-                else
-                  FilledButton.icon(
-                    onPressed: () {
-                      setState(() => _status = 'Completed');
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Trip marked arrived and completed!'),
-                          backgroundColor: AppTheme.statusGreen,
-                        ),
-                      );
-                    },
-                    icon: const Icon(Icons.check_circle),
-                    label: const Text('CONFIRM ARRIVAL AT DESTINATION HUB'),
-                    style: FilledButton.styleFrom(
-                      backgroundColor: AppTheme.statusGreen,
-                      minimumSize: const Size(double.infinity, 48),
-                    ),
-                  ),
-                const SizedBox(height: 8),
-                OutlinedButton.icon(
-                  onPressed: _reportDelay,
-                  icon: const Icon(Icons.warning_amber_rounded,
-                      color: Colors.orange),
-                  label: const Text('REPORT TRIP DELAY / INCIDENT',
-                      style: TextStyle(color: Colors.orange)),
-                  style: OutlinedButton.styleFrom(
-                    side: const BorderSide(color: Colors.orange),
-                    minimumSize: const Size(double.infinity, 44),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 }
 
 class _ProgressCard extends StatelessWidget {

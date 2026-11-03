@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:jeap_mobile/core/theme/app_theme.dart';
 import 'package:jeap_mobile/core/utils/category_icons.dart';
 import 'package:jeap_mobile/core/widgets/product_card.dart';
-import 'package:jeap_mobile/core/data/mock_data.dart';
+import 'package:jeap_mobile/core/models/category.dart';
 import 'package:jeap_mobile/core/models/product.dart';
 import 'package:jeap_mobile/features/catalog/services/catalog_service.dart';
 import 'package:jeap_mobile/features/catalog/presentation/screens/search_screen.dart';
@@ -30,7 +30,9 @@ class HomeTabScreen extends StatefulWidget {
 class _HomeTabScreenState extends State<HomeTabScreen> {
   final CatalogService _catalogService = CatalogService();
   List<Product> _products = [];
+  List<ProductCategory> _categories = [];
   bool _loading = true;
+  String? _error;
 
   @override
   void initState() {
@@ -44,24 +46,50 @@ class _HomeTabScreenState extends State<HomeTabScreen> {
   }
 
   Future<void> _loadProducts() async {
-    if (widget.initialProducts != null && _products.isNotEmpty) return;
-    setState(() => _loading = true);
+    if (widget.initialProducts != null) return;
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
     try {
-      final items = await _catalogService.fetchProducts();
-      if (mounted) {
-        setState(() {
-          _products = items.isNotEmpty ? items : MockData.products;
-          _loading = false;
-        });
+      final home = await _catalogService.fetchHome();
+      var products = _parseProducts(home['new_arrivals'] ?? home['featured']);
+      var categories = _parseCategories(home['categories']);
+      if (products.isEmpty) {
+        products = await _catalogService.fetchProducts();
       }
+      if (categories.isEmpty) {
+        categories = await _catalogService.fetchCategories();
+      }
+      if (!mounted) return;
+      setState(() {
+        _products = products;
+        _categories = categories;
+        _loading = false;
+      });
     } catch (_) {
-      if (mounted) {
-        setState(() {
-          _products = MockData.products;
-          _loading = false;
-        });
-      }
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _error = 'Could not load the catalog. Check your connection and try again.';
+      });
     }
+  }
+
+  List<Product> _parseProducts(dynamic raw) {
+    final list = raw is List ? raw : const [];
+    return list
+        .whereType<Map>()
+        .map((e) => Product.fromJson(Map<String, dynamic>.from(e)))
+        .toList();
+  }
+
+  List<ProductCategory> _parseCategories(dynamic raw) {
+    final list = raw is List ? raw : const [];
+    return list
+        .whereType<Map>()
+        .map((e) => ProductCategory.fromJson(Map<String, dynamic>.from(e)))
+        .toList();
   }
 
   @override
@@ -79,18 +107,20 @@ class _HomeTabScreenState extends State<HomeTabScreen> {
               SliverToBoxAdapter(child: _buildSearchBar(context)),
               SliverToBoxAdapter(child: _buildBanner()),
               SliverToBoxAdapter(child: _buildQuickServicesRow(context)),
-              SliverToBoxAdapter(
-                child: _buildSectionTitle(
-                  'Categories',
-                  onSeeAll: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => const CategoriesScreen(),
+              if (_categories.isNotEmpty) ...[
+                SliverToBoxAdapter(
+                  child: _buildSectionTitle(
+                    'Categories',
+                    onSeeAll: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const CategoriesScreen(),
+                      ),
                     ),
                   ),
                 ),
-              ),
-              SliverToBoxAdapter(child: _buildCategoryRow(context)),
+                SliverToBoxAdapter(child: _buildCategoryRow(context)),
+              ],
               SliverToBoxAdapter(child: _buildSectionTitle('Best Sellers & Recommendations')),
               if (_loading)
                 const SliverToBoxAdapter(
@@ -99,6 +129,15 @@ class _HomeTabScreenState extends State<HomeTabScreen> {
                       padding: EdgeInsets.all(32),
                       child: CircularProgressIndicator(color: AppTheme.jeapPurple),
                     ),
+                  ),
+                )
+              else if (_error != null)
+                SliverToBoxAdapter(child: _buildStatus(_error!, onRetry: _loadProducts))
+              else if (_products.isEmpty)
+                SliverToBoxAdapter(
+                  child: _buildStatus(
+                    'No products are listed yet.',
+                    onRetry: _loadProducts,
                   ),
                 )
               else
@@ -389,8 +428,27 @@ class _HomeTabScreenState extends State<HomeTabScreen> {
     );
   }
 
+  Widget _buildStatus(String message, {VoidCallback? onRetry}) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 24, 24, 8),
+      child: Column(
+        children: [
+          Text(
+            message,
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: AppTheme.textSecondary, fontSize: 14),
+          ),
+          if (onRetry != null) ...[
+            const SizedBox(height: 12),
+            TextButton(onPressed: onRetry, child: const Text('Retry')),
+          ],
+        ],
+      ),
+    );
+  }
+
   Widget _buildCategoryRow(BuildContext context) {
-    const cats = MockData.topCategories;
+    final cats = _categories;
     return SizedBox(
       height: 80,
       child: ListView.builder(

@@ -1,14 +1,13 @@
-import 'dart:convert';
 import 'package:flutter/foundation.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:jeap_mobile/core/models/product.dart';
+import 'package:jeap_mobile/core/network/api_client.dart';
+import 'package:jeap_mobile/core/storage/auth_session.dart';
 
 class WishlistManager extends ChangeNotifier {
   WishlistManager._();
   static final WishlistManager instance = WishlistManager._();
 
-  static const _storageKey = 'jeap_wishlist_items_v1';
-  static const _storage = FlutterSecureStorage();
+  final ApiClient _api = const ApiClient();
   final List<Product> _items = [];
   bool _initialized = false;
 
@@ -19,53 +18,53 @@ class WishlistManager extends ChangeNotifier {
 
   Future<void> init() async {
     if (_initialized) return;
-    try {
-      final raw = await _storage.read(key: _storageKey);
-      if (raw != null && raw.isNotEmpty) {
-        final List list = jsonDecode(raw);
-        _items.clear();
-        for (final item in list) {
-          if (item is Map<String, dynamic>) {
-            _items.add(Product.fromJson(item));
-          }
-        }
-      }
-    } catch (_) {}
     _initialized = true;
+    await refresh();
+  }
+
+  Future<void> refresh() async {
+    if (!AuthSession.instance.isAuthenticated) {
+      _items.clear();
+      notifyListeners();
+      return;
+    }
+    try {
+      final res = await _api.get('/wishlist');
+      final list = res is Map ? (res['data'] as List? ?? []) : const [];
+      _items
+        ..clear()
+        ..addAll(list
+            .whereType<Map>()
+            .map((e) => Product.fromJson(Map<String, dynamic>.from(e))));
+    } catch (_) {}
     notifyListeners();
   }
 
   Future<void> toggle(Product product) async {
-    final idx = _items.indexWhere((p) => p.id == product.id);
-    if (idx >= 0) {
-      _items.removeAt(idx);
-    } else {
-      _items.add(product);
+    if (!AuthSession.instance.isAuthenticated) return;
+    final already = isWishlisted(product.id);
+    try {
+      if (already) {
+        await _api.delete('/wishlist/${product.id}');
+        _items.removeWhere((p) => p.id == product.id);
+      } else {
+        await _api.post('/wishlist/${product.id}', {});
+        _items.add(product);
+      }
+      notifyListeners();
+    } catch (_) {
+      await refresh();
     }
-    notifyListeners();
-    await _save();
   }
 
   Future<void> remove(String productId) async {
-    _items.removeWhere((p) => p.id == productId);
-    notifyListeners();
-    await _save();
-  }
-
-  Future<void> _save() async {
+    if (!AuthSession.instance.isAuthenticated) return;
     try {
-      final data = _items.map((p) => {
-        'id': p.id,
-        'name': p.name,
-        'price': p.price,
-        'compare_at_price': p.compareAtPrice,
-        'rating': p.rating,
-        'review_count': p.reviewCount,
-        'image_url': p.imageUrl,
-        'description': p.description,
-        'stock': p.stock,
-      }).toList();
-      await _storage.write(key: _storageKey, value: jsonEncode(data));
-    } catch (_) {}
+      await _api.delete('/wishlist/$productId');
+      _items.removeWhere((p) => p.id == productId);
+      notifyListeners();
+    } catch (_) {
+      await refresh();
+    }
   }
 }

@@ -7,34 +7,8 @@ import 'package:jeap_mobile/core/widgets/jeap_app_bar.dart';
 import 'package:jeap_mobile/core/widgets/primary_button.dart';
 import 'package:jeap_mobile/features/auth/models/registration_data.dart';
 import 'package:jeap_mobile/features/auth/presentation/screens/confirm_details_screen.dart';
-
-// ---------------------------------------------------------------------------
-// PSGC-style dependent address data
-// ---------------------------------------------------------------------------
-const _addressData = {
-  'Metro Manila': {
-    'Quezon City': ['Batasan Hills', 'Commonwealth', 'Diliman', 'Fairview'],
-    'Manila': ['Binondo', 'Ermita', 'Malate', 'Paco', 'Sampaloc'],
-    'Makati': ['Bel-Air', 'Forbes Park', 'Poblacion', 'San Lorenzo'],
-    'Taguig': ['BGC', 'Hagonoy', 'Ligid-Tipas', 'Ususan'],
-  },
-  'Laguna': {
-    'Santa Cruz': ['Barangay 1', 'Barangay 2', 'Barangay 3', 'Barangay 4'],
-    'Los Baños': ['Anos', 'Bagong Silang', 'Bambang', 'Batong Malake'],
-    'Lumban': ['Barangay 1', 'Barangay 2', 'Caliraya', 'Lewin'],
-    'Pagsanjan': ['Anibong', 'Barangay 1', 'Ibaba', 'Ilaya'],
-  },
-  'Cavite': {
-    'Bacoor': ['Bayanan', 'Habay', 'Ligas', 'Molino'],
-    'Dasmariñas': ['Burol', 'Paliparan', 'Salawag', 'Sampaloc'],
-    'Imus': ['Alapan', 'Buhay na Tubig', 'Malagasang', 'Tanzang Luma'],
-  },
-  'Batangas': {
-    'Batangas City': ['Balagtas', 'Cuta', 'Kumintang Ibaba', 'Pallocan'],
-    'Lipa': ['Anilao', 'Balintawak', 'Banaybanay', 'Dagatan'],
-    'Tanauan': ['Ambulong', 'Bagbag', 'Cale', 'Gonzales'],
-  },
-};
+import 'package:jeap_mobile/features/location/models/psgc_models.dart';
+import 'package:jeap_mobile/features/location/presentation/widgets/philippine_address_selector.dart';
 
 class SignUpScreen extends StatefulWidget {
   const SignUpScreen({super.key});
@@ -57,10 +31,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
   final _ageCtrl = TextEditingController();
   String? _gender;
 
-  // Address — dropdown
-  String? _province;
-  String? _city;
-  String? _barangay;
+  SelectedPhilippineAddress? _psgc;
 
   // Address — manual
   final _houseNumberCtrl = TextEditingController();
@@ -82,13 +53,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
 
   static const _genders = ['Male', 'Female', 'Prefer not to say'];
 
-  List<String> get _provinces => _addressData.keys.toList();
-  List<String> get _cities =>
-      _province != null ? _addressData[_province]!.keys.toList() : [];
-  List<String> get _barangays => (_province != null && _city != null)
-      ? _addressData[_province]![_city]!
-      : [];
-
   bool get _hasUnsavedChanges =>
       _firstNameCtrl.text.isNotEmpty ||
       _lastNameCtrl.text.isNotEmpty ||
@@ -96,9 +60,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
       _emailCtrl.text.isNotEmpty ||
       _mobileCtrl.text.isNotEmpty ||
       _dobCtrl.text.isNotEmpty ||
-      _province != null ||
-      _city != null ||
-      _barangay != null ||
+      _psgc != null ||
       _houseNumberCtrl.text.isNotEmpty ||
       _streetCtrl.text.isNotEmpty ||
       _zipCtrl.text.isNotEmpty ||
@@ -254,8 +216,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
       _showError('Please select your gender.');
       return;
     }
-    if (_province == null || _city == null || _barangay == null) {
-      _showError('Please complete your address (Province, City, Barangay).');
+    if (_psgc == null || !_psgc!.isComplete) {
+      _showError('Please complete your Philippine address.');
       return;
     }
     if (_idImage == null) {
@@ -283,9 +245,14 @@ class _SignUpScreenState extends State<SignUpScreen> {
       dateOfBirth: _dobCtrl.text.isNotEmpty ? _dobCtrl.text.trim() : null,
       age: _ageCtrl.text.isNotEmpty ? int.tryParse(_ageCtrl.text) : null,
       gender: _gender!,
-      province: _province!,
-      city: _city!,
-      barangay: _barangay!,
+      regionName: _psgc!.region?.name,
+      regionCode: _psgc!.region?.code,
+      province: _psgc!.province?.name ?? _psgc!.region?.name ?? '',
+      provinceCode: _psgc!.province?.code,
+      city: _psgc!.locality?.name ?? '',
+      cityCode: _psgc!.locality?.code,
+      barangay: _psgc!.barangay?.name ?? '',
+      barangayCode: _psgc!.barangay?.code,
       houseNumber: _houseNumberCtrl.text.trim(),
       street: _streetCtrl.text.trim(),
       subdivision: _subdivisionCtrl.text.trim().isNotEmpty
@@ -341,7 +308,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const SizedBox(height: 4),
-                    const Text('Sign Up',
+                    const Text('Sign up',
                         style: TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w600,
@@ -535,39 +502,14 @@ class _SignUpScreenState extends State<SignUpScreen> {
                     // ── ADDRESS — DROPDOWN ────────────────────────────
                     const _SectionLabel('ADDRESS'),
                     const SizedBox(height: 4),
-                    const Text('Select your location',
+                    const Text('Select your location using official PSGC lists',
                         style:
                             TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
                     const SizedBox(height: 12),
-                    _dropdown('Province *', _province, _provinces, (v) {
-                      setState(() {
-                        _province = v;
-                        _city = null;
-                        _barangay = null;
-                      });
-                    }),
-                    const SizedBox(height: 12),
-                    _dropdown(
-                      'Municipality / City *',
-                      _city,
-                      _cities,
-                      _province == null
-                          ? null
-                          : (v) {
-                              setState(() {
-                                _city = v;
-                                _barangay = null;
-                              });
-                            },
-                    ),
-                    const SizedBox(height: 12),
-                    _dropdown(
-                      'Barangay *',
-                      _barangay,
-                      _barangays,
-                      _city == null
-                          ? null
-                          : (v) => setState(() => _barangay = v),
+                    PhilippineAddressSelector(
+                      onAddressSelected: (selection) {
+                        setState(() => _psgc = selection);
+                      },
                     ),
                     const SizedBox(height: 16),
                     const Text('Manual Address',

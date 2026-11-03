@@ -37,7 +37,7 @@
                             <div class="s3-drop">
                                 <a href="{{ route('about') }}">About</a>
                                 <a href="{{ route('profile') }}">Profile</a>
-                                <a href="{{ route('login') }}">Login</a>
+                                <a href="{{ route('login') }}">Log in</a>
                                 <a href="{{ route('register') }}">Sign up</a>
                                 <a href="{{ route('cart.index') }}">Cart</a>
                                 <a href="{{ route('checkout') }}">Checkout</a>
@@ -89,7 +89,7 @@
                             <option value="{{ $cat->slug }}" @selected(request('category') === $cat->slug)>{{ $cat->name }}</option>
                         @endforeach
                     </select>
-                    <input type="search" name="q" placeholder="Search anything..." value="{{ request('q') }}">
+                    <input type="search" name="q" placeholder="Search products and shops" value="{{ request('q') }}" aria-label="Search products and shops">
                     <button type="submit" aria-label="Search">⌕</button>
                 </form>
             </div>

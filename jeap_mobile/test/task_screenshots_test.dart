@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:jeap_mobile/core/data/mock_data.dart';
+import 'helpers/sample_catalog.dart';
 import 'package:jeap_mobile/core/storage/auth_session.dart';
 import 'package:jeap_mobile/core/theme/app_theme.dart';
 import 'package:jeap_mobile/features/account/models/address.dart';
@@ -51,7 +51,7 @@ void main() {
         debugShowCheckedModeBanner: false,
         theme: AppTheme.lightTheme,
         home: const HomeTabScreen(
-          initialProducts: MockData.products,
+          initialProducts: sampleProducts,
         ),
       ),
     );

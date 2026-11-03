@@ -49,7 +49,17 @@ class WebCompletenessTest extends TestCase
             ->assertDontSee('pay.svg')
             ->assertSee('Cash on Delivery');
 
-        $this->get(route('policies.show', 'terms'))->assertOk()->assertSee('Cash on Delivery');
+        $this->get(route('policies.show', 'terms'))
+            ->assertOk()
+            ->assertSee('Terms of use')
+            ->assertSee('Cash on Delivery')
+            ->assertSee('Privacy policy')
+            ->assertDontSee('later slices');
+        $this->get(route('policies.show', 'privacy'))
+            ->assertOk()
+            ->assertSee('Privacy policy')
+            ->assertSee('We do not sell personal data')
+            ->assertSee('Terms of use');
         $this->get(route('login'))->assertOk()->assertSee('Forgot password?');
         $this->get(route('password.request'))->assertOk()->assertSee('Forgot password');
         $this->get(route('shipping.services'))->assertOk()->assertDontSee('Logistics public cluster')->assertSee('JEAP Dash');

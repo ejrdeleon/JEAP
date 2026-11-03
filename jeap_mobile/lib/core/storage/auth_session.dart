@@ -18,6 +18,13 @@ class AuthSession {
   bool get isGuest => isGuestNotifier.value;
   bool get isAuthenticated => currentUser != null && !isGuest;
 
+  int get userId {
+    final id = currentUser?['id'];
+    if (id is int) return id;
+    if (id is num) return id.toInt();
+    return int.tryParse(id?.toString() ?? '') ?? 0;
+  }
+
   bool get isSeller {
     if (isGuest) return false;
     final user = currentUser;

@@ -2,12 +2,16 @@
 
 namespace App\Http\Controllers\Storefront;
 
+use App\Commerce\CatalogSearch;
+use App\Enums\OrderStatus;
 use App\Http\Controllers\Controller;
 use App\Models\Cart;
 use App\Models\CartItem;
 use App\Models\Category;
+use App\Models\Order;
 use App\Models\Product;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\View\View;
 
 class ProductController extends Controller
@@ -28,12 +32,14 @@ class ProductController extends Controller
                 'images',
                 'variants' => fn ($q) => $q->sellable(),
                 'category',
-            ]);
+            ])
+            ->withAvg('reviews', 'rating')
+            ->withCount('reviews');
 
+        $shops = collect();
         if (! empty($filters['q'])) {
-            $term = addcslashes($filters['q'], '%_\\');
-            $query->where(fn ($q) => $q->where('name', 'like', '%'.$term.'%')
-                ->orWhere('description', 'like', '%'.$term.'%'));
+            CatalogSearch::applyToProducts($query, $filters['q']);
+            $shops = CatalogSearch::shops($filters['q']);
         }
 
         if (! empty($filters['category'])) {
@@ -64,7 +70,7 @@ class ProductController extends Controller
         $products = $query->paginate(12)->withQueryString();
         $categories = Category::query()->where('is_active', true)->parents()->orderBy('sort_order')->with('children')->get();
 
-        return view('storefront.products', compact('products', 'categories'));
+        return view('storefront.products', compact('products', 'categories', 'shops'));
     }
 
     public function show(Request $request, string $slug): View
@@ -79,30 +85,94 @@ class ProductController extends Controller
                 'variants' => fn ($q) => $q->where('is_active', true),
                 'category',
                 'seller.sellerProfile',
+                'reviews' => fn ($q) => $q->latest(),
                 'reviews.buyer',
             ])
+            ->withAvg('reviews', 'rating')
+            ->withCount('reviews')
             ->firstOrFail();
 
-        $related = Product::query()
-            ->listed()
-            ->where('category_id', $product->category_id)
-            ->where('id', '!=', $product->id)
-            ->with(['images', 'variants' => fn ($q) => $q->sellable()])
-            ->take(6)
-            ->get();
+        $related = $this->relatedProducts($product, 8);
+        $fromStore = $product->seller_id
+            ? Product::query()
+                ->listed()
+                ->where('seller_id', $product->seller_id)
+                ->where('id', '!=', $product->id)
+                ->with(['images', 'variants' => fn ($q) => $q->sellable()])
+                ->withAvg('reviews', 'rating')
+                ->withCount('reviews')
+                ->latest()
+                ->take(8)
+                ->get()
+            : collect();
 
         $variant = $product->defaultVariant();
         $cartQuantity = $variant ? $this->cartQuantity($request, $variant->id) : 0;
 
         $isWishlisted = auth()->check() && auth()->user()->wishlistProducts()->whereKey($product->id)->exists();
         $isFollowingSeller = auth()->check() && auth()->user()->followedSellers()->whereKey($product->seller_id)->exists();
+        $reviewOrder = null;
+        $existingReview = null;
+        if (auth()->check()) {
+            $existingReview = $product->reviews->firstWhere('buyer_id', auth()->id());
+            $reviewOrder = Order::query()
+                ->where('buyer_id', auth()->id())
+                ->where('status', OrderStatus::Completed)
+                ->whereHas('items', fn ($items) => $items->where('product_id', $product->id))
+                ->latest('id')
+                ->first();
+            if ($reviewOrder) {
+                $existingReview = $product->reviews->firstWhere('order_id', $reviewOrder->id)
+                    ?? $existingReview;
+            }
+        }
 
-        return view('storefront.product', compact('product', 'related', 'cartQuantity', 'isWishlisted', 'isFollowingSeller'));
+        return view('storefront.product', compact(
+            'product',
+            'related',
+            'fromStore',
+            'cartQuantity',
+            'isWishlisted',
+            'isFollowingSeller',
+            'reviewOrder',
+            'existingReview',
+        ));
     }
 
     public function pay(Request $request, string $slug): View
     {
         return $this->show($request, $slug);
+    }
+
+    private function relatedProducts(Product $product, int $limit): Collection
+    {
+        $related = Product::query()
+            ->listed()
+            ->where('id', '!=', $product->id)
+            ->when($product->category_id, fn ($q) => $q->where('category_id', $product->category_id))
+            ->with(['images', 'variants' => fn ($q) => $q->sellable()])
+            ->withAvg('reviews', 'rating')
+            ->withCount('reviews')
+            ->latest()
+            ->take($limit)
+            ->get();
+
+        if ($related->count() >= $limit) {
+            return $related;
+        }
+
+        $filler = Product::query()
+            ->listed()
+            ->where('id', '!=', $product->id)
+            ->whereNotIn('id', $related->modelKeys())
+            ->with(['images', 'variants' => fn ($q) => $q->sellable()])
+            ->withAvg('reviews', 'rating')
+            ->withCount('reviews')
+            ->latest()
+            ->take($limit - $related->count())
+            ->get();
+
+        return $related->concat($filler)->values();
     }
 
     private function cartQuantity(Request $request, int $variantId): int

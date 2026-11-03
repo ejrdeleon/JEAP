@@ -4,7 +4,7 @@ import 'package:jeap_mobile/features/auth/presentation/screens/login_screen.dart
 import 'package:jeap_mobile/features/auth/presentation/screens/signup_screen.dart';
 
 /// Full-screen or container view shown to guest users on protected screens
-/// (e.g. Cart, Orders, Account) inviting them to Sign In or Register.
+/// (e.g. Cart, Orders, Account) inviting them to Log in or Sign up.
 class GuestPromptView extends StatelessWidget {
   final String title;
   final String message;
@@ -77,7 +77,7 @@ class GuestPromptView extends StatelessWidget {
                     ),
                   ),
                   child: const Text(
-                    'Log In to Your Account',
+                    'Log in to your account',
                     style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
                   ),
                 ),
@@ -101,7 +101,7 @@ class GuestPromptView extends StatelessWidget {
                     ),
                   ),
                   child: const Text(
-                    'Create an Account',
+                    'Sign up',
                     style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
                   ),
                 ),
@@ -176,7 +176,7 @@ Future<void> showGuestActionDialog(
             backgroundColor: AppTheme.jeapPurple,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
           ),
-          child: const Text('Sign In'),
+          child: const Text('Log in'),
         ),
       ],
     ),

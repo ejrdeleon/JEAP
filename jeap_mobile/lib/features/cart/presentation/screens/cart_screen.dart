@@ -1,4 +1,3 @@
-import 'package:jeap_mobile/core/storage/guest_cart_manager.dart';
 import 'package:jeap_mobile/features/auth/presentation/screens/login_screen.dart';
 import 'package:jeap_mobile/features/auth/presentation/screens/signup_screen.dart';
 import 'package:flutter/material.dart';
@@ -44,13 +43,11 @@ class _CartScreenState extends State<CartScreen> {
       _loadCart();
     }
     CartService.revision.addListener(_loadCart);
-    GuestCartManager.instance.addListener(_loadCart);
   }
 
   @override
   void dispose() {
     CartService.revision.removeListener(_loadCart);
-    GuestCartManager.instance.removeListener(_loadCart);
     super.dispose();
   }
 
@@ -62,7 +59,7 @@ class _CartScreenState extends State<CartScreen> {
       if (!mounted) return;
       setState(() {
         _loading = false;
-        _items = List.from(GuestCartManager.instance.items);
+        _items = [];
         _errorMessage = null;
       });
       return;
@@ -115,19 +112,6 @@ class _CartScreenState extends State<CartScreen> {
 
   Future<void> _removeItem(int id) async {
     final removed = _items.firstWhere((i) => i.id == id);
-    if (AuthSession.instance.isGuest) {
-      await GuestCartManager.instance.removeItem(id);
-      if (mounted) {
-        setState(() => _items = List.from(GuestCartManager.instance.items));
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('${removed.productName} removed from cart'),
-            duration: const Duration(seconds: 2),
-          ),
-        );
-      }
-      return;
-    }
     setState(() => _items.removeWhere((i) => i.id == id));
     try {
       await _cartService.removeItem(id);
@@ -146,14 +130,7 @@ class _CartScreenState extends State<CartScreen> {
 
   Future<void> _updateQty(BuyerCartItem item, int delta) async {
     final newQty = item.quantity + delta;
-    if (newQty < 1) return;
-    if (AuthSession.instance.isGuest) {
-      await GuestCartManager.instance.updateQuantity(item.id, newQty);
-      if (mounted) {
-        setState(() => _items = List.from(GuestCartManager.instance.items));
-      }
-      return;
-    }
+    if (newQty < 1 || newQty > 10) return;
     setState(() => item.quantity = newQty);
     try {
       await _cartService.updateItem(item.id, newQty);
@@ -175,16 +152,16 @@ class _CartScreenState extends State<CartScreen> {
 
   @override
   Widget build(BuildContext context) {
-    if (AuthSession.instance.isGuest && _items.isEmpty) {
+    if (AuthSession.instance.isGuest) {
       return Scaffold(
         backgroundColor: AppTheme.backgroundColor,
         drawer: BuyerDrawer(currentTabIndex: 2, onSelectTab: widget.onSelectTab),
         appBar: JeapAppBar(showBack: false, showWishlist: false, onMenuTap: widget.onOpenDrawer),
         body: const SafeArea(
           child: GuestPromptView(
-            title: 'Your Cart is Waiting',
+            title: 'Sign in to use cart',
             message:
-                'Sign in to your JEAP account to view saved cart items, apply voucher codes, and checkout securely.',
+                'Log in or sign up to add items, apply vouchers, and check out with Cash on Delivery.',
             icon: Icons.shopping_cart_outlined,
           ),
         ),
@@ -419,7 +396,7 @@ class _CartScreenState extends State<CartScreen> {
             onPressed: _selectedItems.isEmpty
                 ? null
                 : () {
-                    if (AuthSession.instance.isGuest) {
+                    if (!AuthSession.instance.isAuthenticated) {
                       _showGuestCheckoutGate();
                       return;
                     }
@@ -461,7 +438,7 @@ class _CartScreenState extends State<CartScreen> {
             ),
             const SizedBox(height: 14),
             const Text(
-              'Sign In Required to Checkout',
+              'Log in required to check out',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 18,
@@ -636,7 +613,10 @@ class _CartItemRow extends StatelessWidget {
                                   const TextStyle(fontWeight: FontWeight.bold)),
                         ),
                         _SmallQtyBtn(
-                            icon: Icons.add, onTap: () => onQtyChange(1)),
+                            icon: Icons.add,
+                            onTap: item.quantity < 10
+                                ? () => onQtyChange(1)
+                                : null),
                       ],
                     ),
                   ],

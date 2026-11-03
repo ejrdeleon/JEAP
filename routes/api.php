@@ -17,6 +17,7 @@ use App\Http\Controllers\Api\V1\ReturnRequestController;
 use App\Http\Controllers\Api\V1\RiderAssignmentController;
 use App\Http\Controllers\Api\V1\RiderProfileController;
 use App\Http\Controllers\Api\V1\VoucherController;
+use App\Http\Controllers\Api\V1\WishlistController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->middleware('throttle:api')->group(function () {
@@ -37,7 +38,7 @@ Route::prefix('v1')->middleware('throttle:api')->group(function () {
     Route::get('/locations/search', [LocationController::class, 'search']);
 
     Route::post('/register', [AuthController::class, 'register']);
-    Route::post('/login', [AuthController::class, 'login']);
+    Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:5,1');
     Route::post('/auth/google', [AuthController::class, 'googleSignIn']);
     Route::post('/email/verify', [AuthController::class, 'verifyEmail'])->middleware('throttle:10,1');
     Route::post('/email/resend', [AuthController::class, 'resendEmailVerification'])->middleware('throttle:3,1');
@@ -55,6 +56,8 @@ Route::prefix('v1')->middleware('throttle:api')->group(function () {
         Route::get('/notifications', [NotificationController::class, 'index']);
         Route::post('/notifications/read-all', [NotificationController::class, 'markAllAsRead']);
         Route::post('/notifications/{id}/read', [NotificationController::class, 'markAsRead']);
+        Route::get('/notification-preferences', [NotificationController::class, 'preferences']);
+        Route::put('/notification-preferences', [NotificationController::class, 'updatePreferences']);
 
         // Buyer only
         Route::middleware(['role:buyer', 'approved'])->group(function () {
@@ -72,6 +75,10 @@ Route::prefix('v1')->middleware('throttle:api')->group(function () {
             Route::post('/vouchers/validate', [VoucherController::class, 'validate']);
             Route::get('/returns', [ReturnRequestController::class, 'index']);
             Route::post('/returns', [ReturnRequestController::class, 'store']);
+
+            Route::get('/wishlist', [WishlistController::class, 'index']);
+            Route::post('/wishlist/{product}', [WishlistController::class, 'store']);
+            Route::delete('/wishlist/{product}', [WishlistController::class, 'destroy']);
 
             // Addresses
             Route::get('/addresses', [AddressController::class, 'index']);

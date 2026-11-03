@@ -16,16 +16,20 @@ class _HelpSupportScreenState extends State<HelpSupportScreen> {
   String _searchQuery = '';
 
   static const String _supportEmail = 'support@jeap.store';
-  static const String _supportPhone = '+63 2 8123 4567';
-  static const String _operatingHours = 'Mon - Sun: 8:00 AM - 8:00 PM PHT';
 
   final List<_FaqItem> _allFaqs = const [
     // Orders & Tracking
     _FaqItem(
       category: 'Orders & Tracking',
+      question: 'How do I pay?',
+      answer:
+          'JEAP is Cash on Delivery only. Shipping is a flat ₱50 per seller order. It is not mixed into the product price.',
+    ),
+    _FaqItem(
+      category: 'Orders & Tracking',
       question: 'How do I track my order?',
       answer:
-          'Go to the "My Orders" tab on your bottom navigation bar or drawer. Tap on any order to view its real-time status, timeline, and assigned rider details.',
+          'Open My Orders and tap an order to see its JEAP Dash status. You can also enter the tracking number on the website Track shipment page.',
     ),
     _FaqItem(
       category: 'Orders & Tracking',
@@ -59,7 +63,7 @@ class _HelpSupportScreenState extends State<HelpSupportScreen> {
       category: 'Rider & Courier',
       question: 'How are delivery assignments dispatched?',
       answer:
-          'Assignments are routed in real-time based on your active service area, pickup location, and delivery route availability. Keep your status active in the Rider portal to receive new dispatches.',
+          'The sorting hub assigns pickup and delivery in your service area. Keep your rider account active to receive new tasks.',
     ),
     _FaqItem(
       category: 'Rider & Courier',
@@ -190,21 +194,6 @@ class _HelpSupportScreenState extends State<HelpSupportScreen> {
                         actionIcon: Icons.copy_outlined,
                         onTap: () =>
                             _copyToClipboard(_supportEmail, 'Support email'),
-                      ),
-                      const Divider(height: 16),
-                      _ContactRow(
-                        icon: Icons.phone_outlined,
-                        label: 'Customer Hotline',
-                        value: _supportPhone,
-                        actionIcon: Icons.copy_outlined,
-                        onTap: () =>
-                            _copyToClipboard(_supportPhone, 'Hotline number'),
-                      ),
-                      const Divider(height: 16),
-                      const _ContactRow(
-                        icon: Icons.access_time_outlined,
-                        label: 'Operating Hours',
-                        value: _operatingHours,
                       ),
                       const SizedBox(height: 12),
                       SizedBox(

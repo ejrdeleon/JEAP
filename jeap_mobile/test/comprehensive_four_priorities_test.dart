@@ -518,7 +518,7 @@ void main() {
       await tester.tap(find.text('PROCEED TO CHECKOUT (1)'));
       await tester.pumpAndSettle();
 
-      expect(find.text('Sign In Required to Checkout'), findsOneWidget);
+      expect(find.text('Log in required to check out'), findsOneWidget);
 
       await expectLater(
         find.byType(MaterialApp),

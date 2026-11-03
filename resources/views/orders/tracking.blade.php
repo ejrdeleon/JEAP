@@ -60,7 +60,7 @@
                     <p class="font-mono text-sm tracking-wide text-slate-700" data-tracking-number>{{ $shipment->tracking_number }}</p>
                 </div>
             </div>
-            <button type="button" class="rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-violet-700" data-copy-tracking>Copy</button>
+            <button type="button" class="rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-violet-700" data-copy="{{ $shipment->tracking_number }}">Copy</button>
         </div>
         @if($shipment->estimated_delivery_date)
             <p class="mt-3 text-xs text-slate-500">Estimated delivery {{ $shipment->estimated_delivery_date->format('j M Y') }}</p>
@@ -123,18 +123,4 @@
     </dialog>
 @endif
 
-<script>
-    document.querySelectorAll('[data-copy-tracking]').forEach((button) => {
-        button.addEventListener('click', async () => {
-            const value = document.querySelector('[data-tracking-number]')?.textContent?.trim();
-            if (!value) return;
-            await navigator.clipboard.writeText(value);
-            button.textContent = 'Copied';
-            setTimeout(() => { button.textContent = 'Copy'; }, 1600);
-        });
-    });
-    document.querySelectorAll('[data-open-pod]').forEach((button) => {
-        button.addEventListener('click', () => document.getElementById('pod-modal')?.showModal());
-    });
-</script>
 @endsection

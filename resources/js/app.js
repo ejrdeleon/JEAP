@@ -34,6 +34,340 @@ document.addEventListener('DOMContentLoaded', () => {
         updateButtons();
     });
 
+    const copyToClipboard = async (value) => {
+        try {
+            if (navigator.clipboard?.writeText) {
+                await navigator.clipboard.writeText(value);
+                return true;
+            }
+        } catch {
+            // Fall back to a hidden field when the Clipboard API is blocked.
+        }
+        const field = document.createElement('input');
+        field.type = 'text';
+        field.value = value;
+        field.setAttribute('readonly', '');
+        field.style.cssText = 'position:fixed;top:0;left:0;width:1px;height:1px;opacity:0';
+        document.body.appendChild(field);
+        field.focus();
+        field.select();
+        field.setSelectionRange(0, value.length);
+        const copied = document.execCommand('copy');
+        field.remove();
+        return copied;
+    };
+
+    document.querySelectorAll('[data-copy]').forEach((button) => {
+        button.addEventListener('click', async () => {
+            const value = (button.dataset.copy || document.querySelector('[data-tracking-number]')?.textContent || '').trim();
+            if (!value) {
+                return;
+            }
+            const original = button.textContent;
+            const copied = await copyToClipboard(value);
+            button.textContent = copied ? 'Copied' : 'Copy failed';
+            setTimeout(() => {
+                button.textContent = original;
+            }, 1600);
+        });
+    });
+
+    document.querySelectorAll('[data-open-pod]').forEach((button) => {
+        button.addEventListener('click', () => document.getElementById('pod-modal')?.showModal());
+    });
+
+    document.querySelectorAll('form[data-confirm]').forEach((form) => {
+        form.addEventListener('submit', (event) => {
+            if (!window.confirm(form.dataset.confirm || 'Continue?')) {
+                event.preventDefault();
+            }
+        });
+    });
+
+    const remitForm = document.querySelector('[data-remit-form]');
+    if (remitForm) {
+        const total = remitForm.querySelector('[data-remit-total]');
+        const syncRemitTotal = () => {
+            const selected = [...remitForm.querySelectorAll('input[name="order_ids[]"]:checked')];
+            const amount = selected.reduce((sum, input) => sum + Number(input.dataset.amount || 0), 0);
+            const count = selected.length;
+            if (total) {
+                total.textContent = count
+                    ? `Turning in ₱${amount.toFixed(2)} from ${count} order${count === 1 ? '' : 's'}.`
+                    : 'Select at least one completed delivery.';
+            }
+        };
+        remitForm.addEventListener('change', syncRemitTotal);
+        remitForm.addEventListener('submit', (event) => {
+            if (!remitForm.querySelector('input[name="order_ids[]"]:checked')) {
+                event.preventDefault();
+                syncRemitTotal();
+            }
+        });
+        syncRemitTotal();
+    }
+
+    const voucherForm = document.querySelector('[data-voucher-form]');
+    if (voucherForm) {
+        const type = voucherForm.querySelector('#voucher-type');
+        const hint = voucherForm.querySelector('[data-voucher-value-hint]');
+        const syncVoucherType = () => {
+            if (!hint) {
+                return;
+            }
+            hint.textContent = type?.value === 'fixed'
+                ? 'Fixed ₱ off the merchandise subtotal.'
+                : 'Percent off merchandise, up to 80%.';
+        };
+        type?.addEventListener('change', syncVoucherType);
+        syncVoucherType();
+    }
+
+    const shippingTrack = document.querySelector('[data-shipping-track][data-poll]');
+    if (shippingTrack) {
+        const courier = shippingTrack.dataset.courier || 'JEAP Dash';
+        const fillSteps = (row, steps = []) => {
+            if (!row) {
+                return;
+            }
+            row.replaceChildren();
+            steps.forEach((step) => {
+                const item = document.createElement('div');
+                item.className = `track-step${step.state === 'complete' ? ' is-complete' : ''}${step.state === 'current' ? ' is-current' : ''}`;
+                const mark = document.createElement('span');
+                mark.className = 'track-step-mark';
+                mark.setAttribute('aria-hidden', 'true');
+                mark.textContent = step.mark ?? '';
+                const label = document.createElement('strong');
+                label.textContent = step.label ?? '';
+                item.append(mark, label);
+                row.append(item);
+            });
+        };
+        const fillEvents = (list, events = [], emptyNode) => {
+            if (!list) {
+                return;
+            }
+            list.replaceChildren();
+            const hasEvents = events.length > 0;
+            if (emptyNode) {
+                emptyNode.hidden = hasEvents;
+            }
+            list.hidden = !hasEvents && Boolean(emptyNode);
+            if (!hasEvents && !emptyNode) {
+                const item = document.createElement('li');
+                item.className = 'shipping-empty-event';
+                const dot = document.createElement('span');
+                dot.className = 'shipping-timeline-dot';
+                dot.setAttribute('aria-hidden', 'true');
+                const body = document.createElement('div');
+                const title = document.createElement('strong');
+                title.textContent = 'No shipment events yet';
+                const note = document.createElement('span');
+                note.textContent = `${courier} updates will appear here.`;
+                body.append(title, note);
+                item.append(dot, body);
+                list.append(item);
+                return;
+            }
+            events.forEach((event) => {
+                const item = document.createElement('li');
+                const dot = document.createElement('span');
+                dot.className = 'shipping-timeline-dot';
+                dot.setAttribute('aria-hidden', 'true');
+                const body = document.createElement('div');
+                const title = document.createElement('strong');
+                title.textContent = event.label ?? '';
+                const time = document.createElement('time');
+                time.dateTime = event.iso ?? '';
+                time.textContent = event.at ?? '';
+                body.append(title, time);
+                item.append(dot, body);
+                list.append(item);
+            });
+        };
+        const renderOrder = (order) => {
+            const card = document.createElement('article');
+            card.className = 'shipping-order';
+            card.dataset.orderId = String(order.id);
+            const head = document.createElement('div');
+            head.className = 'shipping-result-head';
+            const copy = document.createElement('div');
+            const kicker = document.createElement('span');
+            kicker.className = 'shipping-eyebrow';
+            kicker.textContent = 'JEAP order number';
+            const heading = document.createElement('h2');
+            heading.textContent = order.order_number ?? '';
+            const meta = document.createElement('p');
+            meta.className = 'shipping-order-meta';
+            meta.textContent = order.tracking_number
+                ? `${order.shop} · ${courier} ${order.tracking_number}`
+                : `${order.shop} · Waiting for ${courier} pickup`;
+            copy.append(kicker, heading, meta);
+            const status = document.createElement('span');
+            status.className = 'shipping-status';
+            status.dataset.orderStatus = '';
+            status.textContent = order.status ?? '';
+            head.append(copy, status);
+            const stepper = document.createElement('section');
+            stepper.className = 'track-stepper';
+            stepper.setAttribute('aria-label', 'Delivery progress');
+            const row = document.createElement('div');
+            row.className = 'track-stepper-row';
+            fillSteps(row, order.steps);
+            stepper.append(row);
+            const events = document.createElement('ol');
+            events.className = 'shipping-timeline';
+            fillEvents(events, order.events);
+            card.append(head, stepper, events);
+            if (order.href) {
+                const link = document.createElement('a');
+                link.className = 'shipping-order-link';
+                link.href = order.href;
+                link.append('Open order ');
+                const arrow = document.createElement('span');
+                arrow.setAttribute('aria-hidden', 'true');
+                arrow.textContent = '→';
+                link.append(arrow);
+                card.append(link);
+            }
+            return card;
+        };
+        const renderLive = (data) => {
+            const list = shippingTrack.querySelector('[data-shipping-orders]');
+            if (list && Array.isArray(data.orders)) {
+                const empty = shippingTrack.querySelector('[data-shipping-empty]');
+                list.querySelectorAll('.shipping-order').forEach((card) => card.remove());
+                if (data.orders.length === 0) {
+                    if (empty) {
+                        empty.hidden = false;
+                    } else {
+                        const note = document.createElement('p');
+                        note.className = 'shipping-live-empty';
+                        note.dataset.shippingEmpty = '';
+                        note.textContent = `No orders in progress. New ${courier} updates will appear here after you check out with Cash on Delivery.`;
+                        list.append(note);
+                    }
+                } else {
+                    if (empty) {
+                        empty.hidden = true;
+                    }
+                    data.orders.forEach((order) => list.append(renderOrder(order)));
+                }
+            }
+            const lookup = shippingTrack.querySelector('[data-shipping-lookup]');
+            if (lookup && data.lookup) {
+                const number = lookup.querySelector('[data-lookup-number]');
+                const status = lookup.querySelector('[data-lookup-status]');
+                if (number) {
+                    number.textContent = data.lookup.tracking_number ?? '';
+                }
+                if (status) {
+                    status.textContent = data.lookup.status ?? '';
+                }
+                fillSteps(lookup.querySelector('[data-lookup-steps]'), data.lookup.steps);
+                fillEvents(
+                    lookup.querySelector('[data-lookup-events]'),
+                    data.lookup.events,
+                    lookup.querySelector('[data-lookup-empty]'),
+                );
+            }
+        };
+        const poll = async () => {
+            if (document.hidden) {
+                return;
+            }
+            try {
+                const response = await fetch(shippingTrack.dataset.poll, { headers: { Accept: 'application/json' } });
+                if (!response.ok) {
+                    return;
+                }
+                renderLive(await response.json());
+            } catch {
+                // Keep the last rendered shipment state if the live request fails.
+            }
+        };
+        if (shippingTrack.querySelector('[data-shipping-live], [data-shipping-lookup]')) {
+            setInterval(poll, 8000);
+        }
+    }
+
+    const sellerRegister = document.querySelector('[data-seller-register]');
+    if (sellerRegister) {
+        const sellerType = sellerRegister.querySelector('#seller-type');
+        const toggle = (selector, visible, requiredSelector = 'input') => {
+            const wrapper = sellerRegister.querySelector(selector);
+            if (!wrapper) {
+                return;
+            }
+            wrapper.hidden = !visible;
+            const field = wrapper.querySelector(requiredSelector);
+            if (field) {
+                field.required = visible;
+            }
+        };
+        const syncSellerType = () => {
+            const type = sellerType?.value || '';
+            toggle('.seller-sec-field', type === 'corporation');
+            toggle('.seller-dti-field', type === 'sole_proprietorship');
+            toggle('.seller-sec-doc-field', type === 'corporation');
+            toggle('.seller-bir-field', ['sole_proprietorship', 'corporation'].includes(type));
+        };
+        sellerType?.addEventListener('change', syncSellerType);
+        syncSellerType();
+
+        const useSame = sellerRegister.querySelector('#use-same-address');
+        const addressFields = sellerRegister.querySelector('#seller-address-fields');
+        const preview = sellerRegister.querySelector('#same-address-preview');
+        const syncAddress = () => {
+            const same = Boolean(useSame?.checked);
+            if (addressFields) {
+                addressFields.hidden = same;
+            }
+            if (preview) {
+                preview.hidden = !same;
+            }
+            addressFields?.querySelectorAll('input, select').forEach((field) => {
+                if (field.type === 'hidden') {
+                    return;
+                }
+                field.required = !same && ['street_line', 'region_name', 'city_name', 'postal_code'].includes(field.name);
+                field.disabled = same;
+            });
+        };
+        useSame?.addEventListener('change', syncAddress);
+        syncAddress();
+    }
+
+    document.querySelectorAll('[data-pdp-gallery]').forEach((gallery) => {
+        const stage = gallery.querySelector('[data-pdp-stage]');
+        gallery.querySelectorAll('[data-pdp-thumb]').forEach((thumb) => {
+            thumb.addEventListener('click', () => {
+                if (stage && thumb.dataset.pdpThumb) {
+                    stage.src = thumb.dataset.pdpThumb;
+                }
+                gallery.querySelectorAll('[data-pdp-thumb]').forEach((item) => {
+                    item.classList.toggle('is-on', item === thumb);
+                });
+            });
+        });
+    });
+
+    document.querySelectorAll('[data-cart-add-form][data-unit-price]').forEach((form) => {
+        const input = form.querySelector('[data-quantity-input]');
+        const total = form.closest('.pdp-buy')?.querySelector('[data-pdp-total]');
+        if (!input || !total) {
+            return;
+        }
+        const unit = Number(form.dataset.unitPrice) || 0;
+        const renderTotal = () => {
+            const quantity = Number(input.value) || 1;
+            total.textContent = `₱${(unit * quantity).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+        };
+        input.addEventListener('change', renderTotal);
+        input.addEventListener('input', renderTotal);
+    });
+
     const showToast = (message) => {
         let toast = document.querySelector('.cart-toast');
         if (!toast) {
@@ -466,10 +800,16 @@ document.addEventListener('DOMContentLoaded', () => {
         let manualTouched = false;
         let loading = false;
 
+        const locationFilterInput = (select) => picker.querySelector(`[data-location-filter="${select?.dataset.locationLevel}"]`);
+
         const setLoading = (isLoading) => {
             loading = isLoading;
             Object.values(levels).forEach((select) => {
                 select.disabled = isLoading || selectors.hidden || select.options.length <= 1;
+                const filterInput = locationFilterInput(select);
+                if (filterInput) {
+                    filterInput.disabled = isLoading || selectors.hidden || (select._jeapLocations ?? []).length === 0;
+                }
             });
         };
 
@@ -491,10 +831,72 @@ document.addEventListener('DOMContentLoaded', () => {
             select.replaceChildren(new Option(label, ''));
             select.value = '';
             select.disabled = true;
+            select._jeapLocations = [];
+            const filterInput = locationFilterInput(select);
+            if (filterInput) {
+                filterInput.value = '';
+                filterInput.disabled = true;
+            }
         };
 
-        const findLocation = (locations, preferred) => locations.find((location) => location.code === preferred.code)
-            ?? locations.find((location) => location.name.localeCompare(preferred.name ?? '', undefined, { sensitivity: 'base' }) === 0);
+        const findLocation = (locations, preferred) => {
+            if (!preferred || (!preferred.code && !preferred.name)) {
+                return undefined;
+            }
+
+            return locations.find((location) => preferred.code && location.code === preferred.code)
+                ?? locations.find((location) => preferred.name && location.name.localeCompare(preferred.name, undefined, { sensitivity: 'base' }) === 0);
+        };
+
+        const locationChoice = (item) => {
+            if (!item) {
+                return { code: '', name: '', parentCode: '' };
+            }
+            if (item instanceof HTMLOptionElement) {
+                return { code: item.value, name: (item.textContent || '').trim(), parentCode: item.dataset.parentCode ?? '' };
+            }
+
+            return {
+                code: String(item.code ?? item.value ?? ''),
+                name: String(item.name ?? item.textContent ?? '').trim(),
+                parentCode: String(item.parent_code ?? item.parentCode ?? ''),
+            };
+        };
+
+        const fillSelect = (select, locations, preferred, label, catalog = locations) => {
+            const current = select.value;
+            select.replaceChildren(new Option(label, ''));
+            locations.forEach((location) => {
+                const option = new Option(location.name, location.code);
+                option.dataset.parentCode = location.parent_code ?? '';
+                select.add(option);
+            });
+            select._jeapLocations = catalog;
+            const selected = findLocation(locations, preferred ?? {})
+                ?? locations.find((location) => location.code === current);
+            if (selected) {
+                select.value = selected.code;
+            }
+            select.disabled = loading || catalog.length === 0;
+            const filterInput = locationFilterInput(select);
+            if (filterInput) {
+                filterInput.disabled = loading || catalog.length === 0;
+            }
+
+            return selected ?? null;
+        };
+
+        const applyLocationFilter = (select) => {
+            const catalog = select._jeapLocations ?? [];
+            const filterInput = locationFilterInput(select);
+            const query = (filterInput?.value ?? '').trim().toLowerCase();
+            const label = select.options[0]?.textContent || 'Select';
+            const preferred = { code: select.value, name: select.selectedOptions[0]?.textContent ?? '' };
+            const filtered = query
+                ? catalog.filter((location) => location.name.toLowerCase().includes(query))
+                : catalog;
+            fillSelect(select, filtered, preferred, label, catalog);
+        };
 
         const loadLocations = async (level, query = {}) => {
             const url = new URL(endpoint.replace('LEVEL', level), window.location.origin);
@@ -513,16 +915,16 @@ document.addEventListener('DOMContentLoaded', () => {
         const populate = async (select, level, query, preferred, label) => {
             resetSelect(select, label);
             const locations = await loadLocations(level, query);
-            locations.forEach((location) => {
-                const option = new Option(location.name, location.code);
-                option.dataset.parentCode = location.parent_code ?? '';
-                select.add(option);
-            });
-            select.disabled = loading || locations.length === 0;
-
-            const selected = findLocation(locations, preferred);
-            if (selected) {
-                select.value = selected.code;
+            const selected = fillSelect(select, locations, preferred ?? {}, label);
+            const filterInput = locationFilterInput(select);
+            if (filterInput && !filterInput.dataset.bound) {
+                filterInput.dataset.bound = '1';
+                filterInput.addEventListener('input', () => applyLocationFilter(select));
+                filterInput.addEventListener('keydown', (event) => {
+                    if (event.key === 'Enter') {
+                        event.preventDefault();
+                    }
+                });
             }
 
             return { locations, selected };
@@ -614,13 +1016,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 ),
                 loadLocations('postal-codes', { city_code: city.value }),
             ]);
-            const { locations, selected } = barangayResult;
+            if (barangayResult.status !== 'fulfilled') {
+                throw barangayResult.reason;
+            }
+            const { locations, selected } = barangayResult.value;
             const postalLocations = postalResponse.status === 'fulfilled' ? postalResponse.value : [];
             if (wrappers.barangay) {
                 wrappers.barangay.hidden = locations.length === 0;
             }
             if (selected) {
-                writeHidden('barangay', selected.code, selected.textContent);
+                const barangay = locationChoice(selected);
+                writeHidden('barangay', barangay.code, barangay.name);
             }
             postalLocations.forEach((location) => postalSelect.add(new Option(location.name, location.code)));
             if (postalLocations.length > 0) {
@@ -678,8 +1084,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 wrappers.province.hidden = false;
             }
             if (selected) {
-                writeHidden('province', selected.code, selected.textContent);
-                await loadMunicipalities({ province_code: selected.value, parent_code: selected.dataset.parentCode ?? '' }, preferred);
+                const province = locationChoice(selected);
+                writeHidden('province', province.code, province.name);
+                await loadMunicipalities({ province_code: province.code, parent_code: province.parentCode }, preferred);
             }
         };
 
@@ -699,6 +1106,10 @@ document.addEventListener('DOMContentLoaded', () => {
             Object.values(levels).forEach((select) => {
                 select.required = useOfficialLocations && ['regions', 'municipalities'].includes(select.dataset.locationLevel);
                 select.disabled = !useOfficialLocations || select.options.length <= 1 || loading;
+                const filterInput = locationFilterInput(select);
+                if (filterInput) {
+                    filterInput.disabled = !useOfficialLocations || (select._jeapLocations ?? []).length === 0 || loading;
+                }
             });
             Object.entries(manualInputs).forEach(([type, input]) => {
                 input.disabled = useOfficialLocations;
@@ -758,7 +1169,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 );
                 catalogReady = true;
                 if (selected) {
-                    writeHidden('region', selected.code, selected.textContent);
+                    const region = locationChoice(selected);
+                    writeHidden('region', region.code, region.name);
                     await loadProvinces(preferred);
                 } else {
                     resetBelowRegion(true);
@@ -1398,6 +1810,101 @@ document.addEventListener('DOMContentLoaded', () => {
             window.location.reload();
         }
     }
+
+    const initializeChatPage = (page) => {
+        const search = page.querySelector('[data-chat-search]');
+        const items = [...page.querySelectorAll('[data-chat-item]')];
+        const emptySearch = page.querySelector('[data-chat-search-empty]');
+        search?.addEventListener('input', () => {
+            const query = search.value.trim().toLowerCase();
+            let visible = 0;
+            items.forEach((item) => {
+                const match = query === '' || (item.dataset.search || '').includes(query);
+                item.hidden = !match;
+                if (match) {
+                    visible += 1;
+                }
+            });
+            if (emptySearch) {
+                emptySearch.hidden = visible > 0 || items.length === 0;
+            }
+        });
+
+        const thread = page.querySelector('[data-chat-thread]');
+        const log = page.querySelector('[data-chat-log]');
+        const form = page.querySelector('[data-chat-form]');
+        const input = page.querySelector('[data-chat-input]');
+        if (!thread || !log || !form || !input) {
+            return;
+        }
+
+        const resizeInput = () => {
+            input.style.height = 'auto';
+            input.style.height = `${Math.min(input.scrollHeight, 132)}px`;
+        };
+        const append = (message) => {
+            if (log.querySelector(`[data-message-id="${message.id}"]`)) {
+                return;
+            }
+            log.querySelector('.chat-thread-empty')?.remove();
+            const bubble = document.createElement('div');
+            bubble.className = `chat-bubble ${message.mine ? 'is-mine' : ''}`;
+            bubble.dataset.messageId = String(message.id);
+            bubble.innerHTML = `${message.mine ? '' : `<small></small>`}<p></p><time></time>`;
+            if (!message.mine) {
+                bubble.querySelector('small').textContent = message.sender ?? '';
+            }
+            bubble.querySelector('p').textContent = message.body;
+            bubble.querySelector('time').textContent = message.at ?? '';
+            log.appendChild(bubble);
+            log.scrollTop = log.scrollHeight;
+        };
+
+        log.scrollTop = log.scrollHeight;
+        resizeInput();
+        input.addEventListener('input', resizeInput);
+        input.addEventListener('keydown', (event) => {
+            if (event.key === 'Enter' && !event.shiftKey) {
+                event.preventDefault();
+                form.requestSubmit();
+            }
+        });
+        form.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const bodyText = input.value.trim();
+            if (bodyText === '') {
+                return;
+            }
+            const token = document.querySelector('meta[name="csrf-token"]')?.content;
+            const submit = form.querySelector('button[type="submit"]');
+            submit.disabled = true;
+            try {
+                const response = await fetch(form.action, {
+                    method: 'POST',
+                    headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+                    body: new URLSearchParams({ message: bodyText, _token: token }),
+                });
+                const data = await response.json();
+                if (response.ok) {
+                    append(data);
+                    input.value = '';
+                    resizeInput();
+                }
+            } finally {
+                submit.disabled = false;
+                input.focus();
+            }
+        });
+
+        const lastId = () => Number(log.querySelector('.chat-bubble:last-child')?.dataset.messageId || 0);
+        setInterval(async () => {
+            const response = await fetch(`${thread.dataset.poll}?after=${lastId()}`, { headers: { Accept: 'application/json' } });
+            const data = await response.json();
+            (data.messages || []).forEach(append);
+        }, 4000);
+    };
+
+    document.querySelectorAll('[data-chat-page]').forEach(initializeChatPage);
 
     const root = document.querySelector('[data-hero]');
     if (!root) {

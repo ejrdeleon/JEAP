@@ -87,7 +87,12 @@ class MarketplaceFeaturesTest extends TestCase
             ->assertRedirect();
         $this->actingAs($buyer)->get(route('notifications.index'))
             ->assertOk()
-            ->assertSee('Yes, I will pack it today.');
+            ->assertDontSee('Yes, I will pack it today.')
+            ->assertSee('Chat messages stay in Chat');
+        $this->actingAs($buyer)->get(route('chat.index'))
+            ->assertOk()
+            ->assertSee('Yes, I will pack it today.')
+            ->assertSee('Open notifications');
     }
 
     public function test_shop_voucher_reduces_checkout_merchandise_and_not_shipping(): void
@@ -166,6 +171,8 @@ class MarketplaceFeaturesTest extends TestCase
         [$buyer, , $order] = $this->makePlacedOrder();
         $this->actingAs($buyer)->get(route('buyer.orders.track', $order))
             ->assertOk()
+            ->assertSee('JEAP order number')
+            ->assertSee('JEAP Dash tracking number')
             ->assertSee('Order placed')
             ->assertSee('Out for delivery')
             ->assertSee('Chat about this order');

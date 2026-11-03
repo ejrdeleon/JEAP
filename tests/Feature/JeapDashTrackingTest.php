@@ -54,6 +54,21 @@ class JeapDashTrackingTest extends TestCase
             ->assertSee('Copy');
     }
 
+    public function test_public_track_lookup_shows_jd_shipment_to_guests_and_redirects_the_buyer(): void
+    {
+        [$buyer, $order] = $this->makeOrder();
+        $shipment = app(ShipmentService::class)->initializeShipment($order);
+
+        $this->get(route('shipping.track', ['tracking_number' => $shipment->tracking_number]))
+            ->assertOk()
+            ->assertSee($shipment->tracking_number)
+            ->assertSee('Order is placed')
+            ->assertDontSee($order->shipping_address_snapshot['recipient_name']);
+
+        $this->actingAs($buyer)->get(route('shipping.track', ['tracking_number' => $shipment->tracking_number]))
+            ->assertRedirect(route('orders.tracking', $order));
+    }
+
     public function test_stranger_cannot_open_order_tracking(): void
     {
         [, $order] = $this->makeOrder();
@@ -65,6 +80,7 @@ class JeapDashTrackingTest extends TestCase
 
     public function test_dash_checkpoint_api_records_hub_scan_and_delivery_proof(): void
     {
+        Storage::fake('local');
         Storage::fake('public');
         Event::fake([ShipmentMilestoneUpdated::class]);
 
@@ -83,6 +99,15 @@ class JeapDashTrackingTest extends TestCase
         ])->assertCreated()
             ->assertJsonPath('shipment.status', 'at_hub')
             ->assertJsonPath('shipment.current_hub', 'Pagsanjan Delivery Hub');
+
+        $stranger = User::factory()->create(['status' => UserStatus::Active]);
+        $stranger->assignRole('courier');
+        $this->actingAs($stranger, 'sanctum')->post('/api/dash/shipments/'.$shipment->tracking_number.'/checkpoint', [
+            'status' => ShipmentStatus::OutForDelivery->value,
+            'location' => 'Pagsanjan Delivery Hub',
+        ])->assertForbidden();
+
+        $shipment->update(['courier_id' => $rider->id]);
 
         $this->actingAs($rider, 'sanctum')->post('/api/dash/shipments/'.$shipment->tracking_number.'/checkpoint', [
             'status' => ShipmentStatus::OutForDelivery->value,
@@ -103,8 +128,14 @@ class JeapDashTrackingTest extends TestCase
         $fresh = $shipment->fresh();
         $this->assertNotNull($fresh->proof_of_delivery);
         $this->assertSame(OrderStatus::Delivered, $order->fresh()->status);
-        Storage::disk('public')->assertExists($fresh->proof_of_delivery);
+        Storage::disk('local')->assertExists($fresh->proof_of_delivery);
+        Storage::disk('public')->assertMissing($fresh->proof_of_delivery);
+        $this->assertStringContainsString('/media/proof-of-delivery/', (string) $fresh->proof_of_delivery_url);
 
+        $this->actingAs($buyer)->get(route('media.proof', $fresh))->assertOk();
+        $stranger = User::factory()->create(['status' => UserStatus::Active]);
+        $stranger->assignRole('buyer');
+        $this->actingAs($stranger)->get(route('media.proof', $fresh))->assertForbidden();
         $this->actingAs($buyer)->get(route('orders.tracking', $order))
             ->assertOk()
             ->assertSee('View Proof of Delivery')

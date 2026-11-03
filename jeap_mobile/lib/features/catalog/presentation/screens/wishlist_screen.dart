@@ -1,16 +1,43 @@
 import 'package:flutter/material.dart';
 import 'package:jeap_mobile/core/models/product.dart';
+import 'package:jeap_mobile/core/storage/auth_session.dart';
 import 'package:jeap_mobile/core/storage/wishlist_manager.dart';
 import 'package:jeap_mobile/core/theme/app_theme.dart';
+import 'package:jeap_mobile/core/widgets/guest_prompt_view.dart';
 import 'package:jeap_mobile/core/widgets/jeap_app_bar.dart';
 import 'package:jeap_mobile/features/catalog/presentation/screens/product_detail_screen.dart';
 import 'package:jeap_mobile/features/cart/services/cart_service.dart';
 
-class WishlistScreen extends StatelessWidget {
+class WishlistScreen extends StatefulWidget {
   const WishlistScreen({super.key});
 
   @override
+  State<WishlistScreen> createState() => _WishlistScreenState();
+}
+
+class _WishlistScreenState extends State<WishlistScreen> {
+  @override
+  void initState() {
+    super.initState();
+    WishlistManager.instance.refresh();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    if (!AuthSession.instance.isAuthenticated) {
+      return const Scaffold(
+        backgroundColor: AppTheme.backgroundColor,
+        appBar: JeapAppBar(showBack: true, showWishlist: false),
+        body: SafeArea(
+          child: GuestPromptView(
+            title: 'Sign in to save items',
+            message: 'Log in or sign up to keep a wishlist on your JEAP account.',
+            icon: Icons.favorite_border,
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
       appBar: const JeapAppBar(showBack: true, showWishlist: false),
@@ -194,10 +221,12 @@ class _WishlistItemCard extends StatelessWidget {
                               horizontal: 10, vertical: 4),
                           minimumSize: const Size(0, 30),
                         ),
-                        onPressed: () async {
+                        onPressed: product.variantId == null
+                            ? null
+                            : () async {
                           try {
                             await CartService().addItem(
-                              variantId: product.variantId ?? 1,
+                              variantId: product.variantId!,
                               productId: product.id,
                               productName: product.name,
                               price: product.price,

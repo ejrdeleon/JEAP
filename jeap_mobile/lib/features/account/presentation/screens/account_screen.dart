@@ -59,7 +59,7 @@ class _AccountScreenState extends State<AccountScreen> {
           child: GuestPromptView(
             title: 'Your Account',
             message:
-                'Sign in to your JEAP account to manage your profile, delivery addresses, security settings, and order history.',
+                'Log in to your JEAP account to manage your profile, delivery addresses, security settings, and order history.',
             icon: Icons.person_outline,
           ),
         ),

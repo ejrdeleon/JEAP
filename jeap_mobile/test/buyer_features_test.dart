@@ -54,7 +54,7 @@ void main() {
       expect(find.text('Remember me'), findsOneWidget);
       expect(find.byType(Checkbox), findsOneWidget);
       expect(find.byType(GoogleSignInButton), findsOneWidget);
-      expect(find.text('Login'), findsOneWidget);
+      expect(find.text('Log in'), findsOneWidget);
     });
   });
 

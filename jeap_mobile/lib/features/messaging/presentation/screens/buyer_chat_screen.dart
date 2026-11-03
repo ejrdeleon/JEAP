@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:jeap_mobile/core/storage/auth_session.dart';
 import 'package:jeap_mobile/core/theme/app_theme.dart';
 import 'package:jeap_mobile/features/messaging/models/conversation.dart';
+import 'package:jeap_mobile/features/messaging/services/message_service.dart';
 
 class BuyerChatScreen extends StatefulWidget {
   final Conversation conversation;
@@ -11,24 +13,19 @@ class BuyerChatScreen extends StatefulWidget {
 }
 
 class _BuyerChatScreenState extends State<BuyerChatScreen> {
+  final MessageService _service = MessageService();
   final _msgCtrl = TextEditingController();
   final _scrollCtrl = ScrollController();
+  List<ChatMessage> _messages = [];
+  bool _loading = true;
+  bool _sending = false;
+  String? _error;
 
-  // TODO: replace with MessageService.fetchMessages() + sendMessage()
-  final List<_LocalMessage> _messages = [
-    _LocalMessage(
-        text: 'Hello! How can I help you?',
-        isMine: false,
-        sentAt: DateTime.now().subtract(const Duration(minutes: 15))),
-    _LocalMessage(
-        text: 'When will my order be shipped?',
-        isMine: true,
-        sentAt: DateTime.now().subtract(const Duration(minutes: 10))),
-    _LocalMessage(
-        text: 'Your order is being prepared and will ship tomorrow.',
-        isMine: false,
-        sentAt: DateTime.now().subtract(const Duration(minutes: 8))),
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
 
   @override
   void dispose() {
@@ -37,14 +34,50 @@ class _BuyerChatScreenState extends State<BuyerChatScreen> {
     super.dispose();
   }
 
-  void _send() {
-    final text = _msgCtrl.text.trim();
-    if (text.isEmpty) return;
+  Future<void> _load() async {
     setState(() {
-      _messages
-          .add(_LocalMessage(text: text, isMine: true, sentAt: DateTime.now()));
+      _loading = true;
+      _error = null;
     });
-    _msgCtrl.clear();
+    try {
+      final items = await _service.fetchMessages(
+        widget.conversation.id,
+        AuthSession.instance.userId,
+      );
+      if (!mounted) return;
+      setState(() {
+        _messages = items;
+        _loading = false;
+      });
+      _scrollToEnd();
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _error = 'Could not load this conversation.';
+      });
+    }
+  }
+
+  Future<void> _send() async {
+    final text = _msgCtrl.text.trim();
+    if (text.isEmpty || _sending) return;
+    setState(() => _sending = true);
+    try {
+      await _service.sendMessage(widget.conversation.id, text);
+      _msgCtrl.clear();
+      await _load();
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not send that message.')),
+      );
+    } finally {
+      if (mounted) setState(() => _sending = false);
+    }
+  }
+
+  void _scrollToEnd() {
     Future.delayed(const Duration(milliseconds: 100), () {
       if (_scrollCtrl.hasClients) {
         _scrollCtrl.animateTo(
@@ -58,6 +91,11 @@ class _BuyerChatScreenState extends State<BuyerChatScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final role = widget.conversation.participantRole;
+    final roleLabel = role.isEmpty
+        ? 'JEAP'
+        : role[0].toUpperCase() + role.substring(1);
+
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
       appBar: AppBar(
@@ -73,8 +111,7 @@ class _BuyerChatScreenState extends State<BuyerChatScreen> {
                     fontWeight: FontWeight.bold,
                     color: AppTheme.textPrimary)),
             Text(
-              widget.conversation.participantRole[0].toUpperCase() +
-                  widget.conversation.participantRole.substring(1),
+              roleLabel,
               style:
                   const TextStyle(fontSize: 11, color: AppTheme.textSecondary),
             ),
@@ -85,59 +122,85 @@ class _BuyerChatScreenState extends State<BuyerChatScreen> {
         child: Column(
           children: [
             Expanded(
-              child: ListView.builder(
-                controller: _scrollCtrl,
-                padding: const EdgeInsets.all(12),
-                itemCount: _messages.length,
-                itemBuilder: (_, i) {
-                  final msg = _messages[i];
-                  return Align(
-                    alignment: msg.isMine
-                        ? Alignment.centerRight
-                        : Alignment.centerLeft,
-                    child: Container(
-                      margin: const EdgeInsets.symmetric(vertical: 4),
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 14, vertical: 10),
-                      constraints: BoxConstraints(
-                        maxWidth: MediaQuery.of(context).size.width * 0.72,
-                      ),
-                      decoration: BoxDecoration(
-                        color: msg.isMine ? AppTheme.jeapPurple : Colors.white,
-                        borderRadius: BorderRadius.only(
-                          topLeft: const Radius.circular(12),
-                          topRight: const Radius.circular(12),
-                          bottomLeft: Radius.circular(msg.isMine ? 12 : 0),
-                          bottomRight: Radius.circular(msg.isMine ? 0 : 12),
-                        ),
-                        border: msg.isMine
-                            ? null
-                            : Border.all(color: AppTheme.borderColor),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          Text(msg.text,
-                              style: TextStyle(
-                                  color: msg.isMine
-                                      ? Colors.white
-                                      : AppTheme.textPrimary,
-                                  fontSize: 14)),
-                          const SizedBox(height: 4),
-                          Text(
-                            _formatTime(msg.sentAt),
-                            style: TextStyle(
-                                fontSize: 10,
-                                color: msg.isMine
-                                    ? Colors.white70
-                                    : AppTheme.textSecondary),
+              child: _loading
+                  ? const Center(
+                      child: CircularProgressIndicator(color: AppTheme.jeapPurple),
+                    )
+                  : _error != null
+                      ? Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(_error!,
+                                  style: const TextStyle(
+                                      color: AppTheme.textSecondary)),
+                              TextButton(onPressed: _load, child: const Text('Retry')),
+                            ],
                           ),
-                        ],
-                      ),
-                    ),
-                  );
-                },
-              ),
+                        )
+                      : _messages.isEmpty
+                          ? const Center(
+                              child: Text('No messages yet.',
+                                  style: TextStyle(color: AppTheme.textSecondary)),
+                            )
+                          : ListView.builder(
+                              controller: _scrollCtrl,
+                              padding: const EdgeInsets.all(12),
+                              itemCount: _messages.length,
+                              itemBuilder: (_, i) {
+                                final msg = _messages[i];
+                                return Align(
+                                  alignment: msg.isMine
+                                      ? Alignment.centerRight
+                                      : Alignment.centerLeft,
+                                  child: Container(
+                                    margin: const EdgeInsets.symmetric(vertical: 4),
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 14, vertical: 10),
+                                    constraints: BoxConstraints(
+                                      maxWidth:
+                                          MediaQuery.of(context).size.width * 0.72,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: msg.isMine
+                                          ? AppTheme.jeapPurple
+                                          : Colors.white,
+                                      borderRadius: BorderRadius.only(
+                                        topLeft: const Radius.circular(12),
+                                        topRight: const Radius.circular(12),
+                                        bottomLeft:
+                                            Radius.circular(msg.isMine ? 12 : 0),
+                                        bottomRight:
+                                            Radius.circular(msg.isMine ? 0 : 12),
+                                      ),
+                                      border: msg.isMine
+                                          ? null
+                                          : Border.all(color: AppTheme.borderColor),
+                                    ),
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.end,
+                                      children: [
+                                        Text(msg.text,
+                                            style: TextStyle(
+                                                color: msg.isMine
+                                                    ? Colors.white
+                                                    : AppTheme.textPrimary,
+                                                fontSize: 14)),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          _formatTime(msg.sentAt),
+                                          style: TextStyle(
+                                              fontSize: 10,
+                                              color: msg.isMine
+                                                  ? Colors.white70
+                                                  : AppTheme.textSecondary),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
             ),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -150,6 +213,7 @@ class _BuyerChatScreenState extends State<BuyerChatScreen> {
                   Expanded(
                     child: TextField(
                       controller: _msgCtrl,
+                      enabled: !_sending,
                       decoration: const InputDecoration(
                         hintText: 'Type a message...',
                         border: InputBorder.none,
@@ -163,7 +227,7 @@ class _BuyerChatScreenState extends State<BuyerChatScreen> {
                   IconButton(
                     icon: const Icon(Icons.send_rounded,
                         color: AppTheme.jeapPurple),
-                    onPressed: _send,
+                    onPressed: _sending ? null : _send,
                   ),
                 ],
               ),
@@ -179,12 +243,4 @@ class _BuyerChatScreenState extends State<BuyerChatScreen> {
     final m = dt.minute.toString().padLeft(2, '0');
     return '$h:$m';
   }
-}
-
-class _LocalMessage {
-  final String text;
-  final bool isMine;
-  final DateTime sentAt;
-  _LocalMessage(
-      {required this.text, required this.isMine, required this.sentAt});
 }

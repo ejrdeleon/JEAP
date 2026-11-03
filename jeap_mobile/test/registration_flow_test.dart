@@ -109,7 +109,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('Sign Up'), findsWidgets);
+      expect(find.text('Sign up'), findsWidgets);
       expect(find.text('Step 1 of 2'), findsOneWidget);
       expect(find.text('CONTINUE'), findsOneWidget);
       expect(errorDetails, isNull);

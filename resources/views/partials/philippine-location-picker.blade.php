@@ -45,17 +45,25 @@
         </label>
     </div>
     <p class="ph-location-status" data-location-status role="status" aria-live="polite">Loading official Philippine locations…</p>
-    <div class="ph-location-selectors" data-location-selectors hidden>
+    <div class="ph-location-selectors" data-location-selectors>
         <div class="delivery-address-fields">
             <label class="delivery-field"><span>Region</span><select data-location-level="regions" required disabled><option value="">Select a region</option></select></label>
             <label class="delivery-field" data-location-wrapper="province"><span>Province</span><select data-location-level="provinces" disabled><option value="">Select a province</option></select></label>
-            <label class="delivery-field"><span>City / municipality</span><select data-location-level="municipalities" required disabled><option value="">Select a city or municipality</option></select></label>
-            <label class="delivery-field" data-location-wrapper="barangay"><span>Barangay (optional)</span><select data-location-level="barangays" disabled><option value="">Select a barangay</option></select></label>
+            <label class="delivery-field delivery-field-searchable">
+                <span>City / municipality</span>
+                <input type="search" data-location-filter="municipalities" placeholder="Search city or municipality" autocomplete="off" disabled>
+                <select data-location-level="municipalities" required disabled><option value="">Select a city or municipality</option></select>
+            </label>
+            <label class="delivery-field delivery-field-searchable" data-location-wrapper="barangay">
+                <span>Barangay (optional)</span>
+                <input type="search" data-location-filter="barangays" placeholder="Search barangay" autocomplete="off" disabled>
+                <select data-location-level="barangays" disabled><option value="">Select a barangay</option></select>
+            </label>
             <label class="delivery-field" data-postal-select-wrapper hidden><span>ZIP / postal code suggestions</span><select data-postal-select disabled><option value="">Select a postal code</option></select></label>
         </div>
         <button class="delivery-text-link ph-location-mode-button" type="button" data-location-use-manual>Enter location manually</button>
     </div>
-    <div class="ph-location-manual" data-location-manual>
+    <div class="ph-location-manual" data-location-manual hidden>
         <div class="delivery-address-fields">
             <label class="delivery-field"><span>Region</span><input name="{{ $regionNameField }}" data-address-entry-field data-location-manual-field="region" value="{{ $initialRegionName }}" maxlength="255"></label>
             <label class="delivery-field"><span>Province (if applicable)</span><input name="{{ $provinceNameField }}" data-address-entry-field data-location-manual-field="province" value="{{ $initialProvinceName }}" maxlength="255"></label>

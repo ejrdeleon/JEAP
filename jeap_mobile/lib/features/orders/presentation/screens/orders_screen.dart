@@ -41,6 +41,7 @@ class _OrdersScreenState extends State<OrdersScreen>
   final _orderService = OrderService();
   List<Order> _orders = [];
   bool _loading = true;
+  String? _error;
 
   Future<void> _load() async {
     if (widget.initialOrders != null && _orders.isNotEmpty && OrderService.revision.value == 0) {
@@ -51,6 +52,7 @@ class _OrdersScreenState extends State<OrdersScreen>
       setState(() {
         _orders = [];
         _loading = false;
+        _error = null;
       });
       return;
     }
@@ -60,10 +62,14 @@ class _OrdersScreenState extends State<OrdersScreen>
       setState(() {
         _orders = fetched;
         _loading = false;
+        _error = null;
       });
     } catch (_) {
       if (!mounted) return;
-      setState(() => _loading = false);
+      setState(() {
+        _loading = false;
+        _error = 'Could not load orders. Pull down to try again.';
+      });
     }
   }
 
@@ -173,10 +179,36 @@ class _OrdersScreenState extends State<OrdersScreen>
               child: _loading && _orders.isEmpty
                   ? const Center(
                       child: CircularProgressIndicator(color: AppTheme.jeapPurple))
-                  : TabBarView(
-                      controller: _tabController,
-                      children: _tabs.map((t) => _buildList(t)).toList(),
-                    ),
+                  : _error != null && _orders.isEmpty
+                      ? RefreshIndicator(
+                          onRefresh: _load,
+                          color: AppTheme.jeapPurple,
+                          child: ListView(
+                            children: [
+                              SizedBox(
+                                  height:
+                                      MediaQuery.of(context).size.height * 0.25),
+                              Center(
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 24),
+                                  child: Text(
+                                    _error!,
+                                    textAlign: TextAlign.center,
+                                    style: const TextStyle(
+                                      fontSize: 14,
+                                      color: AppTheme.textSecondary,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        )
+                      : TabBarView(
+                          controller: _tabController,
+                          children: _tabs.map((t) => _buildList(t)).toList(),
+                        ),
             ),
           ],
         ),

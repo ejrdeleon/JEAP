@@ -69,7 +69,7 @@ class AppServiceProvider extends ServiceProvider
             $items = $cart?->items ?? collect();
             $view->with('cartCount', $items->sum('quantity'));
             $view->with('cartTotal', $items->sum(fn ($i) => $i->unit_price * $i->quantity));
-            $view->with('unreadNotificationCount', Auth::check() ? Auth::user()->unreadNotifications()->count() : 0);
+            $view->with('unreadNotificationCount', Auth::check() ? Auth::user()->unreadActivityNotificationCount() : 0);
             $view->with('unreadChatCount', Auth::check() ? app(ChatService::class)->unreadCount(Auth::user()) : 0);
         });
     }

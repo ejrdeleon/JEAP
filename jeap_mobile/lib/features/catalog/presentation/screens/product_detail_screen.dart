@@ -1,4 +1,3 @@
-import 'package:jeap_mobile/core/storage/guest_cart_manager.dart';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:jeap_mobile/core/storage/auth_session.dart';
@@ -10,8 +9,7 @@ import 'package:jeap_mobile/core/models/product.dart';
 import 'package:jeap_mobile/core/storage/wishlist_manager.dart';
 import 'package:jeap_mobile/features/cart/services/cart_service.dart';
 import 'package:jeap_mobile/features/cart/presentation/screens/cart_screen.dart';
-import 'package:jeap_mobile/features/messaging/models/conversation.dart';
-import 'package:jeap_mobile/features/messaging/presentation/screens/buyer_chat_screen.dart';
+import 'package:jeap_mobile/features/messaging/presentation/screens/buyer_conversations_screen.dart';
 
 class ProductDetailScreen extends StatefulWidget {
   final Product product;
@@ -28,8 +26,6 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   late int _stock;
   bool _addingToCart = false;
 
-  final List<String> _availableSizes = ['S', 'M', 'L', 'XL'];
-
   @override
   void initState() {
     super.initState();
@@ -38,52 +34,26 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       _selectedColor = widget.product.colors.first;
       _stock = widget.product.stocksByColor[_selectedColor] ?? widget.product.stock;
     }
-    // If it's a clothing item or has variants, default size
-    if (widget.product.category?.toLowerCase().contains('cloth') == true ||
-        widget.product.category?.toLowerCase().contains('fashion') == true) {
-      _selectedSize = 'M';
-    }
   }
 
-  int get _effectiveMaxStock => min(20, _stock);
+  int get _effectiveMaxStock => min(10, _stock);
 
   bool get _canAddToCart {
     final needsColor =
         widget.product.colors.isNotEmpty && _selectedColor == null;
-    return !needsColor && _stock > 0 && _quantity >= 1;
+    final variantId = widget.product.variantIdsByColor[_selectedColor] ??
+        widget.product.variantId;
+    return !needsColor && _stock > 0 && _quantity >= 1 && variantId != null;
   }
 
   Future<void> _addToCart({bool navigateToCart = false}) async {
     if (AuthSession.instance.isGuest) {
-      final p = widget.product;
-      final variations = <String, String>{};
-      if (_selectedColor != null) variations['Color'] = _selectedColor!;
-      if (_selectedSize != null) variations['Size'] = _selectedSize!;
-
-      await GuestCartManager.instance.addItem(
-        productId: p.id,
-        variantId: p.variantIdsByColor[_selectedColor] ?? p.variantId ?? 1,
-        productName: p.name,
-        price: p.price,
-        quantity: _quantity,
-        imageUrl: p.imageUrl,
-        variations: variations,
+      await showGuestActionDialog(
+        context,
+        title: 'Sign in to add to cart',
+        message:
+            'Log in or sign up to add this item and check out with Cash on Delivery.',
       );
-
-      if (!mounted) return;
-      if (navigateToCart) {
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => const CartScreen()),
-        );
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('${widget.product.name} added to cart!'),
-            backgroundColor: AppTheme.statusGreen,
-          ),
-        );
-      }
       return;
     }
     if (!_canAddToCart) {
@@ -99,8 +69,12 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     if (_selectedSize != null) variations['Size'] = _selectedSize!;
 
     try {
+      final variantId = p.variantIdsByColor[_selectedColor] ?? p.variantId;
+      if (variantId == null) {
+        throw StateError('missing variant');
+      }
       await CartService().addItem(
-        variantId: p.variantIdsByColor[_selectedColor] ?? p.variantId ?? 1,
+        variantId: variantId,
         productId: p.id,
         productName: p.name,
         price: p.price,
@@ -384,51 +358,6 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                             const SizedBox(height: 16),
                           ],
 
-                          // Size options if applicable
-                          if (_selectedSize != null) ...[
-                            const Text(
-                              'Size',
-                              style: TextStyle(
-                                  fontWeight: FontWeight.bold, fontSize: 14),
-                            ),
-                            const SizedBox(height: 10),
-                            Wrap(
-                              spacing: 8,
-                              children: _availableSizes.map((s) {
-                                final isSel = _selectedSize == s;
-                                return GestureDetector(
-                                  onTap: () => setState(() => _selectedSize = s),
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 16, vertical: 8),
-                                    decoration: BoxDecoration(
-                                      color: isSel
-                                          ? AppTheme.jeapPurple
-                                          : Colors.white,
-                                      borderRadius: BorderRadius.circular(8),
-                                      border: Border.all(
-                                        color: isSel
-                                            ? AppTheme.jeapPurple
-                                            : AppTheme.borderColor,
-                                      ),
-                                    ),
-                                    child: Text(
-                                      s,
-                                      style: TextStyle(
-                                        fontSize: 13,
-                                        color: isSel
-                                            ? Colors.white
-                                            : AppTheme.textPrimary,
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                    ),
-                                  ),
-                                );
-                              }).toList(),
-                            ),
-                            const SizedBox(height: 16),
-                          ],
-
                           // Quantity Selector
                           const Text(
                             'Quantity',
@@ -512,14 +441,14 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
                                       Text(
-                                        p.brand ?? 'Official JEAP Merchant',
+                                        p.brand ?? 'JEAP seller',
                                         style: const TextStyle(
                                           fontWeight: FontWeight.bold,
                                           fontSize: 13,
                                         ),
                                       ),
                                       const Text(
-                                        'Verified Seller • 100% Authentic',
+                                        'JEAP seller',
                                         style: TextStyle(
                                           fontSize: 11,
                                           color: AppTheme.textSecondary,
@@ -545,7 +474,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                                     if (AuthSession.instance.isGuest) {
                                       showGuestActionDialog(
                                         context,
-                                        title: 'Sign In Required',
+                                        title: 'Log in required',
                                         message:
                                             'Please sign in to chat directly with this seller.',
                                       );
@@ -554,17 +483,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                                     Navigator.push(
                                       context,
                                       MaterialPageRoute(
-                                        builder: (_) => BuyerChatScreen(
-                                          conversation: Conversation(
-                                            id: 1,
-                                            participantName: p.brand ??
-                                                'JEAP Merchant Support',
-                                            participantRole: 'seller',
-                                            lastMessage:
-                                                'Hello, how can I assist with this item?',
-                                            lastMessageAt: DateTime.now(),
-                                          ),
-                                        ),
+                                        builder: (_) =>
+                                            const BuyerConversationsScreen(),
                                       ),
                                     );
                                   },

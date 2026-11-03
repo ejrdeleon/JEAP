@@ -23,7 +23,6 @@ void main() {
       expect(find.text('Help & Support'), findsOneWidget);
       expect(find.text('Direct Contact Channels'), findsOneWidget);
       expect(find.text('support@jeap.store'), findsOneWidget);
-      expect(find.text('+63 2 8123 4567'), findsOneWidget);
       expect(find.text('Frequently Asked Questions'), findsOneWidget);
       expect(find.text('How do I track my order?'), findsOneWidget);
     });

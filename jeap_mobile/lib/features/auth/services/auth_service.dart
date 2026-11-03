@@ -198,6 +198,11 @@ class AuthService {
     }
   }
 
+  Future<void> continueAsGuest() async {
+    await logout();
+    AuthSession.instance.setGuest(true);
+  }
+
   Future<void> logout() async {
     try {
       if (await TokenStorage.get() != null) await _api.post('/logout', {});

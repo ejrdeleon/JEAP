@@ -135,9 +135,6 @@ class LogisticsHubController extends Controller
                 $q->where('tracking_number', $identifier)
                     ->orWhereHas('order', fn (Builder $order) => $order->where('order_number', $identifier))
                     ->orWhereHas('order.shipment', fn (Builder $shipment) => $shipment->where('tracking_number', $identifier));
-                if (ctype_digit($identifier)) {
-                    $q->orWhere('parcels.id', (int) $identifier);
-                }
             });
 
         if ($lock) {

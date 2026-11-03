@@ -35,8 +35,8 @@ class LogisticsParcel {
       recipientName: json['recipient_name']?.toString() ?? 'Customer',
       recipientPhone: json['recipient_phone']?.toString() ?? '',
       destinationAddress: json['destination_address']?.toString() ?? '',
-      originHub: json['origin_hub']?.toString() ?? 'JEAP Central Warehouse',
-      itemsCount: json['items_count'] is int ? json['items_count'] : 1,
+      originHub: json['origin_hub']?.toString() ?? '',
+      itemsCount: json['items_count'] is int ? json['items_count'] as int : 0,
       totalAmount: (json['total_amount'] as num?)?.toDouble() ?? 0.0,
       paymentMethod: json['payment_method']?.toString() ?? 'COD',
       createdAt: json['created_at']?.toString(),
@@ -65,11 +65,11 @@ class LogisticsHubStats {
 
   factory LogisticsHubStats.fromJson(Map<String, dynamic> json) {
     return LogisticsHubStats(
-      incoming: json['incoming'] as int? ?? 0,
-      received: json['received'] as int? ?? 0,
-      awaitingSorting: json['awaiting_sorting'] as int? ?? 0,
-      readyForDispatch: json['ready_for_dispatch'] as int? ?? 0,
-      outgoing: json['outgoing'] as int? ?? 0,
+      incoming: (json['incoming'] as num?)?.toInt() ?? 0,
+      received: (json['received'] as num?)?.toInt() ?? 0,
+      awaitingSorting: (json['awaiting_sorting'] as num?)?.toInt() ?? 0,
+      readyForDispatch: (json['ready_for_dispatch'] as num?)?.toInt() ?? 0,
+      outgoing: (json['outgoing'] as num?)?.toInt() ?? 0,
     );
   }
 }

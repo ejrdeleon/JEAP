@@ -68,11 +68,15 @@ class ConversationController extends Controller
                 'messages.body',
                 'messages.user_id',
                 DB::raw("CONCAT(users.first_name, ' ', users.last_name) as sender_name"),
-                'messages.created_at',
-                DB::raw("messages.user_id = {$userId} as is_mine")
+                'messages.created_at'
             )
             ->orderBy('messages.created_at')
-            ->get();
+            ->get()
+            ->map(function ($message) use ($userId) {
+                $message->is_mine = (int) $message->user_id === (int) $userId;
+
+                return $message;
+            });
 
         // Mark as read
         DB::table('messages')

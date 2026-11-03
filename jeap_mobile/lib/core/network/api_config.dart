@@ -6,7 +6,7 @@ import 'package:jeap_mobile/core/storage/token_storage.dart';
 enum ApiEnvironment {
   development('Localhost / USB ADB Reverse', 'http://127.0.0.1:8080/api/v1'),
   androidEmulator('Android Emulator Host', 'http://10.0.2.2:8080/api/v1'),
-  localNetwork('Local Wi-Fi Network (192.168.1.7)', 'http://192.168.1.7:8080/api/v1'),
+  localNetwork('Local Wi-Fi Network', ''),
   production('Production Server', 'https://jeap.store/api/v1'),
   custom('Custom Server URL', '');
 
@@ -48,19 +48,22 @@ class ApiConfig {
       if (compileTimeBaseUrl.isNotEmpty) compileTimeBaseUrl,
       'http://127.0.0.1:8080/api/v1',
       'http://10.0.2.2:8080/api/v1',
-      'http://192.168.1.7:8080/api/v1',
       productionUrl,
     ];
   }
 
   static Future<void> init() async {
+    if (kReleaseMode) {
+      _activeBaseUrl = _cleanUrl(
+        compileTimeBaseUrl.isNotEmpty ? compileTimeBaseUrl : productionUrl,
+      );
+      return;
+    }
     final saved = await TokenStorage.getBaseUrl();
     if (saved != null && saved.trim().isNotEmpty) {
       _activeBaseUrl = _cleanUrl(saved.trim());
     } else if (compileTimeBaseUrl.isNotEmpty) {
       _activeBaseUrl = _cleanUrl(compileTimeBaseUrl.trim());
-    } else if (kReleaseMode) {
-      _activeBaseUrl = productionUrl;
     } else {
       _activeBaseUrl = defaultLocalUrl;
     }
@@ -127,6 +130,12 @@ class ApiConfig {
   }
 
   static Future<void> setBaseUrl(String newUrl) async {
+    if (kReleaseMode) {
+      _activeBaseUrl = _cleanUrl(
+        compileTimeBaseUrl.isNotEmpty ? compileTimeBaseUrl : productionUrl,
+      );
+      return;
+    }
     final cleaned = _cleanUrl(newUrl);
     _activeBaseUrl = cleaned;
     await TokenStorage.saveBaseUrl(cleaned);

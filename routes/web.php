@@ -49,6 +49,7 @@ Route::post('/login', [LoginController::class, 'store'])->middleware('throttle:l
 Route::get('/auth/google/redirect', [GoogleAuthController::class, 'redirect'])->middleware('throttle:google')->name('google.redirect');
 Route::get('/auth/google/callback', [GoogleAuthController::class, 'callback'])->middleware('throttle:google')->name('google.callback');
 Route::get('/media/avatars/{user}', [MediaController::class, 'avatar'])->name('media.avatar');
+Route::get('/logout', [LoginController::class, 'notice'])->name('logout.notice');
 Route::post('/logout', [LoginController::class, 'destroy'])->name('logout');
 Route::get('/forgot-password', [PasswordResetController::class, 'requestForm'])->middleware('guest')->name('password.request');
 Route::post('/forgot-password', [PasswordResetController::class, 'sendLink'])->middleware(['guest', 'throttle:5,1'])->name('password.email');
@@ -110,6 +111,7 @@ Route::middleware(['auth', 'approved'])->group(function () {
     Route::post('/inbox/{conversation}', [ChatController::class, 'send'])->middleware('throttle:chat')->name('chat.send');
     Route::get('/inbox/{conversation}/messages', [ChatController::class, 'messages'])->name('chat.messages');
     Route::get('/notifications', [NotificationInboxController::class, 'index'])->name('notifications.index');
+    Route::get('/notifications/{notification}/open', [NotificationInboxController::class, 'open'])->name('notifications.open');
     Route::post('/notifications/read', [NotificationInboxController::class, 'read'])->name('notifications.read');
 
     Route::prefix('buyer')->name('buyer.')->group(function () {
@@ -136,6 +138,7 @@ Route::middleware(['auth', 'approved'])->group(function () {
     });
 
     Route::get('/orders/{order}/tracking', [OrderTrackingController::class, 'show'])->name('orders.tracking');
+    Route::get('/media/proof-of-delivery/{shipment}', [MediaController::class, 'proofOfDelivery'])->name('media.proof');
 
     Route::middleware('role:seller|super-admin')->prefix('seller')->name('seller.')->group(function () {
         Route::get('/', [SellerDashboard::class, 'index'])->name('dashboard');
@@ -222,6 +225,7 @@ Route::middleware(['auth', 'approved'])->group(function () {
 
 Route::prefix('shipping')->name('shipping.')->group(function () {
     Route::get('/', [ShippingPage::class, 'home'])->name('home');
+    Route::get('/track/live', [ShippingPage::class, 'live'])->middleware('throttle:60,1')->name('track.live');
     Route::get('/track', [ShippingPage::class, 'track'])->name('track');
     Route::get('/services', [ShippingPage::class, 'services'])->name('services');
     Route::get('/pricing', [ShippingPage::class, 'pricing'])->name('pricing');

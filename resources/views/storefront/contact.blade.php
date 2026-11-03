@@ -33,7 +33,7 @@
         </article>
         <article class="contact-option-card">
             <span class="contact-option-icon" aria-hidden="true">03</span>
-            <div><h2>Manage your account</h2><p>Review your profile, orders, and saved delivery details.</p><a href="{{ auth()->check() ? route('profile') : route('login') }}">{{ auth()->check() ? 'Open my account' : 'Sign in to JEAP' }} <span aria-hidden="true">→</span></a></div>
+            <div><h2>Manage your account</h2><p>Review your profile, orders, and saved delivery details.</p><a href="{{ auth()->check() ? route('profile') : route('login') }}">{{ auth()->check() ? 'Open my account' : 'Log in' }} <span aria-hidden="true">→</span></a></div>
             <small>Account support</small>
         </article>
     </section>
@@ -67,7 +67,7 @@
         <aside class="contact-faq-panel">
             <span class="contact-eyebrow">QUICK ANSWERS</span><h2>Before you message</h2>
             <details><summary>Where can I find my tracking number?</summary><p>Open your JEAP account, choose your order, and look for its shipment details.</p><a href="{{ route('shipping.track') }}">Track a shipment <span aria-hidden="true">→</span></a></details>
-            <details><summary>What information does tracking show?</summary><p>The public tracking page shows shipment status and recorded updates. Sign in to see full order information.</p><a href="{{ route('shipping.track') }}">Open order tracking <span aria-hidden="true">→</span></a></details>
+            <details><summary>What information does tracking show?</summary><p>The public tracking page shows shipment status and recorded updates. Log in to see full order information.</p><a href="{{ route('shipping.track') }}">Open order tracking <span aria-hidden="true">→</span></a></details>
             <details><summary>Which payment method can I use?</summary><p>The current JEAP checkout supports Cash on Delivery.</p><a href="{{ route('products.index') }}">Browse products <span aria-hidden="true">→</span></a></details>
         </aside>
     </section>

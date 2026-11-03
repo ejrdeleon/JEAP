@@ -99,8 +99,8 @@ void main() {
 
       expect(find.text('Your Cart is Waiting'), findsOneWidget);
       expect(find.text('Sign in to access your saved cart items.'), findsOneWidget);
-      expect(find.text('Log In to Your Account'), findsOneWidget);
-      expect(find.text('Create an Account'), findsOneWidget);
+      expect(find.text('Log in to your account'), findsOneWidget);
+      expect(find.text('Sign up'), findsOneWidget);
     });
 
     testWidgets('CartScreen displays GuestPromptView when in guest mode', (tester) async {
@@ -115,7 +115,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byType(GuestPromptView), findsOneWidget);
-      expect(find.text('Your Cart is Waiting'), findsOneWidget);
+      expect(find.text('Sign in to use cart'), findsOneWidget);
     });
 
     testWidgets('OrdersScreen displays GuestPromptView when in guest mode', (tester) async {

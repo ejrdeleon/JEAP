@@ -2,28 +2,73 @@ import 'package:flutter/material.dart';
 import 'package:jeap_mobile/core/theme/app_theme.dart';
 import 'package:jeap_mobile/core/widgets/jeap_app_bar.dart';
 import 'package:jeap_mobile/core/widgets/product_card.dart';
-import 'package:jeap_mobile/core/data/mock_data.dart';
 import 'package:jeap_mobile/core/models/category.dart';
+import 'package:jeap_mobile/core/models/product.dart';
 import 'package:jeap_mobile/features/catalog/presentation/screens/product_detail_screen.dart';
+import 'package:jeap_mobile/features/catalog/services/catalog_service.dart';
 
 class CategoryProductsScreen extends StatefulWidget {
   final ProductCategory category;
-  const CategoryProductsScreen({super.key, required this.category});
+  final List<Product>? initialProducts;
+  const CategoryProductsScreen({
+    super.key,
+    required this.category,
+    this.initialProducts,
+  });
 
   @override
   State<CategoryProductsScreen> createState() => _CategoryProductsScreenState();
 }
 
 class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
+  final CatalogService _catalogService = CatalogService();
   String _searchQuery = '';
+  List<Product> _products = [];
+  bool _loading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.initialProducts != null) {
+      _products = widget.initialProducts!;
+      _loading = false;
+    } else {
+      _load();
+    }
+  }
+
+  Future<void> _load() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final categoryId = int.tryParse(widget.category.id);
+      final items = await _catalogService.fetchProducts(
+        category: widget.category.slug ?? widget.category.id,
+        categoryId: categoryId,
+      );
+      if (!mounted) return;
+      setState(() {
+        _products = items;
+        _loading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _error = 'Could not load products. Check your connection and try again.';
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    final products = MockData.products
+    final products = _products
         .where((p) =>
-            p.category == widget.category.id &&
-            (_searchQuery.isEmpty ||
-                p.name.toLowerCase().contains(_searchQuery.toLowerCase())))
+            _searchQuery.isEmpty ||
+            p.name.toLowerCase().contains(_searchQuery.toLowerCase()))
         .toList();
 
     final width = MediaQuery.sizeOf(context).width;
@@ -61,30 +106,52 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
               ),
             ),
             Expanded(
-              child: products.isEmpty
+              child: _loading
                   ? const Center(
-                      child: Text('No products found.',
-                          style: TextStyle(color: AppTheme.textSecondary)))
-                  : GridView.builder(
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      gridDelegate:
-                          SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: crossAxisCount,
-                        childAspectRatio: childAspectRatio,
-                        crossAxisSpacing: 8,
-                        mainAxisSpacing: 8,
-                      ),
-                      itemCount: products.length,
-                      itemBuilder: (_, i) => ProductCard(
-                        product: products[i],
-                        onTap: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                              builder: (_) =>
-                                  ProductDetailScreen(product: products[i])),
-                        ),
-                      ),
-                    ),
+                      child: CircularProgressIndicator(color: AppTheme.jeapPurple),
+                    )
+                  : _error != null
+                      ? Center(
+                          child: Padding(
+                            padding: const EdgeInsets.all(24),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Text(
+                                  _error!,
+                                  textAlign: TextAlign.center,
+                                  style: const TextStyle(color: AppTheme.textSecondary),
+                                ),
+                                const SizedBox(height: 12),
+                                TextButton(onPressed: _load, child: const Text('Retry')),
+                              ],
+                            ),
+                          ),
+                        )
+                      : products.isEmpty
+                          ? const Center(
+                              child: Text('No products found.',
+                                  style: TextStyle(color: AppTheme.textSecondary)))
+                          : GridView.builder(
+                              padding: const EdgeInsets.symmetric(horizontal: 12),
+                              gridDelegate:
+                                  SliverGridDelegateWithFixedCrossAxisCount(
+                                crossAxisCount: crossAxisCount,
+                                childAspectRatio: childAspectRatio,
+                                crossAxisSpacing: 8,
+                                mainAxisSpacing: 8,
+                              ),
+                              itemCount: products.length,
+                              itemBuilder: (_, i) => ProductCard(
+                                product: products[i],
+                                onTap: () => Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                      builder: (_) =>
+                                          ProductDetailScreen(product: products[i])),
+                                ),
+                              ),
+                            ),
             ),
           ],
         ),

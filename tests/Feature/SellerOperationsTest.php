@@ -11,6 +11,7 @@ use App\Models\Order;
 use App\Models\Payment;
 use App\Models\Product;
 use App\Models\User;
+use App\Models\Voucher;
 use Database\Seeders\RoleSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
@@ -262,6 +263,46 @@ class SellerOperationsTest extends TestCase
         $shopper = User::factory()->create(['status' => UserStatus::Active]);
         $shopper->assignRole('buyer');
         $this->actingAs($shopper)->get(route('seller.reports'))->assertForbidden();
+    }
+
+    public function test_seller_can_manage_shop_vouchers_from_promotions(): void
+    {
+        $this->seed(RoleSeeder::class);
+        [$seller] = $this->makeSellerAndCategory();
+
+        $this->actingAs($seller)->get(route('seller.promos'))
+            ->assertOk()
+            ->assertSee('Shop vouchers')
+            ->assertSee('Create a voucher')
+            ->assertSee('No vouchers yet')
+            ->assertSee('New codes appear here after you create them.')
+            ->assertSee('merchandise subtotal')
+            ->assertDontSee('onsubmit=');
+
+        $this->actingAs($seller)->post(route('seller.promos.store'), [
+            'code' => 'shop10',
+            'type' => 'percent',
+            'value' => '10',
+            'min_order' => '0',
+        ])->assertRedirect();
+
+        $voucher = Voucher::query()->where('seller_id', $seller->id)->firstOrFail();
+        $this->assertSame('SHOP10', $voucher->code);
+        $this->assertTrue($voucher->is_active);
+
+        $page = $this->actingAs($seller)->get(route('seller.promos'))->assertOk();
+        $page->assertSee('SHOP10')
+            ->assertSee('10% off merchandise')
+            ->assertSee('in your shop')
+            ->assertSee('Pause')
+            ->assertSee('Remove')
+            ->assertDontSee('No vouchers yet');
+
+        $this->actingAs($seller)->patch(route('seller.promos.toggle', $voucher))->assertRedirect();
+        $this->assertFalse($voucher->fresh()->is_active);
+
+        $this->actingAs($seller)->delete(route('seller.promos.destroy', $voucher))->assertRedirect();
+        $this->assertDatabaseMissing('vouchers', ['id' => $voucher->id]);
     }
 
     private function makeSellerAndCategory(): array

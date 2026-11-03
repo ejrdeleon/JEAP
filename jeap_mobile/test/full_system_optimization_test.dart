@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:jeap_mobile/core/data/mock_data.dart';
+import 'helpers/sample_catalog.dart';
 import 'package:jeap_mobile/core/models/product.dart';
 import 'package:jeap_mobile/core/network/api_config.dart';
 import 'package:jeap_mobile/core/storage/auth_session.dart';
@@ -30,7 +30,7 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           theme: AppTheme.lightTheme,
-          home: const HomeTabScreen(initialProducts: MockData.products),
+          home: const HomeTabScreen(initialProducts: sampleProducts),
         ),
       );
       await tester.pump();
@@ -352,7 +352,7 @@ void main() {
       expect(candidates, isNotEmpty);
       expect(candidates.any((u) => u.contains('127.0.0.1')), isTrue);
       expect(candidates.any((u) => u.contains('10.0.2.2')), isTrue);
-      expect(candidates.any((u) => u.contains('192.168.1.7')), isTrue);
+      expect(candidates.any((u) => u.contains('jeap.store')), isTrue);
     });
 
     test('ApiConfig probeEndpoint handles unreachable ports cleanly without crashing', () async {

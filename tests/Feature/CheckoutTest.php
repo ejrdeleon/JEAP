@@ -28,7 +28,7 @@ class CheckoutTest extends TestCase
         [$buyer, $cart, $variant] = $this->makeCart();
         $this->actingAs($buyer)->get(route('checkout'))
             ->assertOk()
-            ->assertSee('place order')
+            ->assertSee('Place order')
             ->assertSee('Cash on Delivery')
             ->assertSee('Standard shipping')
             ->assertDontSee('Worldwide Standard Shipping')
@@ -68,7 +68,7 @@ class CheckoutTest extends TestCase
             ->get(route('buyer.orders.track', $order))
             ->assertOk()
             ->assertSee('ORDER RECORD', false)
-            ->assertSee('Stock before', false);
+            ->assertDontSee('Stock before');
         $this->assertSame(OrderStatus::Placed, $order->status);
         $this->assertSame('12.00', $order->subtotal);
         $this->assertSame('50.00', $order->shipping_fee);
@@ -379,6 +379,61 @@ class CheckoutTest extends TestCase
             'rating' => 5,
             'comment' => 'Works well.',
         ]);
+    }
+
+    public function test_product_page_shows_customer_reviews_and_lets_buyer_review_after_delivery(): void
+    {
+        $this->seed(RoleSeeder::class);
+        [$buyer, , $variant] = $this->makeCart();
+        $product = $variant->product;
+
+        $this->get(route('products.show', $product->slug))
+            ->assertOk()
+            ->assertSee('Customer reviews')
+            ->assertSee('No customer reviews yet');
+
+        $order = Order::query()->create([
+            'checkout_group_id' => Str::uuid()->toString(),
+            'order_number' => 'JEAP-REVIEW1',
+            'buyer_id' => $buyer->id,
+            'seller_id' => $product->seller_id,
+            'status' => OrderStatus::Completed,
+            'subtotal' => 12,
+            'shipping_fee' => 0,
+            'discount' => 0,
+            'total' => 12,
+            'placed_at' => now(),
+        ]);
+        $order->items()->create([
+            'product_id' => $product->id,
+            'product_variant_id' => $variant->id,
+            'name' => 'Test Product',
+            'sku' => $variant->sku,
+            'quantity' => 1,
+            'unit_price' => 12,
+            'subtotal' => 12,
+        ]);
+
+        $this->actingAs($buyer)->get(route('products.show', $product->slug))
+            ->assertOk()
+            ->assertSee('Leave a review');
+
+        $this->actingAs($buyer)->post(route('buyer.orders.review', $order), [
+            'product_id' => $product->id,
+            'rating' => 4,
+            'comment' => 'Solid for Cash on Delivery.',
+        ])->assertRedirect();
+
+        $this->get(route('products.show', $product->slug))
+            ->assertOk()
+            ->assertSee('Solid for Cash on Delivery.')
+            ->assertSee('4')
+            ->assertDontSee('No customer reviews yet');
+
+        $this->get(route('products.index'))
+            ->assertOk()
+            ->assertSee('Test Product')
+            ->assertSee('★ 4.0');
     }
 
     public function test_buyer_can_cancel_an_unshipped_order_with_a_reason_and_stock_is_restored(): void

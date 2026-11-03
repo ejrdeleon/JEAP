@@ -66,13 +66,18 @@ class LoginController extends Controller
         return redirect()->to($this->safeHome($request, $user));
     }
 
+    public function notice(): View
+    {
+        return view('auth.signed-out');
+    }
+
     public function destroy(Request $request): RedirectResponse
     {
         Auth::logout();
         $request->session()->invalidate();
         $request->session()->regenerateToken();
 
-        return redirect()->route('home');
+        return redirect()->route('logout.notice');
     }
 
     private function safeHome(Request $request, $user): string

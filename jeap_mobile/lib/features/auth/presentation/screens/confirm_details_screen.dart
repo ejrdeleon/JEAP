@@ -56,7 +56,7 @@ class _ConfirmDetailsScreenState extends State<ConfirmDetailsScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const SizedBox(height: 4),
-              const Text('Sign Up',
+              const Text('Sign up',
                   style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w600,

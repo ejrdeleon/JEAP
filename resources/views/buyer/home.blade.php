@@ -21,7 +21,7 @@
             <a href="{{ route('buyer.addresses') }}"><span>Delivery details</span><strong>Manage addresses <span aria-hidden="true">→</span></strong></a>
             <a href="{{ route('buyer.wishlist') }}"><span>Saved items</span><strong>Wishlist &amp; followed stores <span aria-hidden="true">→</span></strong></a>
         @else
-            <a href="{{ auth()->check() ? route('profile') : route('login') }}"><span>Account settings</span><strong>{{ auth()->check() ? 'View profile' : 'Sign in' }} <span aria-hidden="true">→</span></strong></a>
+            <a href="{{ auth()->check() ? route('profile') : route('login') }}"><span>Account settings</span><strong>{{ auth()->check() ? 'View profile' : 'Log in' }} <span aria-hidden="true">→</span></strong></a>
         @endif
     </div>
 

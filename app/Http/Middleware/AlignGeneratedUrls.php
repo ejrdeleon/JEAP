@@ -11,13 +11,16 @@ class AlignGeneratedUrls
 {
     public function handle(Request $request, Closure $next): Response
     {
-        $root = $request->root();
         $https = $request->secure()
             || strtolower((string) $request->headers->get('X-Forwarded-Proto')) === 'https';
 
+        $root = $request->root();
         if ($https) {
             $root = preg_replace('#^http://#i', 'https://', $root) ?: $root;
             URL::forceScheme('https');
+        } else {
+            URL::forceScheme('http');
+            config(['session.secure' => false]);
         }
 
         URL::forceRootUrl(rtrim($root, '/'));

@@ -17,7 +17,8 @@ class ChatController extends Controller
 
     public function index(Request $request): View
     {
-        return view('account.chat-index', [
+        return view('account.chat', [
+            'conversation' => null,
             'conversations' => $this->chats->inbox($request->user()),
         ]);
     }
@@ -26,9 +27,9 @@ class ChatController extends Controller
     {
         abort_unless($conversation->participants()->where('users.id', $request->user()->id)->exists(), 403);
         $this->chats->markRead($conversation, $request->user());
-        $conversation->load(['messages.sender', 'participants', 'order.items']);
+        $conversation->load(['messages.sender', 'participants.roles', 'participants.sellerProfile', 'order.items']);
 
-        return view('account.chat-show', [
+        return view('account.chat', [
             'conversation' => $conversation,
             'conversations' => $this->chats->inbox($request->user()),
         ]);

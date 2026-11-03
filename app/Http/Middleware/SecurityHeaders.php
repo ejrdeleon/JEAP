@@ -18,11 +18,11 @@ class SecurityHeaders
         $response->headers->set('X-Frame-Options', 'SAMEORIGIN');
         $response->headers->set('X-Content-Type-Options', 'nosniff');
         $response->headers->set('Referrer-Policy', 'strict-origin-when-cross-origin');
-        $response->headers->set('Permissions-Policy', 'camera=(), microphone=(), geolocation=(self), payment=()');
+        $response->headers->set('Permissions-Policy', 'camera=(), microphone=(), geolocation=(self), payment=(), clipboard-write=(self)');
         $response->headers->set('X-XSS-Protection', '0');
         $response->headers->set('Cross-Origin-Opener-Policy', 'same-origin');
         $response->headers->set('Cross-Origin-Resource-Policy', 'same-origin');
-        $response->headers->set('Content-Security-Policy', implode('; ', [
+        $csp = [
             "default-src 'self'",
             "base-uri 'self'",
             "form-action 'self'",
@@ -33,12 +33,14 @@ class SecurityHeaders
             "font-src 'self' https://fonts.gstatic.com data:",
             "img-src 'self' data: blob: https:",
             "connect-src 'self' https://maps.googleapis.com https://maps.gstatic.com https://*.googleapis.com http://127.0.0.1:5173 http://localhost:5173 ws://127.0.0.1:5173 ws://localhost:5173",
-            'upgrade-insecure-requests',
-        ]));
+        ];
 
         if ($request->secure()) {
+            $csp[] = 'upgrade-insecure-requests';
             $response->headers->set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
         }
+
+        $response->headers->set('Content-Security-Policy', implode('; ', $csp));
 
         return $response;
     }

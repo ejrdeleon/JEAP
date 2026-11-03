@@ -284,7 +284,7 @@ class BuyerDrawer extends StatelessWidget {
                   ? _drawerItem(
                       context: context,
                       icon: Icons.login,
-                      title: 'Sign In / Register',
+                      title: 'Log in / Sign up',
                       iconColor: AppTheme.jeapPurple,
                       textColor: AppTheme.jeapPurple,
                       onTap: () {

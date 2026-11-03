@@ -17,7 +17,7 @@ class CourierAssignmentService
 {
     public function assignPickup(Parcel $parcel, int $courierId, User $actor): PickupAssignment
     {
-        $courier = $this->activeCourier($courierId);
+        $courier = $this->activeCourier($courierId, $actor);
 
         return DB::transaction(function () use ($parcel, $courier, $actor): PickupAssignment {
             $lockedParcel = Parcel::query()->whereKey($parcel->id)->lockForUpdate()->firstOrFail();
@@ -51,7 +51,7 @@ class CourierAssignmentService
 
     public function assignDelivery(Parcel $parcel, int $courierId, User $actor, ShipmentWorkflow $workflow): DeliveryAssignment
     {
-        $courier = $this->activeCourier($courierId);
+        $courier = $this->activeCourier($courierId, $actor);
 
         return DB::transaction(function () use ($parcel, $courier, $actor, $workflow): DeliveryAssignment {
             $lockedParcel = Parcel::query()->whereKey($parcel->id)->lockForUpdate()->firstOrFail();
@@ -80,13 +80,23 @@ class CourierAssignmentService
         });
     }
 
-    private function activeCourier(int $courierId): User
+    private function activeCourier(int $courierId, User $actor): User
     {
         $courier = User::query()->role('courier')->where('status', UserStatus::Active)->find($courierId);
         if (! $courier) {
             throw ValidationException::withMessages([
                 'courier_id' => 'Choose an active courier.',
             ]);
+        }
+
+        if (! $actor->hasAnyRole(['admin', 'super-admin'])) {
+            $hubId = $actor->logisticsProfile?->id;
+            $courier->loadMissing('courierProfile');
+            if (! $hubId || (int) $courier->courierProfile?->logistics_profile_id !== (int) $hubId) {
+                throw ValidationException::withMessages([
+                    'courier_id' => 'This rider is not in your fleet.',
+                ]);
+            }
         }
 
         return $courier;

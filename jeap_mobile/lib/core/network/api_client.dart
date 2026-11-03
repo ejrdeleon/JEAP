@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:jeap_mobile/core/network/api_config.dart';
+import 'package:jeap_mobile/core/storage/auth_session.dart';
 import 'package:jeap_mobile/core/storage/token_storage.dart';
 import 'package:jeap_mobile/core/network/api_exception.dart';
 
@@ -27,6 +28,7 @@ class ApiClient {
     String path,
     String filePath, {
     String fieldName = 'proof',
+    Map<String, String> fields = const {},
   }) async {
     final client = HttpClient()
       ..connectionTimeout = const Duration(seconds: 10);
@@ -53,6 +55,13 @@ class ApiClient {
         'Content-Type',
         'multipart/form-data; boundary=$boundary',
       );
+      for (final field in fields.entries) {
+        request.add(utf8.encode(
+          '--$boundary\r\n'
+          'Content-Disposition: form-data; name="${field.key}"\r\n\r\n'
+          '${field.value}\r\n',
+        ));
+      }
       request.add(utf8.encode(
         '--$boundary\r\n'
         'Content-Disposition: form-data; name="$fieldName"; filename="$filename"\r\n'
@@ -72,6 +81,11 @@ class ApiClient {
       }
       if (response.statusCode >= 200 && response.statusCode < 300) {
         return json;
+      }
+      if (response.statusCode == 401) {
+        await TokenStorage.clear();
+        await AuthSession.instance.clear();
+        AuthSession.instance.setGuest(true);
       }
       throw ApiException(
         statusCode: response.statusCode,
@@ -121,6 +135,12 @@ class ApiClient {
 
       if (response.statusCode >= 200 && response.statusCode < 300) {
         return json;
+      }
+
+      if (response.statusCode == 401) {
+        await TokenStorage.clear();
+        await AuthSession.instance.clear();
+        AuthSession.instance.setGuest(true);
       }
 
       throw ApiException(
